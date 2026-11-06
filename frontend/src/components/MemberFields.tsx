@@ -1,6 +1,6 @@
 import type { MemberInput } from '../api/types'
 import { BRANCHES, GANZHI_LIST, isValidGanzhi } from '../lib/roc'
-import { CITIES, DISTRICTS } from '../lib/taiwan'
+import { CITIES, DISTRICTS, postalCode } from '../lib/taiwan'
 
 interface Props {
   value: MemberInput
@@ -73,6 +73,7 @@ export default function MemberFields({ value, onChange, householdCityDistrict, h
           <div className="fld"><label className="lbl" htmlFor="m-dist">鄉鎮市區</label>
             <input id="m-dist" className="inp" list="distlist" value={value.district ?? ''} disabled={!value.city} onChange={(e) => set({ district: e.target.value || null })} />
             <datalist id="distlist">{districts.map((d) => <option key={d} value={d} />)}</datalist>
+            {value.district && <span className="small muted">{postalCode(value.city, value.district) ? `郵遞區號 ${postalCode(value.city, value.district)}` : '查無郵遞區號，請確認鄉鎮市區名稱'}</span>}
           </div>
           <div className="fld"><label className="lbl" htmlFor="m-phone">電話（選填）</label><input id="m-phone" className="inp" type="tel" value={value.phone ?? ''} onChange={(e) => set({ phone: e.target.value || null })} /></div>
         </div>

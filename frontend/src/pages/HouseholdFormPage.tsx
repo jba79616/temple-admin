@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { households } from '../api'
 import type { HouseholdInput, MemberInput } from '../api/types'
 import MemberFields from '../components/MemberFields'
-import { CITIES, DISTRICTS } from '../lib/taiwan'
+import { CITIES, DISTRICTS, postalCode } from '../lib/taiwan'
 
 const emptyHead: MemberInput = { name: '', gender: 'M', birthMonthIsLeap: false }
 
@@ -58,6 +58,7 @@ export default function HouseholdFormPage() {
           <div className="fld"><label className="lbl" htmlFor="h-dist">鄉鎮市區</label>
             <input id="h-dist" className="inp" list="h-distlist" value={form.district ?? ''} disabled={!form.city} onChange={(e) => set({ district: e.target.value || null })} />
             <datalist id="h-distlist">{districts.map((d) => <option key={d} value={d} />)}</datalist>
+            {form.district && <span className="small muted">{postalCode(form.city, form.district) ? `郵遞區號 ${postalCode(form.city, form.district)}` : '查無郵遞區號，請確認鄉鎮市區名稱'}</span>}
           </div>
           <div className="fld"><label className="lbl" htmlFor="h-phone">電話（選填）</label><input id="h-phone" className="inp" type="tel" value={form.phone ?? ''} onChange={(e) => set({ phone: e.target.value })} /></div>
         </div>
