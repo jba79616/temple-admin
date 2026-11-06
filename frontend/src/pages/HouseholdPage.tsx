@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useParams } from 'react-router'
 import { households, lightTypes as lightTypesApi, members as membersApi, orders as ordersApi } from '../api'
 import type { HouseholdDetail, ItemInput, LightType, MemberView, OrderView } from '../api/types'
+import Crumbs from '../components/Crumbs'
 import LanternMatrix, { cellKey, nextStatus, type Cells } from '../components/LanternMatrix'
 import { useAuth } from '../lib/auth'
 import { money, rocDate, rocYear, todayIso } from '../lib/roc'
@@ -18,7 +19,7 @@ export default function HouseholdPage() {
   const [cells, setCells] = useState<Cells>({})
   const [overrides, setOverrides] = useState<Record<string, { price: number; reason: string }>>({})
   const [showPrice, setShowPrice] = useState(false)
-  const [showBagua, setShowBagua] = useState(true)
+  const [showBagua, setShowBagua] = useState(() => window.matchMedia('(min-width: 721px)').matches)
   const [backfill, setBackfill] = useState(false)
   const [regDate, setRegDate] = useState(todayIso())
   const [payDate, setPayDate] = useState(todayIso())
@@ -28,6 +29,7 @@ export default function HouseholdPage() {
   const [error, setError] = useState('')
   const [newName, setNewName] = useState('')
   const [newGender, setNewGender] = useState('M')
+  const asideRef = useRef<HTMLElement>(null)
 
   const load = useCallback(async () => {
     const [d, t, h] = await Promise.all([households.get(householdId), lightTypesApi.list(), ordersApi.byHousehold(householdId)])
@@ -104,6 +106,7 @@ export default function HouseholdPage() {
       const order = await ordersApi.create({ householdId: detail.id, items, registeredOn: backfill ? regDate : null, receivedOn: backfill ? payDate : null })
       setSaved(order)
       setConfirming(false)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : '存檔失敗')
@@ -141,8 +144,9 @@ export default function HouseholdPage() {
   const noChanges = changes.adds.length + changes.removes.length === 0
 
   return (
+    <>
     <main className="page">
-      <div className="crumbs"><Link to="/">← 回搜尋</Link><span>戶頁</span></div>
+      <Crumbs items={[{ label: `戶 ${detail.householdNumber} ${head?.name ?? ''}` }]} />
 
       <section className="card card-pad row" style={{ gap: 24 }}>
         <div className="kv"><span className="k">戶號</span><span className="num" style={{ fontSize: 22, fontWeight: 700 }}>{detail.householdNumber}</span></div>
@@ -151,7 +155,7 @@ export default function HouseholdPage() {
         <div className="kv"><span className="k">地址</span><span>{detail.address ?? '—'}</span></div>
         <div className="kv"><span className="k">電話</span><span>{detail.phone ?? '—'}</span></div>
         <div className="kv"><span className="k">聯絡備註</span><span>{detail.contactNote ?? '—'}</span></div>
-        <Link to={`/households/${detail.id}/edit`} className="btn btn-ghost" style={{ marginLeft: 'auto' }}>編輯戶</Link>
+        <Link to={`/households/${detail.id}/edit`} className="btn btn-ghost" style={{ marginLeft: 'auto' }}>改地址電話</Link>
       </section>
 
       {saved && (
@@ -179,16 +183,17 @@ export default function HouseholdPage() {
               <button type="button" className={`btn btn-sm ${showBagua ? 'btn-on' : ''}`} onClick={() => setShowBagua(!showBagua)}>{showBagua ? '隱藏八卦斗' : '顯示八卦斗'}</button>
               <button type="button" className={`btn btn-sm ${showPrice ? 'btn-on' : ''}`} onClick={() => setShowPrice(!showPrice)}>{showPrice ? '隱藏價格' : '顯示價格'}</button>
             </div>
+            <span className="hint" style={{ flexBasis: '100%' }}>點燈種按鈕安燈或取消，改好後按「存檔並收款」。改生辰、地址用旁邊的按鈕。</span>
           </div>
           <LanternMatrix members={detail.members} lightTypes={types} cells={cells} onToggle={toggle} showPrice={showPrice} showBagua={showBagua}
             renderActions={(m) => (
               <>
-                <Link to={`/members/${m.id}`} className="btn btn-sm">編輯</Link>
+                <Link to={`/members/${m.id}`} className="btn btn-sm">改生辰資料</Link>
                 {!m.head && <button type="button" className="btn btn-sm" onClick={() => setHead(m.id)}>設為戶長</button>}
               </>
             )}
             footer={(
-              <div className="mrow" style={{ background: '#F9FAFB' }}>
+              <div className="mrow mfoot" style={{ background: '#F9FAFB' }}>
                 <div className="mline">
                   <div className="namecell" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <label className="sr-only" htmlFor="newName">新成員姓名</label>
@@ -199,13 +204,13 @@ export default function HouseholdPage() {
                       <option value="M">男</option><option value="F">女</option>
                     </select>
                   </div>
-                  <div className="actions small muted"><button type="button" className="btn btn-sm" onClick={addMember}>加入成員</button><span>生辰之後在「編輯」補</span></div>
+                  <div className="actions small muted"><button type="button" className="btn btn-sm" onClick={addMember}>加入成員</button><span>生辰之後按「改生辰資料」補</span></div>
                 </div>
               </div>
             )} />
         </section>
 
-        <aside className="card side card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <aside ref={asideRef} className="card side card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <h2>本次應收</h2>
           <div>
             <div className="line" style={{ borderTop: 0, fontWeight: 500 }}><span>新增 {changes.adds.length} 盞</span><span>{money(changes.addSum)}</span></div>
@@ -274,5 +279,12 @@ export default function HouseholdPage() {
         </div>
       </section>
     </main>
+    <div className="sticky-bar">
+      <div className="kv"><span className="k">本次應收</span><strong style={{ fontSize: 20 }}>{money(changes.due)}</strong></div>
+      <span className="small muted">新增 {changes.adds.length} · 取消 {changes.removes.length}</span>
+      <button type="button" className="btn" style={{ marginLeft: 'auto' }} disabled={noChanges}
+        onClick={() => { setConfirming(true); asideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>存檔並收款</button>
+    </div>
+    </>
   )
 }

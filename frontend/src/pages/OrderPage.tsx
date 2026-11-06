@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { households, lightTypes as lightTypesApi, orders as ordersApi } from '../api'
 import type { HouseholdDetail, HouseholdSummary, ItemInput, LightType, OrderView, Settlement } from '../api/types'
+import Crumbs from '../components/Crumbs'
 import LanternMatrix, { cellKey, nextStatus, type Cells } from '../components/LanternMatrix'
 import { useAuth } from '../lib/auth'
 import { money, rocDate, rocDateTime, rocYear } from '../lib/roc'
@@ -133,7 +134,7 @@ export default function OrderPage() {
 
   return (
     <main className="page page-narrow">
-      <div className="crumbs"><Link to={`/households/${order.householdId}`}>← 回戶頁 {order.householdNumber} {order.headName ?? ''}</Link><span>單據 #{order.id}</span></div>
+      <Crumbs items={[{ to: `/households/${order.householdId}`, label: `戶 ${order.householdNumber} ${order.headName ?? ''}` }, { label: `單據 #${order.id}` }]} />
       {error && <div className="banner banner-bad">{error}</div>}
       {created && <div className="banner banner-ok">已開更正單 <Link to={`/orders/${created.id}`}>#{created.id}</Link>，應收 {money(created.totalDue)}，{created.balance === 0 ? '已結清' : `差額 ${money(created.balance)} 待處理`}。原單與原日期的日結都不變。</div>}
 

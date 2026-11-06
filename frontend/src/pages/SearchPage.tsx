@@ -1,13 +1,18 @@
 import { useEffect, useState, type KeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { households } from '../api'
-import type { HouseholdSummary } from '../api/types'
+import { closings, households } from '../api'
+import type { DaySummary, HouseholdSummary } from '../api/types'
+import { money, rocDate } from '../lib/roc'
 
 export default function SearchPage() {
   const [q, setQ] = useState('')
   const [results, setResults] = useState<HouseholdSummary[]>([])
+  const [today, setToday] = useState<DaySummary | null>(null)
   const [error, setError] = useState('')
   const navigate = useNavigate()
+  const idle = q.trim() === ''
+
+  useEffect(() => { closings.summary().then(setToday).catch(() => setToday(null)) }, [])
 
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -23,14 +28,40 @@ export default function SearchPage() {
   return (
     <main className="page page-narrow">
       <section className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <label htmlFor="q" style={{ fontWeight: 700, fontSize: 18 }}>找戶</label>
-        <input id="q" type="search" className="inp inp-lg" placeholder="戶長姓名、任一成員姓名、電話或戶號" value={q}
+        <label htmlFor="q" style={{ fontWeight: 700, fontSize: 18 }}>安燈、改資料、看紀錄：先找這一戶</label>
+        <input id="q" type="search" className="inp inp-lg" placeholder="戶長或成員姓名、電話、戶號" value={q}
           onChange={(e) => setQ(e.target.value)} onKeyDown={onKey} autoComplete="off" autoFocus />
-        <div className="small muted">輸入即時篩選，Enter 開啟第一筆。同名的戶並排顯示電話與地區供分辨。</div>
+        <ol className="steps">
+          <li><b>1</b>找到戶，點戶長姓名進去</li>
+          <li><b>2</b>點成員的燈種按鈕：安燈或取消</li>
+          <li><b>3</b>存檔並收款，印安燈卡</li>
+        </ol>
         {error && <div className="error">{error}</div>}
       </section>
 
+      {idle && (
+        <div className="grid-2">
+          <section className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <h2>今天{today ? ` ${rocDate(today.date)}` : ''}</h2>
+            {today ? (
+              <div>
+                <div className="line" style={{ borderTop: 0 }}><span>收款</span><span>{today.payments.length} 筆</span></div>
+                <div className="line"><span>現金合計</span><span className="num" style={{ fontWeight: 700 }}>{money(today.systemCash)}</span></div>
+                <div className="line"><span>日結</span>{today.closed ? <span className="tag tag-ok">已日結</span> : <span className="tag tag-info">尚未日結</span>}</div>
+              </div>
+            ) : <div className="small muted">讀取中…</div>}
+            <div className="row"><Link to="/closing" className="btn btn-ghost">去日結</Link><Link to="/print" className="btn btn-ghost">去列印</Link></div>
+          </section>
+          <section className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <h2>第一次來的信眾</h2>
+            <div className="small muted">先建一戶：填地址電話和第一位成員（自動設為戶長），建好直接進戶頁安燈。</div>
+            <div style={{ marginTop: 'auto' }}><Link to="/households/new" className="btn">新增戶</Link></div>
+          </section>
+        </div>
+      )}
+
       <section className="card" style={{ overflow: 'hidden' }}>
+        <div className="card-title">{idle ? '全部的戶' : `符合「${q.trim()}」的戶`}<span className="hint">點戶長姓名進戶頁</span></div>
         <div className="scroll-x">
           <table className="table" style={{ minWidth: 700 }}>
             <thead>
@@ -52,11 +83,7 @@ export default function SearchPage() {
           </table>
         </div>
       </section>
-
-      <div className="row">
-        <Link to="/households/new" className="btn">新增戶</Link>
-        <span className="small muted">新增戶時在同一表單填第一位成員，自動設為戶長</span>
-      </div>
+      {!idle && <div className="row"><Link to="/households/new" className="btn btn-ghost">找不到這一戶？新增戶</Link></div>}
     </main>
   )
 }

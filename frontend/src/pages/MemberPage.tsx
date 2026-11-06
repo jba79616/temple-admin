@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { households, members as membersApi } from '../api'
 import type { HouseholdDetail, MemberInput, MemberView } from '../api/types'
+import Crumbs from '../components/Crumbs'
 import MemberFields from '../components/MemberFields'
 import { useConfig } from '../lib/config'
 import { isValidGanzhi, rocYear } from '../lib/roc'
@@ -24,6 +25,8 @@ export default function MemberPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [savedAt, setSavedAt] = useState('')
   const [deleteReason, setDeleteReason] = useState('')
   const [newHeadId, setNewHeadId] = useState<number | ''>('')
 
@@ -41,16 +44,22 @@ export default function MemberPage() {
   const zodiac = branch ? ZODIAC[branch] : '—'
   const preview = `${form.birthGanzhi || '吉'}年 ${form.birthMonthIsLeap ? '閏' : ''}${form.birthMonth ?? '吉'}月 ${form.birthDay ?? '吉'}日 ${form.birthHourBranch ?? '吉'}時 生`
   const others = household.members.filter((m) => m.id !== member.id)
+  const dirty = JSON.stringify(form) !== JSON.stringify(toInput(member))
 
   async function save() {
     if (!form) return
     setError('')
+    setSaving(true)
     try {
       const updated = await membersApi.update(memberId, form)
       setMember(updated)
+      setForm(toInput(updated))
+      setSavedAt(new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }))
       setMessage(`已儲存。生肖 ${updated.zodiac ?? '—'}，${updated.taisui ? `${updated.taisui}，矩陣會提示太歲燈。` : '不犯太歲。'}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : '儲存失敗')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -67,17 +76,20 @@ export default function MemberPage() {
 
   return (
     <main className="page page-narrow">
-      <div className="crumbs"><Link to={`/households/${member.householdId}`}>← 回戶頁 {household.householdNumber}</Link><span>編輯成員</span></div>
-      {message && <div className="banner banner-ok">{message} 修改前後已寫入稽核日誌。</div>}
-      {error && <div className="banner banner-bad">{error}</div>}
+      <Crumbs items={[{ to: `/households/${member.householdId}`, label: `戶 ${household.householdNumber} ${household.members.find((m) => m.head)?.name ?? ''}` }, { label: `改生辰資料：${member.name}` }]} />
       <div className="split">
         <section className="card main card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <MemberFields value={form} onChange={setForm} householdCityDistrict={(household.city ?? '') + (household.district ?? '')} householdAddress={household.address ?? ''} />
           <div className="row" style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-            <button type="button" className="btn" onClick={save} disabled={!form.name.trim() || (!!form.birthGanzhi && !isValidGanzhi(form.birthGanzhi))}>儲存</button>
-            <Link to={`/households/${member.householdId}`} className="btn btn-ghost">取消</Link>
+            <button type="button" className="btn" onClick={save} disabled={!dirty || saving || !form.name.trim() || (!!form.birthGanzhi && !isValidGanzhi(form.birthGanzhi))}>{saving ? '儲存中…' : '儲存'}</button>
+            <Link to={`/households/${member.householdId}`} className="btn btn-ghost">{dirty ? '取消' : '回戶頁'}</Link>
+            {dirty
+              ? <span className="small" style={{ color: 'var(--warn-text)', fontWeight: 500 }}>有未儲存的修改</span>
+              : savedAt && <span className="small" style={{ color: 'var(--success-text)', fontWeight: 700 }}>✓ 已儲存 {savedAt}</span>}
             <button type="button" className="btn btn-danger" style={{ marginLeft: 'auto' }} onClick={() => setDeleting(true)}>刪除此成員</button>
           </div>
+          {message && !dirty && <div className="banner banner-ok">{message} 修改前後已寫入稽核日誌。</div>}
+          {error && <div className="banner banner-bad">{error}</div>}
           {deleting && (
             <div className="panel panel-danger">
               <label className="lbl" htmlFor="dr" style={{ fontWeight: 700 }}>刪除原因（必填）</label>

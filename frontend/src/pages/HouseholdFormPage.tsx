@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { households } from '../api'
 import type { HouseholdInput, MemberInput } from '../api/types'
+import Crumbs from '../components/Crumbs'
 import MemberFields from '../components/MemberFields'
 import { CITIES, DISTRICTS, postalCode } from '../lib/taiwan'
 
@@ -15,11 +16,13 @@ export default function HouseholdFormPage() {
   const [head, setHead] = useState<MemberInput>(emptyHead)
   const [error, setError] = useState('')
   const [loaded, setLoaded] = useState(!editing)
+  const [title, setTitle] = useState('')
 
   useEffect(() => {
     if (!editing) return
     households.get(Number(id)).then((d) => {
       setForm({ city: d.city, district: d.district, address: d.address ?? '', phone: d.phone ?? '', contactNote: d.contactNote ?? '', notes: d.notes ?? '' })
+      setTitle(`戶 ${d.householdNumber} ${d.members.find((m) => m.head)?.name ?? ''}`)
       setLoaded(true)
     }).catch((e) => setError(e.message))
   }, [editing, id])
@@ -45,10 +48,10 @@ export default function HouseholdFormPage() {
 
   return (
     <main className="page page-narrow">
-      <div className="crumbs"><Link to={editing ? `/households/${id}` : '/'}>← 返回</Link><span>{editing ? '編輯戶' : '新增戶'}</span></div>
+      <Crumbs items={editing ? [{ to: `/households/${id}`, label: title }, { label: '改地址電話' }] : [{ label: '新增戶' }]} />
       {error && <div className="banner banner-bad">{error}</div>}
       <section className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <h2>戶資料</h2>
+        <h2>{editing ? '地址與聯絡方式' : '戶資料'}</h2>
         <div className="grid-3">
           <div className="fld"><label className="lbl" htmlFor="h-city">縣市</label>
             <select id="h-city" className="inp" value={form.city ?? ''} onChange={(e) => set({ city: e.target.value || null, district: null })}>

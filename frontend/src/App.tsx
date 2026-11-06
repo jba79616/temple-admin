@@ -9,6 +9,7 @@ import HouseholdPage from './pages/HouseholdPage'
 import LightTypesPage from './pages/LightTypesPage'
 import LoginPage from './pages/LoginPage'
 import MemberPage from './pages/MemberPage'
+import MorePage from './pages/MorePage'
 import OrderPage from './pages/OrderPage'
 import PrintPage from './pages/PrintPage'
 import SearchPage from './pages/SearchPage'
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="/orders/:id" element={<OrderPage />} />
           <Route path="/closing" element={<ClosingPage />} />
           <Route path="/print" element={<PrintPage />} />
+          <Route path="/more" element={<MorePage />} />
           <Route path="/light-types" element={<LightTypesPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/users" element={me.role === 'ADMIN' ? <UsersPage /> : <Navigate to="/" replace />} />
