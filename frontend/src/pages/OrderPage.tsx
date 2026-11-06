@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { households, lightTypes as lightTypesApi, orders as ordersApi } from '../api'
-import type { HouseholdDetail, ItemInput, LightType, OrderView, Settlement } from '../api/types'
+import type { HouseholdDetail, HouseholdSummary, ItemInput, LightType, OrderView, Settlement } from '../api/types'
 import LanternMatrix, { cellKey, nextStatus, type Cells } from '../components/LanternMatrix'
 import { useAuth } from '../lib/auth'
 import { money, rocDate, rocDateTime, rocYear } from '../lib/roc'
@@ -24,6 +24,9 @@ export default function OrderPage() {
   const [settlement, setSettlement] = useState<Settlement>('CASH')
   const [reason, setReason] = useState('')
   const [created, setCreated] = useState<OrderView | null>(null)
+  const [extra, setExtra] = useState<HouseholdDetail[]>([])
+  const [query, setQuery] = useState('')
+  const [hits, setHits] = useState<HouseholdSummary[]>([])
 
   const load = useCallback(async () => setOrder(await ordersApi.get(orderId)), [orderId])
   useEffect(() => { load().catch((e) => setError(e.message)) }, [load])
@@ -36,6 +39,9 @@ export default function OrderPage() {
     const initial: Cells = {}
     d.records.forEach((r) => { initial[cellKey(r.memberId, r.lightTypeId)] = 'existing' })
     setCells(initial)
+    setExtra([])
+    setHits([])
+    setQuery('')
     setCorrecting(true)
   }
 
@@ -58,6 +64,34 @@ export default function OrderPage() {
       const copy = { ...prev }
       if (next === 'none') delete copy[key]; else copy[key] = next
       return copy
+    })
+  }
+
+  async function searchHouseholds() {
+    if (!order || !query.trim()) return
+    const found = await households.search(query.trim())
+    setHits(found.filter((h) => h.id !== order.householdId && !extra.some((x) => x.id === h.id)))
+  }
+
+  async function addHousehold(id: number) {
+    if (!order) return
+    const d = await households.get(id, order.year)
+    setExtra((prev) => [...prev, d])
+    setCells((prev) => {
+      const next = { ...prev }
+      d.records.forEach((r) => { next[cellKey(r.memberId, r.lightTypeId)] = 'existing' })
+      return next
+    })
+    setHits([])
+    setQuery('')
+  }
+
+  function removeHousehold(h: HouseholdDetail) {
+    setExtra((prev) => prev.filter((x) => x.id !== h.id))
+    setCells((prev) => {
+      const next = { ...prev }
+      Object.keys(next).filter((key) => h.members.some((m) => m.id === Number(key.split(':')[0]))).forEach((key) => delete next[key])
+      return next
     })
   }
 
@@ -176,10 +210,34 @@ export default function OrderPage() {
           {correcting && detail && (
             <div className="panel">
               <strong>更正單（引用 #{order.id}）</strong>
-              <div className="small muted">點格子改登記：藍勾是目前狀態表、綠勾補登記、紅框取消。跨戶更正請先把成員移戶。</div>
+              <div className="small muted">點格子改登記：藍勾是目前狀態表、綠勾補登記、紅框取消。要改到別戶的人，用下方搜尋把那一戶加進來一起改。</div>
               <div className="card" style={{ overflow: 'hidden' }}>
+                <div className="card-title">戶 {detail.householdNumber}（原單這一戶）</div>
                 <LanternMatrix members={detail.members} lightTypes={types} cells={cells} onToggle={toggle} showPrice showBagua addLabel="補" />
               </div>
+              {extra.map((h) => (
+                <div key={h.id} className="card" style={{ overflow: 'hidden' }}>
+                  <div className="card-title row" style={{ justifyContent: 'space-between' }}>
+                    <span>戶 {h.householdNumber} {h.members.find((m) => m.head)?.name ?? ''}（跨戶）</span>
+                    <button type="button" className="btn btn-sm btn-ghost" onClick={() => removeHousehold(h)}>移除</button>
+                  </div>
+                  <LanternMatrix members={h.members} lightTypes={types} cells={cells} onToggle={toggle} showPrice showBagua addLabel="補" />
+                </div>
+              ))}
+              <div className="row" style={{ flexWrap: 'nowrap' }}>
+                <input className="inp" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="加入別戶：姓名、電話或戶號"
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); searchHouseholds().catch((err) => setError(err.message)) } }} />
+                <button type="button" className="btn btn-ghost" disabled={!query.trim()} onClick={() => searchHouseholds().catch((err) => setError(err.message))}>搜尋</button>
+              </div>
+              {hits.length > 0 && (
+                <div className="row">
+                  {hits.map((h) => (
+                    <button key={h.id} type="button" className="btn btn-sm btn-ghost" onClick={() => addHousehold(h.id).catch((err) => setError(err.message))}>
+                      戶 {h.householdNumber} {h.headName ?? ''} · {h.cityDistrict} · {h.memberCount} 人
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="row" style={{ gap: 24 }}>
                 <span>補登記 {diff.adds} 盞：{money(diff.addSum)}</span><span>取消 {diff.removes} 盞：折抵 {money(diff.removeSum)}</span>
                 <strong>差額：{diff.due < 0 ? `應退 ${money(-diff.due)}` : diff.due > 0 ? `應補收 ${money(diff.due)}` : 'NT$ 0'}</strong>
