@@ -3,7 +3,7 @@
 .sheet { margin: 12px auto; background: #fff; box-shadow: 0 2px 12px rgba(16, 24, 40, .14); }
 
 .cards-sheet { width: 210mm; min-height: 297mm; padding: 10mm; }
-.cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 39mm; gap: 1.5mm; }
+.cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 38mm; gap: 1mm; }
 .card-cell { border: 1px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1mm; padding: 2mm; }
 .card-cell .light { font-size: 11pt; color: #333; }
 .card-cell .name { font-size: 17pt; font-weight: 700; letter-spacing: 2px; }
@@ -16,9 +16,11 @@
 .list-table td { border-bottom: 1px solid #bbb; padding: 1.8mm 1mm; vertical-align: top; }
 .household-group { break-inside: avoid; page-break-inside: avoid; }
 .household-group .group-head td { background: #f3f3f3; font-size: 10.5pt; color: #333; }
-.prayer { margin-top: 12mm; text-align: center; font-size: 12pt; line-height: 2.2; }
+.prayer-row td { border-bottom: none; padding: 0; }
+.prayer { margin-top: 10mm; text-align: center; font-size: 12pt; line-height: 2.2; }
 
 @media print {
+  html, body { background: #fff; }
   .print-toolbar { display: none; }
   .sheet { margin: 0; box-shadow: none; }
   .sheet-break { break-after: page; page-break-after: always; }

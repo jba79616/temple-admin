@@ -24,6 +24,12 @@ export default function NameListPrint() {
   if (error) return <div className="page error">{error}</div>
   if (!data) return <div className="page muted">載入中…</div>
   const total = data.groups.reduce((s, g) => s + g.rows.length, 0)
+  const prayer = (
+    <div className="prayer">
+      <div>恭 此 以</div>
+      <div>聞　天運　　{data.ganzhiYear} 年　{data.prayerMonth} 月　　日　證明百拜上申</div>
+    </div>
+  )
 
   return (
     <div className="print-root">
@@ -36,7 +42,7 @@ export default function NameListPrint() {
         <div className="list-title">{data.title.split('').join(' ')}</div>
         <table className="list-table">
           <thead><tr><th style={{ width: '18%' }}>姓名</th><th style={{ width: '12%' }}>生庚</th><th style={{ width: '28%' }}></th><th>住址</th></tr></thead>
-          {data.groups.map((g) => (
+          {data.groups.map((g, gi) => (
             <tbody key={g.householdNumber} className="household-group">
               <tr className="group-head"><td colSpan={4}>戶 {g.householdNumber}{g.headName ? `　${g.headName}` : ''}</td></tr>
               {g.rows.map((r, i) => {
@@ -45,14 +51,12 @@ export default function NameListPrint() {
                   <tr key={i}><td>{r.name}</td><td>{year}</td><td>{rest.join(' ')}</td><td>{r.address}</td></tr>
                 )
               })}
+              {gi === data.groups.length - 1 && <tr className="prayer-row"><td colSpan={4}>{prayer}</td></tr>}
             </tbody>
           ))}
         </table>
         {total === 0 && <div className="muted" style={{ padding: 24, textAlign: 'center' }}>沒有資料</div>}
-        <div className="prayer">
-          <div>恭 此 以</div>
-          <div>聞　天運　　{data.ganzhiYear} 年　{data.prayerMonth} 月　　日　證明百拜上申</div>
-        </div>
+        {data.groups.length === 0 && prayer}
       </div>
     </div>
   )

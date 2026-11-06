@@ -34,12 +34,12 @@ cd backend && ./mvnw spring-boot:run
 
 開 http://localhost:8080 ，預設帳號 `admin` / `admin123`（第一次啟動時建立，請登入後到「使用者」重設密碼）。
 
-8080 被別的程式占用時（例如 OrbStack）改用 `PORT=18080 ./mvnw spring-boot:run`，前端開發模式的代理目標也要改成同一個 port。
+8080 被別的程式占用時（例如 OrbStack）改用 `PORT=18080 ./mvnw spring-boot:run`，前端開發模式用 `API_PORT=18080 npm run dev` 把代理指到同一個 port。
 
 ### 前端開發模式
 
 ```bash
-cd frontend && npm run dev   # http://localhost:5173，/api 代理到 8080
+cd frontend && npm run dev   # http://localhost:5173，/api 代理到 8080（或 API_PORT 指定的 port）
 ```
 
 ## 測試
