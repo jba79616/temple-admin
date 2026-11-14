@@ -64,7 +64,7 @@ class OrderFlowTest {
         guangming = lightTypes.findByName("光明燈").orElseThrow();
         wenchang = lightTypes.findByName("文昌燈").orElseThrow();
         taisui = lightTypes.findByName("太歲燈").orElseThrow();
-        bagua1 = lightTypes.findByName("八卦斗 1").orElseThrow();
+        bagua1 = lightTypes.findByName("補財庫").orElseThrow();
         household = householdService.create(new HouseholdInput("新北市", "三重區", "仁忠街1號", "02-0000", null, null,
             member("王大明", "辛亥")), admin);
         a = householdService.getMember(householdService.detail(household.getId(), null).members().get(0).id());
