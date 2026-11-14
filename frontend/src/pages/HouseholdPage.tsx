@@ -20,6 +20,7 @@ export default function HouseholdPage() {
   const [overrides, setOverrides] = useState<Record<string, { price: number; reason: string }>>({})
   const [showPrice, setShowPrice] = useState(false)
   const [showBagua, setShowBagua] = useState(() => window.matchMedia('(min-width: 721px)').matches)
+  const [showGeneral, setShowGeneral] = useState(true)
   const [backfill, setBackfill] = useState(false)
   const [regDate, setRegDate] = useState(todayIso())
   const [payDate, setPayDate] = useState(todayIso())
@@ -180,16 +181,19 @@ export default function HouseholdPage() {
             <span>成員 × 燈種</span>
             <span className="tag tag-info">藍：已安</span><span className="tag tag-ok">綠：本次新增</span><span className="tag tag-bad">紅：本次取消</span><span className="tag tag-ts">黃列：犯太歲</span>
             <div className="row" style={{ marginLeft: 'auto', gap: 6 }}>
+              <button type="button" className={`btn btn-sm ${showGeneral ? 'btn-on' : ''}`} onClick={() => setShowGeneral(!showGeneral)}>{showGeneral ? '隱藏一般燈' : '顯示一般燈'}</button>
               <button type="button" className={`btn btn-sm ${showBagua ? 'btn-on' : ''}`} onClick={() => setShowBagua(!showBagua)}>{showBagua ? '隱藏八卦斗' : '顯示八卦斗'}</button>
               <button type="button" className={`btn btn-sm ${showPrice ? 'btn-on' : ''}`} onClick={() => setShowPrice(!showPrice)}>{showPrice ? '隱藏價格' : '顯示價格'}</button>
             </div>
             <span className="hint" style={{ flexBasis: '100%' }}>點燈種按鈕安燈或取消，改好後按「存檔並收款」。改生辰、地址用旁邊的按鈕。</span>
           </div>
-          <LanternMatrix members={detail.members} lightTypes={types} cells={cells} onToggle={toggle} showPrice={showPrice} showBagua={showBagua}
+          <LanternMatrix members={detail.members} lightTypes={types} cells={cells} onToggle={toggle} showPrice={showPrice} showBagua={showBagua} showGeneral={showGeneral}
             renderActions={(m) => (
               <>
                 <Link to={`/members/${m.id}`} className="btn btn-sm">改生辰資料</Link>
-                {!m.head && <button type="button" className="btn btn-sm" onClick={() => setHead(m.id)}>設為戶長</button>}
+                {m.head
+                  ? <span className="btn btn-sm" style={{ visibility: 'hidden' }} aria-hidden="true">設為戶長</span>
+                  : <button type="button" className="btn btn-sm" onClick={() => setHead(m.id)}>設為戶長</button>}
               </>
             )}
             footer={(

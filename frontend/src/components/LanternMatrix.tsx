@@ -23,17 +23,18 @@ interface Props {
   onToggle: (memberId: number, lightTypeId: number) => void
   showPrice: boolean
   showBagua: boolean
+  showGeneral?: boolean
   renderActions?: (member: MemberView) => ReactNode
   footer?: ReactNode
-  addLabel?: string
 }
 
-export default function LanternMatrix({ members, lightTypes, cells, onToggle, showPrice, showBagua, renderActions, footer, addLabel = '新' }: Props) {
+const STATUS_TITLE: Record<CellStatus, string> = { none: '未安', existing: '已安', add: '本次新增', remove: '本次取消' }
+
+export default function LanternMatrix({ members, lightTypes, cells, onToggle, showPrice, showBagua, showGeneral = true, renderActions, footer }: Props) {
   const general = lightTypes.filter((t) => t.category === 'GENERAL')
   const bagua = lightTypes.filter((t) => t.category === 'BAGUA')
   const status = (m: MemberView, t: LightType): CellStatus => cells[cellKey(m.id, t.id)] ?? 'none'
-  const subOf = (st: CellStatus, t: LightType) =>
-    st === 'existing' ? '已安' : st === 'add' ? addLabel : st === 'remove' ? '取消' : showPrice ? money(t.price) : ''
+  const priceOf = (t: LightType) => (showPrice ? money(t.price) : '')
 
   return (
     <div>
@@ -52,20 +53,20 @@ export default function LanternMatrix({ members, lightTypes, cells, onToggle, sh
                   {m.gender === 'M' ? '男' : m.gender === 'F' ? '女' : '—'} · {m.zodiac ?? '生辰待補'} · {m.birthText}
                 </div>
               </div>
-              <div className="lights">
+              {showGeneral && <div className="lights">
                 {general.map((t) => {
                   const st = status(m, t)
                   const hint = st === 'none' && t.taisui && !!m.taisui
                   const cls = st === 'none' ? (hint ? 'chip-hint' : '') : `chip-${st}`
                   return (
                     <button key={t.id} type="button" className={`chip chip-lg ${cls}`} aria-pressed={st === 'existing' || st === 'add'}
-                      aria-label={`${m.name} ${t.name}`} onClick={() => onToggle(m.id, t.id)}>
+                      aria-label={`${m.name} ${t.name}`} title={STATUS_TITLE[st]} onClick={() => onToggle(m.id, t.id)}>
                       <span>{t.name}</span>
-                      <span className="chip-sub">{hint ? '建議' : subOf(st, t)}</span>
+                      <span className="chip-sub">{showPrice ? priceOf(t) : hint ? '建議' : ''}</span>
                     </button>
                   )
                 })}
-              </div>
+              </div>}
               {renderActions && <div className="actions">{renderActions(m)}</div>}
             </div>
             {showBagua && bagua.length > 0 && (
@@ -76,9 +77,9 @@ export default function LanternMatrix({ members, lightTypes, cells, onToggle, sh
                     const st = status(m, t)
                     return (
                       <button key={t.id} type="button" className={`chip ${st === 'none' ? '' : `chip-${st}`}`}
-                        aria-pressed={st === 'existing' || st === 'add'} aria-label={`${m.name} ${t.name}`} onClick={() => onToggle(m.id, t.id)}>
+                        aria-pressed={st === 'existing' || st === 'add'} aria-label={`${m.name} ${t.name}`} title={STATUS_TITLE[st]} onClick={() => onToggle(m.id, t.id)}>
                         <span>{t.name}</span>
-                        <span className="chip-sub">{subOf(st, t)}</span>
+                        <span className="chip-sub">{priceOf(t)}</span>
                       </button>
                     )
                   })}

@@ -121,13 +121,13 @@ textarea.inp { padding: 10px 12px; min-height: 80px; }
 .bline { display: flex; gap: 10px; align-items: flex-start; padding: 0 12px 10px; flex-wrap: wrap; }
 .blabel { flex: 0 0 96px; font-size: 12px; color: var(--muted); padding-top: 12px; line-height: 1.4; }
 .chips { flex: 1 1 400px; display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
-.chip { min-height: 44px; padding: 0 6px; border-radius: 8px; font-size: 13px; cursor: pointer; border: 1px solid #D1D5DB; background: var(--surface); color: var(--text-2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; line-height: 1.2; }
-.chip-existing { border-color: var(--primary); background: var(--primary); color: #fff; font-weight: 700; }
-.chip-add { border-color: var(--success); background: var(--success); color: #fff; font-weight: 700; }
+.chip { position: relative; min-height: 44px; padding: 0 6px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid #D1D5DB; background: var(--surface); color: var(--text-2); display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.2; }
+.chip-existing { border-color: var(--primary); background: var(--primary); color: #fff; }
+.chip-add { border-color: var(--success); background: var(--success); color: #fff; }
 .chip-remove { border-color: var(--danger); background: var(--danger-soft); color: var(--danger-text); text-decoration: line-through; }
-.chip-sub { font-size: 10px; font-weight: 400; opacity: .9; }
+.chip-sub { position: absolute; left: 0; right: 0; bottom: 2px; font-size: 10px; font-weight: 400; opacity: .9; line-height: 1; }
 .chip-lg { min-height: 54px; min-width: 92px; padding: 0 14px; font-size: 15px; }
-.chip-lg .chip-sub { font-size: 11px; }
+.chip-lg .chip-sub { font-size: 11px; bottom: 4px; }
 .chip-hint { border-color: var(--warn); border-style: dashed; color: #B45309; background: #FFFBEB; }
 
 .hour { min-width: 44px; min-height: 44px; border: 1px solid #D1D5DB; background: var(--surface); border-radius: 8px; cursor: pointer; color: var(--text-2); }

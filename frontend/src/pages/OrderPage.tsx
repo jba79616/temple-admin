@@ -214,7 +214,7 @@ export default function OrderPage() {
               <div className="small muted">點格子改登記：藍勾是目前狀態表、綠勾補登記、紅框取消。要改到別戶的人，用下方搜尋把那一戶加進來一起改。</div>
               <div className="card" style={{ overflow: 'hidden' }}>
                 <div className="card-title">戶 {detail.householdNumber}（原單這一戶）</div>
-                <LanternMatrix members={detail.members} lightTypes={types} cells={cells} onToggle={toggle} showPrice showBagua addLabel="補" />
+                <LanternMatrix members={detail.members} lightTypes={types} cells={cells} onToggle={toggle} showPrice showBagua />
               </div>
               {extra.map((h) => (
                 <div key={h.id} className="card" style={{ overflow: 'hidden' }}>
@@ -222,7 +222,7 @@ export default function OrderPage() {
                     <span>戶 {h.householdNumber} {h.members.find((m) => m.head)?.name ?? ''}（跨戶）</span>
                     <button type="button" className="btn btn-sm btn-ghost" onClick={() => removeHousehold(h)}>移除</button>
                   </div>
-                  <LanternMatrix members={h.members} lightTypes={types} cells={cells} onToggle={toggle} showPrice showBagua addLabel="補" />
+                  <LanternMatrix members={h.members} lightTypes={types} cells={cells} onToggle={toggle} showPrice showBagua />
                 </div>
               ))}
               <div className="row" style={{ flexWrap: 'nowrap' }}>
