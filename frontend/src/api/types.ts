@@ -291,3 +291,44 @@ export interface RebuildReport {
   closingMismatches: string[]
   fixed: boolean
 }
+
+export interface PageView<T> {
+  items: T[]
+  page: number
+  size: number
+  total: number
+  totalPages: number
+}
+
+export interface MemberRow {
+  id: number
+  householdId: number
+  householdNumber: number
+  name: string
+  gender: string | null
+  head: boolean
+  birthText: string
+  zodiac: string | null
+  taisui: string | null
+  cityDistrict: string
+  address: string
+  phone: string | null
+  lanterns: string[]
+}
+
+export interface HouseholdRow {
+  id: number
+  householdNumber: number
+  headId: number | null
+  headName: string | null
+  headBirthText: string | null
+  headZodiac: string | null
+  headTaisui: string | null
+  cityDistrict: string
+  address: string | null
+  phone: string | null
+  memberCount: number
+  lanternCount: number
+  members: MemberRow[]
+}
+

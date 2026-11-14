@@ -1,5 +1,6 @@
 package tw.temple.admin.order;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,7 +15,13 @@ public interface AnnualLightRecordRepository extends JpaRepository<AnnualLightRe
 
     List<AnnualLightRecord> findByYearAndLightTypeIdAndActiveTrue(int year, Long lightTypeId);
 
+    List<AnnualLightRecord> findByYearAndActiveTrue(int year);
+
     long countByHouseholdIdAndYearAndActiveTrue(Long householdId, int year);
 
     List<AnnualLightRecord> findByLastOrderItemOrderIdOrderByIdAsc(Long orderId);
+
+    List<AnnualLightRecord> findByYearAndMemberIdInAndActiveTrue(int year, Collection<Long> memberIds);
+
+    List<AnnualLightRecord> findByYearAndHouseholdIdInAndActiveTrue(int year, Collection<Long> householdIds);
 }

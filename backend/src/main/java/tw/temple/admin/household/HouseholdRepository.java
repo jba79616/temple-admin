@@ -1,6 +1,7 @@
 package tw.temple.admin.household;
 
 import java.util.List;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -21,4 +22,18 @@ public interface HouseholdRepository extends JpaRepository<Household, Long> {
     List<Household> search(@Param("q") String q, Pageable pageable);
 
     List<Household> findAllByOrderByHouseholdNumberAsc();
+
+
+    @Query(value = "select h from Household h order by h.householdNumber", countQuery = "select count(h) from Household h")
+    Page<Household> pageAll(Pageable pageable);
+
+    @Query(value = """
+        select h from Household h
+        where exists (select r.id from AnnualLightRecord r where r.household = h and r.year = :year and r.active = true)
+        order by h.householdNumber
+        """, countQuery = """
+        select count(h) from Household h
+        where exists (select r.id from AnnualLightRecord r where r.household = h and r.year = :year and r.active = true)
+        """)
+    Page<Household> pageLit(@Param("year") int year, Pageable pageable);
 }

@@ -421,6 +421,7 @@ CREATE TRIGGER trg_audit_logs_immutable
 - 因為 Windows 與 Mac 都要印且要歸檔，伺服器端用 Playwright Java 以 Chromium 開同一個列印頁產 PDF，`preferCSSPageSize` 開啟，回傳並存入年度歸檔目錄。櫃台用瀏覽器開 PDF，列印縮放選「實際大小」。
 - 不用 Flying Saucer 自己的 CSS 2.1 引擎，避免 XHTML、字型嵌入與兩套版面。
 - 端點範例：`GET /api/print/light-card?year=2027&lightTypeId=1`、`GET /api/print/name-list?year=2027&lightTypeId=1`、`GET /api/print/name-list-all?lightTypeId=1`。
+- 戶籍清單：`GET /api/registry/members?page=0&size=10&lit=false` 一人一列照成員 id 排序，`GET /api/registry/households?...` 一戶一列照戶號排序、每列內含同戶成員的 `members`；兩者每頁預設 10 筆；`lit=true` 只列該年狀態表有燈的，`year` 不給就是目前年度。回傳 `{items, page, size, total, totalPages}`。
 
 ## 9. 未來擴充
 

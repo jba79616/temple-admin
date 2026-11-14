@@ -91,7 +91,7 @@ textarea.inp { padding: 10px 12px; min-height: 80px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 @media (max-width: 640px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
 
-.tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--border-soft); color: #4B5563; }
+.tag { white-space: nowrap; display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--border-soft); color: #4B5563; }
 .tag-ts { background: var(--warn-soft); color: var(--warn-text); font-weight: 700; }
 .tag-ok { background: var(--success-soft); color: var(--success-text); }
 .tag-bad { background: var(--danger-soft); color: var(--danger-text); }
@@ -106,7 +106,7 @@ textarea.inp { padding: 10px 12px; min-height: 80px; }
 
 .table { width: 100%; border-collapse: collapse; }
 .table th, .table td { padding: 10px 12px; border-top: 1px solid var(--border-soft); text-align: left; vertical-align: middle; }
-.table th { font-size: 13px; color: var(--muted); font-weight: 500; border-top: 0; }
+.table th { font-size: 13px; color: var(--muted); font-weight: 500; border-top: 0; white-space: nowrap; }
 .scroll-x { overflow-x: auto; }
 
 .line { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid var(--border-soft); font-size: 14px; }
@@ -185,3 +185,8 @@ textarea.inp { padding: 10px 12px; min-height: 80px; }
   .chip-add:hover { background: var(--success-text); }
   .chip-remove:hover { background: #FEE2E2; }
 }
+
+.zodiac { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 22px; border-radius: 6px; vertical-align: middle; }
+.zodiac-ts { background: var(--warn-soft); color: var(--warn-text); font-weight: 700; }
+.expander { width: 32px; height: 32px; border: 1px solid #D1D5DB; border-radius: 6px; background: var(--surface); color: var(--text-2); cursor: pointer; font-size: 13px; }
+.sub-row td { background: #FAFAFA; border-top: 1px solid var(--border); }

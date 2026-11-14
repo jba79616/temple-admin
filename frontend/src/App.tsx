@@ -12,6 +12,7 @@ import MemberPage from './pages/MemberPage'
 import MorePage from './pages/MorePage'
 import OrderPage from './pages/OrderPage'
 import PrintPage from './pages/PrintPage'
+import RegistryPage from './pages/RegistryPage'
 import SearchPage from './pages/SearchPage'
 import SettingsPage from './pages/SettingsPage'
 import UsersPage from './pages/UsersPage'
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/print/cards" element={<CardsPrint />} />
         <Route element={<Layout />}>
           <Route path="/" element={<SearchPage />} />
+          <Route path="/registry" element={<RegistryPage />} />
           <Route path="/households/new" element={<HouseholdFormPage />} />
           <Route path="/households/:id" element={<HouseholdPage />} />
           <Route path="/households/:id/edit" element={<HouseholdFormPage />} />

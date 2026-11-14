@@ -2,7 +2,7 @@ import { api } from './client'
 import type {
   AuditView, Cards, ClosingView, ConfigView, CreateCorrectionRequest, CreateOrderRequest, DaySummary, HouseholdDetail,
   HouseholdInput, HouseholdSummary, LightType, Me, MemberInput, MemberView, NameList, OrderView, RebuildReport, Role,
-  TaisuiView, UserView,
+  TaisuiView, UserView, PageView, MemberRow, HouseholdRow,
 } from './types'
 
 export const auth = {
@@ -41,6 +41,11 @@ export const orders = {
   create: (req: CreateOrderRequest) => api<OrderView>('/api/orders', { method: 'POST', json: req }),
   void: (id: number, reason: string) => api<OrderView>(`/api/orders/${id}/void`, { method: 'POST', json: { reason } }),
   correct: (id: number, req: CreateCorrectionRequest) => api<OrderView>(`/api/orders/${id}/corrections`, { method: 'POST', json: req }),
+}
+
+export const registry = {
+  members: (page: number, lit: boolean, size = 10) => api<PageView<MemberRow>>(`/api/registry/members?page=${page}&size=${size}&lit=${lit}`),
+  households: (page: number, lit: boolean, size = 10) => api<PageView<HouseholdRow>>(`/api/registry/households?page=${page}&size=${size}&lit=${lit}`),
 }
 
 export const closings = {

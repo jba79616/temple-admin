@@ -6,6 +6,7 @@ import { useConfig } from '../lib/config'
 const ADMIN_PATHS = ['/light-types', '/settings', '/users', '/audit', '/more']
 const ICONS = {
   counter: 'M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zM20 20l-4-4',
+  registry: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
   closing: 'M3 7h18v10H3zM12 9.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5M6 12h.01M18 12h.01',
   print: 'M6 9V3h12v6M4 9h16v8h-4v4H8v-4H4z',
   more: 'M5 12h.01M12 12h.01M19 12h.01',
@@ -38,6 +39,7 @@ export default function Layout() {
         <div className="year-pill">年度 {yearLabel}</div>
         <nav className="nav" aria-label="主要功能">
           <NavLink to="/" end className={counterActive ? 'active' : ''}>櫃台</NavLink>
+          <NavLink to="/registry">戶籍</NavLink>
           <NavLink to="/closing">收款與日結</NavLink>
           <NavLink to="/print">列印</NavLink>
         </nav>
@@ -58,6 +60,7 @@ export default function Layout() {
       <Outlet />
       <nav className="tabbar" aria-label="主要功能">
         <NavLink to="/" end className={counterActive ? 'active' : ''}><Icon d={ICONS.counter} />櫃台</NavLink>
+        <NavLink to="/registry"><Icon d={ICONS.registry} />戶籍</NavLink>
         <NavLink to="/closing"><Icon d={ICONS.closing} />日結</NavLink>
         <NavLink to="/print"><Icon d={ICONS.print} />列印</NavLink>
         <NavLink to="/more" className={adminActive ? 'active' : ''}><Icon d={ICONS.more} />更多</NavLink>
