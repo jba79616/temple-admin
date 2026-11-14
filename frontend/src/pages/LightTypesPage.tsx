@@ -3,6 +3,7 @@ import { lightTypes as api } from '../api'
 import type { LightCategory, LightType } from '../api/types'
 import { useAuth } from '../lib/auth'
 import { money } from '../lib/roc'
+import { LIGHT_CATEGORY } from '../lib/labels'
 
 type Form = Omit<LightType, 'id'>
 const empty: Form = { category: 'GENERAL', name: '', shortName: '', price: 300, taisui: false, sortOrder: 0, active: true, legacyCode: null }
@@ -45,7 +46,7 @@ export default function LightTypesPage() {
         <section className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <h2>{editing === 'new' ? '新增燈種' : '編輯燈種'}</h2>
           <div className="grid-3">
-            <div className="fld"><label className="lbl">分類</label><select className="inp" value={form.category} onChange={(e) => set({ category: e.target.value as LightCategory })}><option value="GENERAL">一般燈</option><option value="BAGUA">八卦轉運斗</option></select></div>
+            <div className="fld"><label className="lbl">分類</label><select className="inp" value={form.category} onChange={(e) => set({ category: e.target.value as LightCategory })}><option value="GENERAL">{LIGHT_CATEGORY.GENERAL}</option><option value="BAGUA">{LIGHT_CATEGORY.BAGUA}</option></select></div>
             <div className="fld"><label className="lbl">名稱</label><input className="inp" value={form.name} onChange={(e) => set({ name: e.target.value })} /></div>
             <div className="fld"><label className="lbl">縮寫（印在安燈卡）</label><input className="inp" value={form.shortName} onChange={(e) => set({ shortName: e.target.value })} /></div>
             <div className="fld"><label className="lbl">價格</label><input className="inp" type="number" min={0} value={form.price} onChange={(e) => set({ price: Number(e.target.value) })} /></div>
@@ -66,7 +67,7 @@ export default function LightTypesPage() {
             <thead><tr><th>排序</th><th>分類</th><th>名稱</th><th>縮寫</th><th className="right">價格</th><th>太歲燈</th><th>狀態</th>{isAdmin && <th></th>}</tr></thead>
             <tbody>
               {list.map((t) => (
-                <tr key={t.id}><td className="num muted">{t.sortOrder}</td><td>{t.category === 'GENERAL' ? '一般燈' : '八卦轉運斗'}</td><td style={{ fontWeight: 500 }}>{t.name}</td><td>{t.shortName}</td>
+                <tr key={t.id}><td className="num muted">{t.sortOrder}</td><td>{LIGHT_CATEGORY[t.category]}</td><td style={{ fontWeight: 500 }}>{t.name}</td><td>{t.shortName}</td>
                   <td className="num right">{money(t.price)}</td><td>{t.taisui && <span className="tag tag-ts">太歲燈</span>}</td><td>{t.active ? <span className="tag tag-ok">啟用</span> : <span className="tag">停用</span>}</td>
                   {isAdmin && <td><button type="button" className="btn btn-sm" onClick={() => startEdit(t)}>編輯</button></td>}</tr>
               ))}

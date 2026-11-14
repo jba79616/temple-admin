@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import { useAuth } from '../lib/auth'
+import { ROLE } from '../lib/labels'
 
 export default function MorePage() {
   const { me, logout } = useAuth()
@@ -25,6 +26,7 @@ export default function MorePage() {
       </section>
       <section className="card card-pad row">
         <span>{me?.displayName} · {me?.role}</span>
+        <span>{me?.displayName} · {me ? ROLE[me.role] : ''}</span>
         <button type="button" className="btn btn-ghost" style={{ marginLeft: 'auto' }} onClick={() => logout()}>登出</button>
       </section>
     </main>

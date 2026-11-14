@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { closings as closingsApi, orders as ordersApi } from '../api'
 import type { ClosingView, DaySummary, OrderView } from '../api/types'
 import { money, rocDate, rocDateTime } from '../lib/roc'
+import { ORDER_KIND, PAYMENT_KIND } from '../lib/labels'
 
 export default function ClosingPage() {
   const [summary, setSummary] = useState<DaySummary | null>(null)
@@ -60,7 +61,7 @@ export default function ClosingPage() {
                 {summary.payments.map((p) => (
                   <tr key={p.id} style={{ color: p.kind !== 'CASH' ? 'var(--muted)' : p.amount < 0 ? 'var(--danger-text)' : undefined }}>
                     <td>{rocDateTime(p.createdAt).slice(-5)}</td><td>{p.householdNumber} {p.headName ?? ''}</td>
-                    <td><Link to={`/orders/${p.orderId}`}>#{p.orderId}</Link></td><td><span className="tag">{p.kind}</span></td>
+                    <td><Link to={`/orders/${p.orderId}`}>#{p.orderId}</Link></td><td><span className="tag">{PAYMENT_KIND[p.kind]}</span></td>
                     <td className="num right" style={{ fontWeight: 500 }}>{p.amount > 0 ? '+' : ''}{p.amount.toLocaleString()}</td>
                     <td className="small muted">{p.receivedBy} {p.note}</td>
                   </tr>
@@ -69,8 +70,8 @@ export default function ClosingPage() {
               </tbody>
             </table>
           </div>
-          <div className="line line-total" style={{ padding: '12px 16px', fontSize: 17 }}><span>系統合計（只算 CASH）</span><span>{money(summary.systemCash)}</span></div>
-          <div className="small muted" style={{ padding: '0 16px 12px' }}>FORFEIT 不動現金，不計入；IMPORT 不計入。</div>
+          <div className="line line-total" style={{ padding: '12px 16px', fontSize: 17 }}><span>系統合計（只算現金）</span><span>{money(summary.systemCash)}</span></div>
+          <div className="small muted" style={{ padding: '0 16px 12px' }}>轉功德金不動現金，不計入；匯入的歷史資料也不計入。</div>
         </section>
 
         <aside className="card side card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -102,7 +103,7 @@ export default function ClosingPage() {
             <tbody>
               {unsettled.map((o) => (
                 <tr key={o.id}><td>{rocDate(o.postedOn)}</td><td>{o.householdNumber} {o.headName ?? ''}</td><td><Link to={`/orders/${o.id}`}>#{o.id}</Link></td>
-                  <td><span className="tag">{o.kind === 'CORRECTION' ? '更正' : o.kind === 'COUNTER' ? '櫃台' : '匯入'}</span></td>
+                  <td><span className="tag">{ORDER_KIND[o.kind]}</span></td>
                   <td className="num right" style={{ fontWeight: 500 }}>{money(o.balance)}</td><td className="small muted">{o.note}</td></tr>
               ))}
               {unsettled.length === 0 && <tr><td colSpan={6} className="muted" style={{ textAlign: 'center', padding: 24 }}>沒有待處理的差額</td></tr>}

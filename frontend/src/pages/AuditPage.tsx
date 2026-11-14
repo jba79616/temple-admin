@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { audit as api } from '../api'
 import type { AuditView } from '../api/types'
 import { rocDateTime } from '../lib/roc'
+import { AUDIT_ACTION, TABLE_NAME } from '../lib/labels'
 
 const TABLES = ['', 'members', 'households', 'light_types', 'system_configs']
 
@@ -42,7 +43,7 @@ export default function AuditPage() {
             <thead><tr><th>時間</th><th>表</th><th>ID</th><th>動作</th><th>使用者</th><th>變更</th></tr></thead>
             <tbody>
               {logs.map((l) => (
-                <tr key={l.id}><td className="small">{rocDateTime(l.changedAt)}</td><td>{l.tableName}</td><td className="num">{l.rowId}</td><td><span className="tag">{l.action}</span></td><td className="num">{l.changedBy ?? '—'}</td><td className="small" style={{ color: 'var(--text-2)' }}>{diff(l.before, l.after)}</td></tr>
+                <tr key={l.id}><td className="small">{rocDateTime(l.changedAt)}</td><td>{TABLE_NAME[l.tableName] ?? l.tableName}</td><td className="num">{l.rowId}</td><td><span className="tag">{AUDIT_ACTION[l.action] ?? l.action}</span></td><td className="num">{l.changedBy ?? '—'}</td><td className="small" style={{ color: 'var(--text-2)' }}>{diff(l.before, l.after)}</td></tr>
               ))}
               {logs.length === 0 && <tr><td colSpan={6} className="muted" style={{ textAlign: 'center', padding: 24 }}>沒有紀錄</td></tr>}
             </tbody>

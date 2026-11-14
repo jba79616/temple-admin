@@ -6,6 +6,7 @@ import Crumbs from '../components/Crumbs'
 import LanternMatrix, { cellKey, nextStatus, type Cells } from '../components/LanternMatrix'
 import { useAuth } from '../lib/auth'
 import { money, rocDate, rocYear, todayIso } from '../lib/roc'
+import { ORDER_KIND, ORDER_STATUS, PAYMENT_KIND } from '../lib/labels'
 
 export default function HouseholdPage() {
   const { id } = useParams()
@@ -163,7 +164,7 @@ export default function HouseholdPage() {
         <section className="banner banner-ok">
           <div className="kv">
             <strong>已存檔並收款：單號 #{saved.id}</strong>
-            <span className="small">應收 {money(saved.totalDue)}，{saved.payments.map((p) => `${p.kind} ${p.amount}`).join('、') || '無收款'}</span>
+            <span className="small">應收 {money(saved.totalDue)}，{saved.payments.map((p) => `${PAYMENT_KIND[p.kind]} ${p.amount}`).join('、') || '無收款'}</span>
           </div>
           <div className="row" style={{ marginLeft: 'auto' }}>
             {saved.items.some((i) => i.action === 'ADD') && (
@@ -229,7 +230,7 @@ export default function HouseholdPage() {
               <div key={r.key} className="line" style={{ paddingLeft: 12, color: 'var(--text-2)' }}><span>{r.member.name} · {r.type.name}</span><span>−{money(r.price)}</span></div>
             ))}
             <div className="line line-total"><span>應收</span><span>{money(changes.due)}</span></div>
-            {changes.due < 0 && <div className="banner banner-warn small" style={{ padding: '8px 10px' }}>不退費，差額 {money(-changes.due)} 轉功德金，系統以 FORFEIT 結清</div>}
+            {changes.due < 0 && <div className="banner banner-warn small" style={{ padding: '8px 10px' }}>不退費，差額 {money(-changes.due)} 轉功德金，系統以「轉功德金」結清</div>}
           </div>
 
           <label className="row" style={{ minHeight: 44, fontSize: 14 }}>
@@ -269,8 +270,8 @@ export default function HouseholdPage() {
                 <tr key={o.id}>
                   <td><Link to={`/orders/${o.id}`} style={{ fontWeight: 700 }}>#{o.id}</Link></td>
                   <td>{rocDate(o.registeredOn)}</td>
-                  <td><span className="tag">{o.kind === 'COUNTER' ? '櫃台' : o.kind === 'CORRECTION' ? '更正' : '匯入'}</span></td>
-                  <td>{o.status === 'VOIDED' ? <span className="tag tag-bad">已作廢</span> : <span className="tag tag-ok">有效</span>}</td>
+                  <td><span className="tag">{ORDER_KIND[o.kind]}</span></td>
+                  <td><span className={`tag ${o.status === 'VOIDED' ? 'tag-bad' : 'tag-ok'}`}>{ORDER_STATUS[o.status]}</span></td>
                   <td className="small" style={{ color: 'var(--text-2)' }}>{o.items.filter((i) => i.overrideReason !== '作廢沖正').map((i) => `${i.action === 'REMOVE' ? '取消 ' : ''}${i.memberName} ${i.lightTypeName}`).join('；')}</td>
                   <td className="num">{money(o.totalDue)}</td>
                   <td className={o.balance === 0 ? 'tag-ok' : ''} style={{ color: o.balance === 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>{o.balance === 0 ? '已結清' : `差額 ${money(o.balance)}`}</td>

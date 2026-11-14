@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '../lib/auth'
 import { useConfig } from '../lib/config'
+import { ROLE } from '../lib/labels'
 
 const ADMIN_PATHS = ['/light-types', '/settings', '/users', '/audit', '/more']
 const ICONS = {
@@ -54,6 +55,7 @@ export default function Layout() {
         </details>
         <div className="who">
           <span>{me?.displayName} · {me?.role}</span>
+          <span>{me?.displayName} · {me ? ROLE[me.role] : ''}</span>
           <button type="button" className="btn btn-sm" onClick={() => logout()}>登出</button>
         </div>
       </header>

@@ -6,8 +6,8 @@ import Crumbs from '../components/Crumbs'
 import LanternMatrix, { cellKey, nextStatus, type Cells } from '../components/LanternMatrix'
 import { useAuth } from '../lib/auth'
 import { money, rocDate, rocDateTime, rocYear } from '../lib/roc'
+import { ITEM_ACTION, ORDER_KIND, PAYMENT_KIND } from '../lib/labels'
 
-const KIND: Record<string, string> = { COUNTER: '櫃台', CORRECTION: '更正', IMPORT: '匯入' }
 
 export default function OrderPage() {
   const { id } = useParams()
@@ -140,7 +140,7 @@ export default function OrderPage() {
 
       <section className="card card-pad row" style={{ gap: 24 }}>
         <div className="kv"><span className="k">單號</span><span style={{ fontSize: 22, fontWeight: 700 }}>#{order.id}</span></div>
-        <div className="kv"><span className="k">種類</span><span className="tag">{KIND[order.kind]}</span></div>
+        <div className="kv"><span className="k">種類</span><span className="tag">{ORDER_KIND[order.kind]}</span></div>
         <div className="kv"><span className="k">狀態</span><span style={{ fontWeight: 700, color: order.status === 'VOIDED' ? 'var(--danger-text)' : 'var(--success-text)' }}>{order.status === 'VOIDED' ? '已作廢' : order.correctedByOrderIds.length ? `有效，已被更正單 ${order.correctedByOrderIds.map((x) => `#${x}`).join('、')} 調整` : '有效'}</span></div>
         <div className="kv"><span className="k">年度</span><span>民國 {rocYear(order.year)} 年</span></div>
         <div className="kv"><span className="k">登記日</span><span>{rocDate(order.registeredOn)}</span></div>
@@ -159,7 +159,7 @@ export default function OrderPage() {
               <tbody>
                 {order.items.map((i) => (
                   <tr key={i.id}><td>{i.memberName}</td><td>{i.lightTypeName}</td>
-                    <td><span className={`tag ${i.action === 'ADD' ? 'tag-ok' : 'tag-bad'}`}>{i.action}</span></td>
+                    <td><span className={`tag ${i.action === 'ADD' ? 'tag-ok' : 'tag-bad'}`}>{ITEM_ACTION[i.action]}</span></td>
                     <td className="num">{money(i.unitPrice)}</td><td className="small muted">{i.overrideReason}</td></tr>
                 ))}
               </tbody>
@@ -174,7 +174,7 @@ export default function OrderPage() {
               <thead><tr><th>種類</th><th>金額</th><th>收款日</th><th>入帳日</th><th>收款人 / 備註</th></tr></thead>
               <tbody>
                 {order.payments.map((p) => (
-                  <tr key={p.id}><td><span className="tag">{p.kind}</span></td><td className="num">{p.amount > 0 ? '+' : ''}{p.amount.toLocaleString()}</td>
+                  <tr key={p.id}><td><span className="tag">{PAYMENT_KIND[p.kind]}</span></td><td className="num">{p.amount > 0 ? '+' : ''}{p.amount.toLocaleString()}</td>
                     <td>{rocDate(p.receivedOn)}</td><td>{rocDate(p.postedOn)}</td><td className="small muted">{p.receivedBy} {p.note}</td></tr>
                 ))}
                 {order.payments.length === 0 && <tr><td colSpan={5} className="muted">無收款</td></tr>}
@@ -187,7 +187,7 @@ export default function OrderPage() {
 
       {isAdmin && order.status === 'ACTIVE' && order.kind !== 'IMPORT' && (
         <section className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <h2>動作（ADMIN）</h2>
+          <h2>動作（管理員）</h2>
           {!order.closed && !voiding && (
             <>
               <div className="small muted">入帳日尚未日結，可以沖正：整張作廢，現金退還，狀態表復原。</div>
