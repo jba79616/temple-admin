@@ -258,6 +258,7 @@ export interface NameList {
 
 export interface Card {
   shortName: string
+  detail: string | null
   name: string
   cityDistrict: string
   address: string
@@ -332,3 +333,36 @@ export interface HouseholdRow {
   members: MemberRow[]
 }
 
+export type FormScope = 'ALL' | 'LIT' | 'BAGUA'
+
+export interface FormPerson {
+  name: string
+  gender: string | null
+  ganzhi: string | null
+  leap: boolean
+  month: number | null
+  day: number | null
+  hour: string | null
+}
+
+export interface FormHousehold {
+  householdNumber: number
+  headName: string | null
+  address: string
+  people: FormPerson[]
+}
+
+export interface BaguaType {
+  code: string | null
+  name: string
+}
+
+export interface ApplicationForm {
+  templeName: string
+  year: number
+  rocYear: number
+  scope: FormScope
+  title: string
+  baguaTypes: BaguaType[]
+  households: FormHousehold[]
+}

@@ -18,6 +18,7 @@ import SettingsPage from './pages/SettingsPage'
 import UsersPage from './pages/UsersPage'
 import CardsPrint from './pages/print/CardsPrint'
 import NameListPrint from './pages/print/NameListPrint'
+import ApplicationFormPrint from './pages/print/ApplicationFormPrint'
 
 export default function App() {
   const { me, loading } = useAuth()
@@ -28,6 +29,7 @@ export default function App() {
       <Routes>
         <Route path="/print/name-list" element={<NameListPrint />} />
         <Route path="/print/cards" element={<CardsPrint />} />
+        <Route path="/print/application-form" element={<ApplicationFormPrint />} />
         <Route element={<Layout />}>
           <Route path="/" element={<SearchPage />} />
           <Route path="/registry" element={<RegistryPage />} />

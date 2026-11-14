@@ -1,0 +1,22 @@
+@font-face { font-family: 'Temple Kai'; src: url('/fonts/LXGWWenKaiTC-Regular.woff2') format('woff2'); font-display: block; }
+
+.form-root { font-family: 'Temple Kai', 'BiauKai', 'DFKai-SB', 'Kaiti TC', serif; }
+.form-sheet { position: relative; width: 215.9mm; height: 279.4mm; padding: 6.35mm; box-sizing: border-box; color: #000; }
+.fband { position: relative; width: 203.2mm; }
+.fel { position: absolute; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fel.b { font-weight: 700; }
+.fel.i { font-style: italic; }
+.fel.r { text-align: right; }
+.fel.c { text-align: center; }
+.fbox { position: absolute; border: 0.8mm solid #000; border-radius: 2mm; box-sizing: border-box; }
+.fline { position: absolute; border-top: 0.25mm solid #000; }
+.ffoot { position: absolute; left: 6.35mm; bottom: 6.35mm; width: 203.2mm; height: 8.6mm; }
+.flegend { position: absolute; display: grid; border-left: 0.3mm solid #000; box-sizing: border-box; }
+.flegend > div { border-right: 0.3mm solid #000; display: flex; flex-direction: column; align-items: center; }
+.flegend .n { font-family: 'Noto Sans TC', Arial, sans-serif; font-weight: 700; font-size: 10pt; line-height: 5mm; }
+.flegend .t { writing-mode: vertical-rl; text-orientation: upright; font-size: 9.5pt; line-height: 1; }
+
+@media print {
+  .form-sheet { width: 203.2mm; height: 266.7mm; padding: 0; }
+  .ffoot { left: 0; bottom: 0; }
+}

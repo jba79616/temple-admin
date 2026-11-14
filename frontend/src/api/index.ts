@@ -2,7 +2,7 @@ import { api } from './client'
 import type {
   AuditView, Cards, ClosingView, ConfigView, CreateCorrectionRequest, CreateOrderRequest, DaySummary, HouseholdDetail,
   HouseholdInput, HouseholdSummary, LightType, Me, MemberInput, MemberView, NameList, OrderView, RebuildReport, Role,
-  TaisuiView, UserView, PageView, MemberRow, HouseholdRow,
+  TaisuiView, UserView, PageView, MemberRow, HouseholdRow, ApplicationForm, FormScope, LightCategory,
 } from './types'
 
 export const auth = {
@@ -61,12 +61,24 @@ export const configs = {
   taisui: (year?: number) => api<TaisuiView>(`/api/configs/taisui${year ? `?year=${year}` : ''}`),
 }
 
+export type LightSelection = { lightTypeId: number } | { category: LightCategory }
+const lightQuery = (sel: LightSelection) => ('lightTypeId' in sel ? `lightTypeId=${sel.lightTypeId}` : `category=${sel.category}`)
+export const lightSelectionFrom = (params: URLSearchParams): LightSelection | null => {
+  const lightTypeId = params.get('lightTypeId')
+  const category = params.get('category')
+  if (lightTypeId) return { lightTypeId: Number(lightTypeId) }
+  if (category === 'GENERAL' || category === 'BAGUA') return { category }
+  return null
+}
+
 export const print = {
-  nameList: (lightTypeId: number, year?: number, all = false) =>
-    api<NameList>(`/api/print/name-list?lightTypeId=${lightTypeId}${year ? `&year=${year}` : ''}&all=${all}`),
-  cardsByYear: (lightTypeId: number, year?: number) =>
-    api<Cards>(`/api/print/cards?lightTypeId=${lightTypeId}${year ? `&year=${year}` : ''}`),
+  nameList: (sel: LightSelection, year?: number, all = false) =>
+    api<NameList>(`/api/print/name-list?${lightQuery(sel)}${year ? `&year=${year}` : ''}&all=${all}`),
+  cardsByYear: (sel: LightSelection, year?: number) =>
+    api<Cards>(`/api/print/cards?${lightQuery(sel)}${year ? `&year=${year}` : ''}`),
   cardsByOrder: (orderId: number) => api<Cards>(`/api/print/cards?orderId=${orderId}`),
+  applicationForm: (scope: FormScope, year?: number) =>
+    api<ApplicationForm>(`/api/print/application-form?scope=${scope}${year ? `&year=${year}` : ''}`),
 }
 
 export const users = {

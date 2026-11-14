@@ -375,9 +375,9 @@ CREATE TRIGGER trg_audit_logs_immutable
 | --- | --- | --- | --- |
 | 1 | 安燈卡（一般燈） | Word 套印 | 光明、文昌、太歲共用版型。一頁 3×7 = 21 張卡片。 |
 | 2 | 安燈卡（八卦斗） | Word 套印 | 純八卦轉運斗卡片，同上版型。 |
-| 3 | 八卦斗卡 + 名冊 | Navicat | 卡片加名冊合印。 |
-| 4 | 頌經名冊（今年） | Navicat | 依燈種分冊，依戶分頁。列今年有安燈的人。 |
-| 5 | 全部名冊 | Navicat | 同版型，列資料庫所有人。 |
+| 3 | 頌經名冊 | ReportBuilder（guanming111 / taisui111 / wenchang111.rtm） | 依燈種分冊，列該年有安燈的人；也可列全部成員。 |
+| 4 | 參加安斗申報單 | ReportBuilder（people_list_report / people_total.rtm） | 一戶一頁，印給信眾勾光明、文昌、太歲。前者列去年有安燈的人（單子用完要再印時用），後者列全部的人。 |
+| 5 | 八卦轉運斗 | ReportBuilder（bagua_only.rtm） | 同申報單版面，列去年有安斗的人，每人一個手寫框填斗型編號，頁首印 22 型對照。 |
 
 ### 安燈卡
 
@@ -415,13 +415,22 @@ CREATE TRIGGER trg_audit_logs_immutable
       聞　天運　　乙巳 年　十二 月　　日　證明百拜上申
 ```
 
+### 申報單（報表 4、5）
+
+- Letter 直印，四邊 6.35mm，一戶一頁；版面照舊系統 .rtm 的 mm 座標還原，字型用內建楷體。
+- 三層標頭：戶號（18pt 粗斜體）、斗首＝戶長名（16pt，下橫線）、住址＝戶的縣市鄉鎮加街路（14pt，下橫線），再接欄位標題 姓名、性別、生辰。
+- 每人一列：一般燈版左邊三個圓角方框（光明、文昌、太歲）留白給信眾勾，列高 9.5mm；八卦轉運斗版左邊一個 25.6mm 手寫框填斗型編號，列高 8.6mm，頁首多一排 22 型對照（`legacy_code` 01–22 加名稱直書）。
+- 生辰拆五段：干支年「年」、閏、月「月」、日「日」、時辰「時生」，空白印「吉」。頁尾頁碼「n of N」置中，右側「計　元」留白。
+- 範圍：`LIT` 該年狀態表有燈的人、`ALL` 全部成員、`BAGUA` 該年有安八卦斗的人；已刪除成員不列。年度預設去年。
+- 字型：`frontend/public/fonts/LXGWWenKaiTC-Regular.woff2`（霞鶩文楷 TC，SIL OFL），由 jar 提供，Mac 與 Windows 的畫面與 PDF 一致。
+
 ### 技術方案（建議，待拍板）
 
 - 安燈卡與名冊各做成獨立的 React 列印頁，字型用 `@font-face` 從 jar 載入 Noto Sans TC，`@page` 定紙張與邊界，`break-before` 依戶分頁。
 - 因為 Windows 與 Mac 都要印且要歸檔，伺服器端用 Playwright Java 以 Chromium 開同一個列印頁產 PDF，`preferCSSPageSize` 開啟，回傳並存入年度歸檔目錄。櫃台用瀏覽器開 PDF，列印縮放選「實際大小」。
 - 不用 Flying Saucer 自己的 CSS 2.1 引擎，避免 XHTML、字型嵌入與兩套版面。
-- 端點範例：`GET /api/print/light-card?year=2027&lightTypeId=1`、`GET /api/print/name-list?year=2027&lightTypeId=1`、`GET /api/print/name-list-all?lightTypeId=1`。
 - 戶籍清單：`GET /api/registry/members?page=0&size=10&lit=false` 一人一列照成員 id 排序，`GET /api/registry/households?...` 一戶一列照戶號排序、每列內含同戶成員的 `members`；兩者每頁預設 10 筆；`lit=true` 只列該年狀態表有燈的，`year` 不給就是目前年度。回傳 `{items, page, size, total, totalPages}`。
+- 端點：`GET /api/print/cards?year=2027&lightTypeId=1`（或 `category=BAGUA` 印全部八卦斗）、`GET /api/print/name-list?year=2027&lightTypeId=1&all=false`（同樣可用 `category=BAGUA`）、`GET /api/print/application-form?scope=LIT|ALL|BAGUA&year=2026`。
 
 ## 9. 未來擴充
 

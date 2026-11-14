@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { print as printApi } from '../../api'
+import { lightSelectionFrom, print as printApi } from '../../api'
 import type { Cards } from '../../api/types'
 import { rocYear } from '../../lib/roc'
 import './print.css'
@@ -14,9 +14,13 @@ export default function CardsPrint() {
 
   useEffect(() => {
     const orderId = params.get('orderId')
-    const lightTypeId = params.get('lightTypeId')
     const year = params.get('year')
-    const req = orderId ? printApi.cardsByOrder(Number(orderId)) : printApi.cardsByYear(Number(lightTypeId), year ? Number(year) : undefined)
+    const sel = lightSelectionFrom(params)
+    if (!orderId && !sel) {
+      setError('網址缺少燈種或分類')
+      return
+    }
+    const req = orderId ? printApi.cardsByOrder(Number(orderId)) : printApi.cardsByYear(sel!, year ? Number(year) : undefined)
     req.then(setData).catch((e) => setError(e.message))
   }, [params])
 
@@ -42,7 +46,7 @@ export default function CardsPrint() {
           <div className="cards-grid">
             {cards.map((c, i) => (
               <div key={i} className="card-cell">
-                <div className="light">{c.shortName}</div>
+                <div className="light">{c.shortName}{c.detail ? `　${c.detail}` : ''}</div>
                 <div className="name">{c.name}</div>
                 <div className="addr">{c.cityDistrict}</div>
                 <div className="addr">{c.address}</div>

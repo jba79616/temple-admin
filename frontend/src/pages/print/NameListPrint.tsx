@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { print as printApi } from '../../api'
+import { lightSelectionFrom, print as printApi } from '../../api'
 import type { NameList } from '../../api/types'
 import { rocYear } from '../../lib/roc'
 import './print.css'
@@ -11,10 +11,14 @@ export default function NameListPrint() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const lightTypeId = Number(params.get('lightTypeId'))
     const year = params.get('year')
     const all = params.get('all') === 'true'
-    printApi.nameList(lightTypeId, year ? Number(year) : undefined, all).then(setData).catch((e) => setError(e.message))
+    const sel = lightSelectionFrom(params)
+    if (!sel) {
+      setError('網址缺少燈種或分類')
+      return
+    }
+    printApi.nameList(sel, year ? Number(year) : undefined, all).then(setData).catch((e) => setError(e.message))
   }, [params])
 
   useEffect(() => {
