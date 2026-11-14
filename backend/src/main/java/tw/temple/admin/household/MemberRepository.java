@@ -19,6 +19,8 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     int countByHouseholdIdAndDeletedAtIsNull(Long householdId);
 
+    List<Member> findByLegacyIdIsNotNull();
+
     @Query("""
         select m from Member m join fetch m.household h
         where m.deletedAt is null

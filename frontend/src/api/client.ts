@@ -7,15 +7,15 @@ export class ApiError extends Error {
   }
 }
 
-type Init = Omit<RequestInit, 'body' | 'headers'> & { json?: unknown; headers?: Record<string, string> }
+type Init = Omit<RequestInit, 'body' | 'headers'> & { json?: unknown; form?: FormData; headers?: Record<string, string> }
 
 export async function api<T>(path: string, init: Init = {}): Promise<T> {
-  const { json, headers, ...rest } = init
+  const { json, form, headers, ...rest } = init
   const res = await fetch(path, {
     ...rest,
     credentials: 'same-origin',
     headers: { ...(json !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(headers ?? {}) },
-    body: json !== undefined ? JSON.stringify(json) : undefined,
+    body: json !== undefined ? JSON.stringify(json) : form,
   })
   if (!res.ok) {
     let message = `HTTP ${res.status}`

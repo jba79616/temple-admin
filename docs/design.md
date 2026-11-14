@@ -299,7 +299,7 @@ CREATE TRIGGER trg_audit_logs_immutable
 - **同人同燈同年唯一**：`annual_light_records` 的 UNIQUE 對 26 種燈一體適用，光明、文昌、太歲各只能一筆，八卦轉運斗每一型各一筆、不同型可多選。沒有任何燈種允許同一人同年安兩盞以上，所以狀態表不帶數量。
 - **稽核日誌**：成員、戶、燈種、設定的新增、修改、軟刪除由 service 寫入 `audit_logs`，存修改前後整列 JSON，查「這個生辰是誰、何時改的」。
 - **太歲**：年度地支由 `current_year` 算出（`(year − 4) mod 12` 對應子丑寅卯），成員地支取 `birth_branch`，值、沖、刑、害、破由程式算，哪些算犯太歲看 `system_configs.taisui_relations`。`birth_ganzhi` 為 NULL 者跳過。
-- **匯入**：舊資料每戶每年產生一張 `kind = IMPORT` 的單與明細，`registered_on` 填歷史日期，收款以 `kind = IMPORT` 的 payment 結清、不計入日結，再由同一套邏輯長出狀態表。
+- **匯入**：ADMIN 在「更多 → 舊資料匯入」上傳舊系統的 mysqldump，先預覽再正式匯入；預覽會把整個流程跑完再 rollback，所以 DB 約束也一起檢查。戶號沿用（戶 `legacy_id` = 舊戶號、成員 `legacy_id` = 舊 `people.id`），每戶每年一張 `kind = IMPORT` 的單與明細，`registered_on` 與 `posted_on` 填該年 1 月 1 日，收款以 `kind = IMPORT` 結清、不計入日結，狀態表由同一套邏輯長出；匯入不逐筆寫 `audit_logs`，來源看匯入單。八卦斗舊資料只有勾選沒有分型，掛到停用的「八卦轉運斗（舊資料）」。可重跑：戶與成員依 `legacy_id` 更新，已存在的（成員、燈種、年度）紀錄不再補單，新系統後來取消的也不會被重新點亮。
 - **時區**：資料庫設 `Asia/Taipei`，應用層所有日期欄位仍明確帶值，不依賴 DB 預設。
 
 ## 4. 生辰設計
@@ -322,8 +322,9 @@ CREATE TRIGGER trg_audit_logs_immutable
 | 一般燈 | 文昌燈 | 300 | 1 種 |
 | 一般燈 | 太歲燈，`is_taisui = TRUE` | 300 | 1 種 |
 | 八卦轉運斗 | 22 型（補財庫、補事業運 … 制太陰），`legacy_code` 存舊系統編號 01–22 | 500 | 22 型 |
+| 八卦轉運斗 | 八卦轉運斗（舊資料），停用，`legacy_code = bagua`，只掛舊系統匯入、不知道分型的紀錄（V4） | 500 | 1 |
 
-共 26 筆。`short_name` 印在安燈卡，省略「燈」字（光明、文昌、太歲），八卦斗各型用全名。`sort_order` 控制列印與矩陣欄位順序，`is_active` 停用不刪，`legacy_code` 對應舊系統代碼。
+共 26 筆（1 筆停用）。`short_name` 印在安燈卡，省略「燈」字（光明、文昌、太歲），八卦斗各型用全名。`sort_order` 控制列印與矩陣欄位順序，`is_active` 停用不刪，`legacy_code` 對應舊系統代碼。
 
 ## 6. 單據與金額（銀行切法）
 
@@ -466,5 +467,5 @@ Phase 1 已完成並通過本地測試：後端 22 個測試（含 Testcontainer
 - **列印方式**：第一版已做瀏覽器列印（React 列印頁加 `@page`）。2026-11-06 用 headless Chrome 把兩個列印頁輸出 PDF 試印：安燈卡 A4 直印 3×7、列高 38mm 間距 1mm；名冊 Letter 橫印、同戶不拆頁、表頭每頁重印、落款與最後一戶同頁。伺服器端 PDF（Playwright 渲染同一頁）尚未做，等卡片尺寸與欄位確認後再決定要不要加。
 - **日結打錯**：`daily_closings` 的實點金額若輸入錯誤怎麼改。建議只允許最新一日在下一次日結前修改並記錄原值，更早的不改，差額走更正單對銷。
 - **備份**：PostgreSQL 每日 `pg_dump` 排程與異地副本，屬部署工作，尚未規劃。
-- **舊資料匯入細節（開發完成後）**：用 Docker 起 MariaDB 還原 dump，pgloader 原樣搬進 PostgreSQL 的 `legacy` schema，Spring Boot 匯入 service 轉成新 schema，可重跑、記錄未對應列、出對帳報表；`legacy` schema 留到第一個安燈季結束。要先檢查 dump 字元集是否 Big5 或 latin1 誤存、舊系統年份是否民國年、生辰舊格式。下一步需要 `mysqldump --no-data` 的 schema 與少量去識別化樣本。
+- **舊資料匯入（2026-11-14 已做）**：不經 pgloader，後端直接解析 mysqldump 文字（`legacy.MysqlDumpParser`，支援多段 INSERT、`_binary` 的 bit(1)），`legacy.LegacyImportService` 轉成新 schema。規則：`is_deleted = 1` 的人也進戶，建成軟刪除成員（`deleted_at` 取舊系統 `update_time`，沒有就取匯入時間，原因「舊系統已刪除」），排在戶內最後、不當戶長、不補安燈紀錄（舊 view 也不列他們），重跑時原地更新；重跑時戶已有有效戶長就不改戶長、`contact_note` 保留，只有沒戶長的戶才套舊資料的戶長；戶長取有標記且順序最前的，沒標就取第一位，標多位取第一位；`people_order` 重複依舊 id 重排；地址用 `household.TaiwanAddress` 拆三段（「台」視同「臺」、去郵遞區號、桃園縣與臺北縣等舊縣名換新名、中壢市→中壢區與頭份鎮→頭份市這類升格後綴對應），拆不出縣市的整段放街路欄、縣市留空；成員地址與戶長不同才存在成員自己的地址欄；干支、月、日、時辰無效或「吉」一律 NULL，閏月沒有月份不存；`remark` 併到戶的 `notes`；姓名去掉全形空白；單價取 dump 的 `lamp` 表，沒有就用現行燈種價格。報表列出需人工處理的項目：地址拆不出縣市、有縣市沒鄉鎮市區、戶長異常、生辰異常、姓名含無法辨識字、順序重複。實際 dump（2026-11-07）：4,031 人（75 已刪，其中 43 人有歷年勾選，多在 110–112 年）、824 戶（戶號 1–851）、民國 110–115 年，地址 98% 可自動拆，整個匯入約 7 秒。
 - **實作後的小項**：改價目前用瀏覽器 prompt 輸入原因與金額；日結合計未依收款人分列；鍵盤快捷鍵未做；安燈卡尺寸與名冊欄位待廟方確認（見列印方式）。已做：更正單可搜尋別戶成員加入（跨戶更正）；鄉鎮市區下拉內建全台 22 縣市 368 鄉鎮市區，附 3 碼郵遞區號。

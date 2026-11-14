@@ -11,6 +11,7 @@ export default function MorePage() {
     ...(isAdmin ? [
       { to: '/users', title: '使用者', desc: '帳號、角色、重設密碼' },
       { to: '/audit', title: '稽核', desc: '誰在什麼時候改了什麼' },
+      { to: '/import', title: '舊資料匯入', desc: '上傳舊系統的 SQL dump，預覽後匯入戶、成員與歷年安燈' },
     ] : []),
   ]
   return (
@@ -25,7 +26,6 @@ export default function MorePage() {
         ))}
       </section>
       <section className="card card-pad row">
-        <span>{me?.displayName} · {me?.role}</span>
         <span>{me?.displayName} · {me ? ROLE[me.role] : ''}</span>
         <button type="button" className="btn btn-ghost" style={{ marginLeft: 'auto' }} onClick={() => logout()}>登出</button>
       </section>

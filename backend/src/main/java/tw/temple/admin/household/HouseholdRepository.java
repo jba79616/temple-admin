@@ -23,6 +23,7 @@ public interface HouseholdRepository extends JpaRepository<Household, Long> {
 
     List<Household> findAllByOrderByHouseholdNumberAsc();
 
+    List<Household> findByLegacyIdIsNotNull();
 
     @Query(value = "select h from Household h order by h.householdNumber", countQuery = "select count(h) from Household h")
     Page<Household> pageAll(Pageable pageable);

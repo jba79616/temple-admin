@@ -293,6 +293,48 @@ export interface RebuildReport {
   fixed: boolean
 }
 
+export type LegacyIssueKind = 'ADDRESS' | 'DISTRICT' | 'HEAD' | 'BIRTH' | 'PERSON' | 'ORDER'
+
+export interface LegacyIssue {
+  kind: LegacyIssueKind
+  householdNumber: number | null
+  name: string | null
+  detail: string
+}
+
+export interface LegacyYearCount {
+  year: number
+  rocYear: number
+  guangming: number
+  wenchang: number
+  taisui: number
+  bagua: number
+}
+
+export interface LegacyCounts {
+  people: number
+  deleted: number
+  households: number
+  householdsCreated: number
+  householdsUpdated: number
+  membersCreated: number
+  membersUpdated: number
+  orders: number
+  items: number
+  payments: number
+  recordsExisting: number
+  addressesSplit: number
+  addressesPartial: number
+  addressesUnparsed: number
+}
+
+export interface LegacyImportReport {
+  committed: boolean
+  counts: LegacyCounts
+  years: LegacyYearCount[]
+  issues: LegacyIssue[]
+}
+
 export interface PageView<T> {
   items: T[]
   page: number

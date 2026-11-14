@@ -2,7 +2,7 @@ import { api } from './client'
 import type {
   AuditView, Cards, ClosingView, ConfigView, CreateCorrectionRequest, CreateOrderRequest, DaySummary, HouseholdDetail,
   HouseholdInput, HouseholdSummary, LightType, Me, MemberInput, MemberView, NameList, OrderView, RebuildReport, Role,
-  TaisuiView, UserView, PageView, MemberRow, HouseholdRow, ApplicationForm, FormScope, LightCategory,
+  TaisuiView, UserView, PageView, MemberRow, HouseholdRow, ApplicationForm, FormScope, LightCategory, LegacyImportReport,
 } from './types'
 
 export const auth = {
@@ -97,4 +97,9 @@ export const audit = {
 
 export const admin = {
   rebuild: (fix: boolean) => api<RebuildReport>(`/api/admin/rebuild?fix=${fix}`, { method: 'POST' }),
+  legacyImport: (file: File, commit: boolean) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api<LegacyImportReport>(`/api/admin/legacy-import?commit=${commit}`, { method: 'POST', form })
+  },
 }

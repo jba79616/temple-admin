@@ -131,6 +131,10 @@ public class Member {
         this.head = false;
     }
 
+    public void linkLegacy(int legacyId) {
+        this.legacyId = legacyId;
+    }
+
     public void softDelete(String reason, OffsetDateTime at) {
         this.deletedAt = at;
         this.deleteReason = reason;

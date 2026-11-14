@@ -4,7 +4,7 @@ import { useAuth } from '../lib/auth'
 import { useConfig } from '../lib/config'
 import { ROLE } from '../lib/labels'
 
-const ADMIN_PATHS = ['/light-types', '/settings', '/users', '/audit', '/more']
+const ADMIN_PATHS = ['/light-types', '/settings', '/users', '/audit', '/import', '/more']
 const ICONS = {
   counter: 'M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zM20 20l-4-4',
   registry: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
@@ -51,10 +51,10 @@ export default function Layout() {
             <NavLink to="/settings">設定</NavLink>
             {isAdmin && <NavLink to="/users">使用者</NavLink>}
             {isAdmin && <NavLink to="/audit">稽核</NavLink>}
+            {isAdmin && <NavLink to="/import">舊資料匯入</NavLink>}
           </div>
         </details>
         <div className="who">
-          <span>{me?.displayName} · {me?.role}</span>
           <span>{me?.displayName} · {me ? ROLE[me.role] : ''}</span>
           <button type="button" className="btn btn-sm" onClick={() => logout()}>登出</button>
         </div>

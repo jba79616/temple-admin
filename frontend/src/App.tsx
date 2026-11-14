@@ -6,6 +6,7 @@ import AuditPage from './pages/AuditPage'
 import ClosingPage from './pages/ClosingPage'
 import HouseholdFormPage from './pages/HouseholdFormPage'
 import HouseholdPage from './pages/HouseholdPage'
+import ImportPage from './pages/ImportPage'
 import LightTypesPage from './pages/LightTypesPage'
 import LoginPage from './pages/LoginPage'
 import MemberPage from './pages/MemberPage'
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/users" element={me.role === 'ADMIN' ? <UsersPage /> : <Navigate to="/" replace />} />
           <Route path="/audit" element={me.role === 'ADMIN' ? <AuditPage /> : <Navigate to="/" replace />} />
+          <Route path="/import" element={me.role === 'ADMIN' ? <ImportPage /> : <Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

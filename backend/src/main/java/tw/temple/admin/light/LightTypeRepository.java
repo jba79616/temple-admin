@@ -11,4 +11,6 @@ public interface LightTypeRepository extends JpaRepository<LightType, Long> {
     List<LightType> findByActiveTrueOrderBySortOrderAscIdAsc();
 
     Optional<LightType> findByName(String name);
+
+    Optional<LightType> findByLegacyCode(String legacyCode);
 }
