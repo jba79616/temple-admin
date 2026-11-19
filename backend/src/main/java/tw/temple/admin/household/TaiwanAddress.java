@@ -9,7 +9,8 @@ import java.util.Map;
 /** 全臺 22 縣市與 368 鄉鎮市區，與前端 lib/taiwan.ts 同一份；拆地址時「台」視同「臺」，舊縣市名換成現名。 */
 public final class TaiwanAddress {
 
-    public record Split(String city, String district, String street, String raw) {
+    /** districtGuessed：鄉鎮市區是靠「市/鎮/鄉」尾字互換猜出來的，例如「三重市」對到「三重區」。 */
+    public record Split(String city, String district, String street, String raw, boolean districtGuessed) {
 
         public boolean hasCity() {
             return city != null;
@@ -59,7 +60,7 @@ public final class TaiwanAddress {
     public static Split split(String rawAddress) {
         String raw = rawAddress == null ? "" : rawAddress.trim();
         if (raw.isEmpty()) {
-            return new Split(null, null, null, null);
+            return new Split(null, null, null, null, false);
         }
         String rest = normalize(raw);
         String city = null;
@@ -79,21 +80,21 @@ public final class TaiwanAddress {
             }
         }
         if (city == null) {
-            return new Split(null, null, raw, raw);
+            return new Split(null, null, raw, raw, false);
         }
         List<String> districts = DISTRICTS.get(city);
         for (String district : districts) {
             if (rest.startsWith(district)) {
-                return new Split(city, district, blankToNull(rest.substring(district.length())), raw);
+                return new Split(city, district, blankToNull(rest.substring(district.length())), raw, false);
             }
         }
         for (String district : districts) {
             String base = district.substring(0, district.length() - 1);
             if (rest.startsWith(base) && rest.length() > base.length() && DISTRICT_SUFFIXES.indexOf(rest.charAt(base.length())) >= 0) {
-                return new Split(city, district, blankToNull(rest.substring(base.length() + 1)), raw);
+                return new Split(city, district, blankToNull(rest.substring(base.length() + 1)), raw, true);
             }
         }
-        return new Split(city, null, blankToNull(rest), raw);
+        return new Split(city, null, blankToNull(rest), raw, false);
     }
 
     private static String blankToNull(String s) {

@@ -19,6 +19,8 @@ import tw.temple.admin.light.LightType;
 @Table(name = "light_order_items")
 public class LightOrderItem {
 
+    public static final String REVERSAL_REASON = "作廢沖正";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -88,6 +90,10 @@ public class LightOrderItem {
 
     public String getOverrideReason() {
         return overrideReason;
+    }
+
+    public boolean isReversal() {
+        return REVERSAL_REASON.equals(overrideReason);
     }
 
     public OffsetDateTime getCreatedAt() {

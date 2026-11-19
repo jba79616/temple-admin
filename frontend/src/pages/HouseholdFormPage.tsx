@@ -27,7 +27,11 @@ export default function HouseholdFormPage() {
     }).catch((e) => setError(e.message))
   }, [editing, id])
 
+  const [saving, setSaving] = useState(false)
+
   async function save() {
+    if (saving) return
+    setSaving(true)
     setError('')
     try {
       if (editing) {
@@ -39,6 +43,8 @@ export default function HouseholdFormPage() {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : '儲存失敗')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -78,7 +84,7 @@ export default function HouseholdFormPage() {
         </section>
       )}
       <div className="row">
-        <button type="button" className="btn btn-lg" onClick={save} disabled={!editing && !head.name.trim()}>{editing ? '儲存' : '建立戶'}</button>
+        <button type="button" className="btn btn-lg" onClick={save} disabled={saving || (!editing && !head.name.trim())}>{saving ? '儲存中…' : editing ? '儲存' : '建立戶'}</button>
         <Link to={editing ? `/households/${id}` : '/'} className="btn btn-ghost">取消</Link>
       </div>
     </main>

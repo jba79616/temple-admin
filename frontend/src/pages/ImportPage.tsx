@@ -86,7 +86,7 @@ export default function ImportPage() {
 
   async function run(commit: boolean) {
     if (!file) return
-    if (commit && !window.confirm('確定要正式匯入？會建立戶、成員、歷年匯入單與安燈紀錄，匯入單不能作廢。')) return
+    if (commit && !window.confirm('確定要正式匯入？會建立戶、成員、歷年匯入單與安燈紀錄，匯入單不能作廢。\n若之前已匯入過，同一筆舊資料 id 的戶與成員會被舊系統的內容覆寫，在新系統改過的地址、電話、生辰會被蓋掉。')) return
     setBusy(commit ? 'commit' : 'preview')
     setError('')
     try {
@@ -120,7 +120,7 @@ export default function ImportPage() {
         </div>
         <div className="small muted">
           戶號沿用舊系統；每戶每年一張「匯入」單，以匯入收款結清、不進日結；八卦轉運斗舊資料沒有分型，掛在停用的「八卦轉運斗（舊資料）」。
-          重跑會依舊資料 id 更新戶與成員，已存在的安燈紀錄不重複建單。
+          重跑會依舊資料 id 用舊系統內容覆寫戶與成員（新系統改過的會被蓋掉），已存在的安燈紀錄不重複建單。
         </div>
       </section>
       {error && <div className="banner banner-bad">{error}</div>}

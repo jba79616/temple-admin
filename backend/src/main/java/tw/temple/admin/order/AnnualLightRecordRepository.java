@@ -13,13 +13,9 @@ public interface AnnualLightRecordRepository extends JpaRepository<AnnualLightRe
 
     List<AnnualLightRecord> findByMemberIdAndYearAndActiveTrue(Long memberId, int year);
 
-    List<AnnualLightRecord> findByYearAndLightTypeIdAndActiveTrue(int year, Long lightTypeId);
-
     List<AnnualLightRecord> findByYearAndActiveTrue(int year);
 
     long countByHouseholdIdAndYearAndActiveTrue(Long householdId, int year);
-
-    List<AnnualLightRecord> findByLastOrderItemOrderIdOrderByIdAsc(Long orderId);
 
     List<AnnualLightRecord> findByYearAndMemberIdInAndActiveTrue(int year, Collection<Long> memberIds);
 

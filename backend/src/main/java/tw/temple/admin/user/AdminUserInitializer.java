@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 public class AdminUserInitializer implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(AdminUserInitializer.class);
+    private static final String DEFAULT_PASSWORD = "admin123";
 
     private final UserRepository users;
     private final UserService userService;
@@ -19,7 +20,7 @@ public class AdminUserInitializer implements ApplicationRunner {
 
     public AdminUserInitializer(UserRepository users, UserService userService,
                                 @Value("${temple.admin.username:admin}") String username,
-                                @Value("${temple.admin.password:admin123}") String password) {
+                                @Value("${temple.admin.password:" + DEFAULT_PASSWORD + "}") String password) {
         this.users = users;
         this.userService = userService;
         this.username = username;
@@ -28,9 +29,14 @@ public class AdminUserInitializer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        if (users.count() == 0) {
-            userService.create(username, password, "管理員", Role.ADMIN);
-            log.info("建立預設管理員帳號 {}，請登入後立即更改密碼", username);
+        if (users.count() != 0) {
+            return;
+        }
+        userService.create(username, password, "管理員", Role.ADMIN);
+        if (DEFAULT_PASSWORD.equals(password)) {
+            log.warn("管理員帳號 {} 使用預設密碼，任何人都猜得到；請設定 TEMPLE_ADMIN_PASSWORD 或登入後立即更改", username);
+        } else {
+            log.info("建立預設管理員帳號 {}", username);
         }
     }
 }

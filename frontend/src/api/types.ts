@@ -144,6 +144,7 @@ export interface ItemView {
   action: ItemAction
   unitPrice: number
   overrideReason: string | null
+  reversal: boolean
   createdAt: string
 }
 
@@ -200,10 +201,19 @@ export interface PaymentRow {
 
 export interface DaySummary {
   date: string
+  from: string | null
   systemCash: number
   closed: boolean
   closedThrough: string | null
   payments: PaymentRow[]
+}
+
+export interface DayStatus {
+  date: string
+  closed: boolean
+  closedThrough: string | null
+  payments: number
+  systemCash: number
 }
 
 export interface ClosingView {

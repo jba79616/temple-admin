@@ -24,6 +24,17 @@ export default function UsersPage() {
     }
   }
 
+  function resetPassword(u: UserView) {
+    const p = window.prompt(`重設 ${u.username} 的密碼（至少 6 碼）`)
+    if (p === null) return
+    if (p.length < 6) {
+      setMessage('')
+      setError('密碼至少 6 碼，沒有重設')
+      return
+    }
+    run(() => api.resetPassword(u.id, p), '已重設密碼')
+  }
+
   return (
     <main className="page page-narrow">
       <h1>使用者</h1>
@@ -52,7 +63,7 @@ export default function UsersPage() {
                   <td>{u.active ? <span className="tag tag-ok">啟用</span> : <span className="tag">停用</span>}</td>
                   <td className="row" style={{ gap: 6 }}>
                     <button type="button" className="btn btn-sm" onClick={() => run(() => api.update(u.id, { displayName: u.displayName, role: u.role, active: !u.active }), u.active ? '已停用' : '已啟用')}>{u.active ? '停用' : '啟用'}</button>
-                    <button type="button" className="btn btn-sm" onClick={() => { const p = window.prompt(`重設 ${u.username} 的密碼（至少 6 碼）`); if (p && p.length >= 6) run(() => api.resetPassword(u.id, p), '已重設密碼') }}>重設密碼</button>
+                    <button type="button" className="btn btn-sm" onClick={() => resetPassword(u)}>重設密碼</button>
                   </td>
                 </tr>
               ))}

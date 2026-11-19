@@ -17,7 +17,11 @@ public final class ClosingDtos {
                              String headName, PaymentKind kind, int amount, LocalDate receivedOn, String receivedBy, String note) {
     }
 
-    public record DaySummary(LocalDate date, int systemCash, boolean closed, LocalDate closedThrough, List<PaymentRow> payments) {
+    public record DaySummary(LocalDate date, LocalDate from, int systemCash, boolean closed, LocalDate closedThrough,
+                             List<PaymentRow> payments) {
+    }
+
+    public record DayStatus(LocalDate date, boolean closed, LocalDate closedThrough, int payments, int systemCash) {
     }
 
     public record CloseRequest(LocalDate closingDate, @NotNull Integer countedCash, @Size(max = 200) String note) {

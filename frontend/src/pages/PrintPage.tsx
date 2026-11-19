@@ -10,12 +10,13 @@ export default function PrintPage() {
   const [year, setYear] = useState(currentYear)
   const [formYear, setFormYear] = useState(currentYear - 1)
   const [light, setLight] = useState('')
+  const [error, setError] = useState('')
 
   useEffect(() => {
     lightTypesApi.list().then((t) => {
       setTypes(t)
       setLight((cur) => (cur !== '' || t.length === 0 ? cur : String(t.find((x) => x.taisui)?.id ?? t[0].id)))
-    })
+    }).catch((e) => setError(e instanceof Error ? e.message : '讀取燈種失敗'))
   }, [])
   useEffect(() => { setYear(currentYear); setFormYear(currentYear - 1) }, [currentYear])
 
@@ -28,6 +29,7 @@ export default function PrintPage() {
 
   return (
     <main className="page page-narrow">
+      {error && <div className="banner banner-bad">{error}</div>}
       <h1>列印</h1>
       <section className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <h2>安燈卡與名冊</h2>

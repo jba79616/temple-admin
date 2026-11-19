@@ -3,11 +3,11 @@ import { Link, useParams } from 'react-router'
 import { households, lightTypes as lightTypesApi, orders as ordersApi } from '../api'
 import type { HouseholdDetail, HouseholdSummary, ItemInput, LightType, OrderView, Settlement } from '../api/types'
 import Crumbs from '../components/Crumbs'
-import LanternMatrix, { cellKey, nextStatus, type Cells } from '../components/LanternMatrix'
+import LanternMatrix, { cellKey, nextStatus, visibleLightTypes, type Cells } from '../components/LanternMatrix'
 import { useAuth } from '../lib/auth'
 import { money, rocDate, rocDateTime, rocYear } from '../lib/roc'
 import { ITEM_ACTION, ORDER_KIND, PAYMENT_KIND } from '../lib/labels'
-
+import { useUnsavedGuard } from '../lib/useUnsavedGuard'
 
 export default function OrderPage() {
   const { id } = useParams()
@@ -28,13 +28,14 @@ export default function OrderPage() {
   const [extra, setExtra] = useState<HouseholdDetail[]>([])
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<HouseholdSummary[]>([])
+  const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => setOrder(await ordersApi.get(orderId)), [orderId])
   useEffect(() => { load().catch((e) => setError(e.message)) }, [load])
 
   async function openCorrection() {
     if (!order) return
-    const [d, t] = await Promise.all([households.get(order.householdId, order.year), lightTypesApi.list()])
+    const [d, t] = await Promise.all([households.get(order.householdId, order.year), lightTypesApi.list(true)])
     setDetail(d)
     setTypes(t)
     const initial: Cells = {}
@@ -43,20 +44,36 @@ export default function OrderPage() {
     setExtra([])
     setHits([])
     setQuery('')
+    setReason('')
+    setSettlement('CASH')
     setCorrecting(true)
   }
 
   const typeById = useMemo(() => new Map(types.map((t) => [t.id, t])), [types])
+  const allHouseholds = useMemo(() => (detail ? [detail, ...extra] : extra), [detail, extra])
+  const paidPrice = useMemo(() => {
+    const map = new Map<string, number>()
+    allHouseholds.forEach((h) => h.records.forEach((r) => map.set(cellKey(r.memberId, r.lightTypeId), r.unitPrice)))
+    return map
+  }, [allHouseholds])
+  const visibleTypes = useMemo(() => visibleLightTypes(types, allHouseholds.flatMap((h) => h.members), cells), [types, allHouseholds, cells])
   const diff = useMemo(() => {
     let addSum = 0, removeSum = 0, adds = 0, removes = 0
     Object.entries(cells).forEach(([key, st]) => {
       const type = typeById.get(Number(key.split(':')[1]))
       if (!type) return
       if (st === 'add') { adds++; addSum += type.price }
-      if (st === 'remove') { removes++; removeSum += type.price }
+      if (st === 'remove') { removes++; removeSum += paidPrice.get(key) ?? type.price }
     })
     return { adds, removes, addSum, removeSum, due: addSum - removeSum }
-  }, [cells, typeById])
+  }, [cells, typeById, paidPrice])
+  const settleOptions: { id: Settlement; label: string }[] = diff.due > 0
+    ? [{ id: 'CASH', label: `收現 ${money(diff.due)}（入帳今天）` }, { id: 'PENDING', label: '留待處理（先不收，單列入差額待處理）' }]
+    : diff.due < 0
+      ? [{ id: 'CASH', label: `退現 ${money(-diff.due)}（入帳今天）` }, { id: 'FORFEIT', label: '放棄退款，差額轉功德金' }, { id: 'PENDING', label: '留待處理' }]
+      : [{ id: 'PENDING', label: '差額為零，無需收退款' }]
+  const effectiveSettlement: Settlement = settleOptions.some((o) => o.id === settlement) ? settlement : settleOptions[0].id
+  useUnsavedGuard(correcting && !busy && (diff.adds + diff.removes > 0 || reason.trim() !== ''))
 
   function toggle(memberId: number, lightTypeId: number) {
     const key = cellKey(memberId, lightTypeId)
@@ -97,6 +114,8 @@ export default function OrderPage() {
   }
 
   async function doVoid() {
+    if (busy) return
+    setBusy(true)
     setError('')
     try {
       await ordersApi.void(orderId, voidReason.trim())
@@ -104,10 +123,20 @@ export default function OrderPage() {
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : '作廢失敗')
+    } finally {
+      setBusy(false)
     }
   }
 
+  function cancelCorrection() {
+    const touched = diff.adds + diff.removes > 0 || reason.trim() !== ''
+    if (touched && !window.confirm('放棄這張更正單的修改？')) return
+    setCorrecting(false)
+  }
+
   async function doCorrect() {
+    if (busy) return
+    setBusy(true)
     setError('')
     try {
       const items: ItemInput[] = Object.entries(cells).flatMap(([key, st]): ItemInput[] => {
@@ -116,21 +145,18 @@ export default function OrderPage() {
         if (st === 'remove') return [{ memberId, lightTypeId, action: 'REMOVE' }]
         return []
       })
-      const result = await ordersApi.correct(orderId, { reason: reason.trim(), settlement: diff.due === 0 ? 'PENDING' : settlement, items })
+      const result = await ordersApi.correct(orderId, { reason: reason.trim(), settlement: effectiveSettlement, items })
       setCreated(result)
       setCorrecting(false)
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : '更正失敗')
+    } finally {
+      setBusy(false)
     }
   }
 
   if (!order) return <main className="page muted">{error || '載入中…'}</main>
-  const settleOptions: { id: Settlement; label: string }[] = diff.due > 0
-    ? [{ id: 'CASH', label: `收現 ${money(diff.due)}（入帳今天）` }, { id: 'PENDING', label: '留待處理（先不收，單列入差額待處理）' }]
-    : diff.due < 0
-      ? [{ id: 'CASH', label: `退現 ${money(-diff.due)}（入帳今天）` }, { id: 'FORFEIT', label: '放棄退款，差額轉功德金' }, { id: 'PENDING', label: '留待處理' }]
-      : [{ id: 'PENDING', label: '差額為零，無需收退款' }]
 
   return (
     <main className="page page-narrow">
@@ -174,14 +200,14 @@ export default function OrderPage() {
               <thead><tr><th>種類</th><th>金額</th><th>收款日</th><th>入帳日</th><th>收款人 / 備註</th></tr></thead>
               <tbody>
                 {order.payments.map((p) => (
-                  <tr key={p.id}><td><span className="tag">{PAYMENT_KIND[p.kind]}</span></td><td className="num">{p.amount > 0 ? '+' : ''}{p.amount.toLocaleString()}</td>
+                  <tr key={p.id}><td><span className="tag">{PAYMENT_KIND[p.kind]}</span></td><td className="num">{p.amount > 0 ? '+' : ''}{money(p.amount)}</td>
                     <td>{rocDate(p.receivedOn)}</td><td>{rocDate(p.postedOn)}</td><td className="small muted">{p.receivedBy} {p.note}</td></tr>
                 ))}
                 {order.payments.length === 0 && <tr><td colSpan={5} className="muted">無收款</td></tr>}
               </tbody>
             </table>
           </div>
-          <div className="line line-total" style={{ padding: '12px 16px', fontSize: 17 }}><span>結清狀態</span><span style={{ color: order.balance === 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>{order.balance === 0 ? `已結清（${order.totalDue} − ${order.paid} = 0）` : `差額 ${money(order.balance)}`}</span></div>
+          <div className="line line-total" style={{ padding: '12px 16px', fontSize: 17 }}><span>結清狀態</span><span style={{ color: order.balance === 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>{order.balance === 0 ? `已結清（應收 ${money(order.totalDue)}，已收 ${money(order.paid)}）` : `差額 ${money(order.balance)}`}</span></div>
         </section>
       </div>
 
@@ -205,7 +231,7 @@ export default function OrderPage() {
               <label className="lbl" htmlFor="vr" style={{ fontWeight: 700 }}>作廢原因（必填）</label>
               <input id="vr" className="inp" value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="例如：打錯戶" />
               <div className="small muted">確認後：單據標記作廢，寫入反向明細，所有收款以反向記在今天，請把現金退還信眾。</div>
-              <div className="row"><button type="button" className="btn btn-danger" onClick={doVoid} disabled={!voidReason.trim()}>確認作廢並退款 {money(order.paid)}</button><button type="button" className="btn btn-ghost" onClick={() => setVoiding(false)}>取消</button></div>
+              <div className="row"><button type="button" className="btn btn-danger" onClick={doVoid} disabled={busy || !voidReason.trim()}>{busy ? '處理中…' : `確認作廢並退款 ${money(order.paid)}`}</button><button type="button" className="btn btn-ghost" onClick={() => setVoiding(false)}>取消</button></div>
             </div>
           )}
           {correcting && detail && (
@@ -214,7 +240,7 @@ export default function OrderPage() {
               <div className="small muted">點格子改登記：藍勾是目前狀態表、綠勾補登記、紅框取消。要改到別戶的人，用下方搜尋把那一戶加進來一起改。</div>
               <div className="card" style={{ overflow: 'hidden' }}>
                 <div className="card-title">戶 {detail.householdNumber}（原單這一戶）</div>
-                <LanternMatrix members={detail.members} lightTypes={types} cells={cells} onToggle={toggle} showPrice showBagua />
+                <LanternMatrix members={detail.members} lightTypes={visibleTypes} cells={cells} onToggle={toggle} showPrice showBagua />
               </div>
               {extra.map((h) => (
                 <div key={h.id} className="card" style={{ overflow: 'hidden' }}>
@@ -222,7 +248,7 @@ export default function OrderPage() {
                     <span>戶 {h.householdNumber} {h.members.find((m) => m.head)?.name ?? ''}（跨戶）</span>
                     <button type="button" className="btn btn-sm btn-ghost" onClick={() => removeHousehold(h)}>移除</button>
                   </div>
-                  <LanternMatrix members={h.members} lightTypes={types} cells={cells} onToggle={toggle} showPrice showBagua />
+                  <LanternMatrix members={h.members} lightTypes={visibleTypes} cells={cells} onToggle={toggle} showPrice showBagua />
                 </div>
               ))}
               <div className="row" style={{ flexWrap: 'nowrap' }}>
@@ -241,16 +267,16 @@ export default function OrderPage() {
               )}
               <div className="row" style={{ gap: 24 }}>
                 <span>補登記 {diff.adds} 盞：{money(diff.addSum)}</span><span>取消 {diff.removes} 盞：折抵 {money(diff.removeSum)}</span>
-                <strong>差額：{diff.due < 0 ? `應退 ${money(-diff.due)}` : diff.due > 0 ? `應補收 ${money(diff.due)}` : 'NT$ 0'}</strong>
+                <strong>差額：{diff.due < 0 ? `應退 ${money(-diff.due)}` : diff.due > 0 ? `應補收 ${money(diff.due)}` : money(0)}</strong>
               </div>
               <div className="fld"><strong>結清方式</strong>
                 {settleOptions.map((o) => (
-                  <label key={o.id} className="row" style={{ minHeight: 40, gap: 10 }}><input type="radio" name="settle" checked={(diff.due === 0 ? 'PENDING' : settlement) === o.id} onChange={() => setSettlement(o.id)} style={{ width: 18, height: 18 }} />{o.label}</label>
+                  <label key={o.id} className="row" style={{ minHeight: 40, gap: 10 }}><input type="radio" name="settle" checked={effectiveSettlement === o.id} onChange={() => setSettlement(o.id)} style={{ width: 18, height: 18 }} />{o.label}</label>
                 ))}
               </div>
               <label className="lbl" htmlFor="cr" style={{ fontWeight: 700 }}>更正原因（必填）</label>
               <input id="cr" className="inp" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="例如：打成光明燈，信眾實際要太歲燈" />
-              <div className="row"><button type="button" className="btn" onClick={doCorrect} disabled={!reason.trim() || diff.adds + diff.removes === 0}>存檔更正單</button><button type="button" className="btn btn-ghost" onClick={() => setCorrecting(false)}>取消</button></div>
+              <div className="row"><button type="button" className="btn" onClick={doCorrect} disabled={busy || !reason.trim() || diff.adds + diff.removes === 0}>{busy ? '存檔中…' : '存檔更正單'}</button><button type="button" className="btn btn-ghost" onClick={cancelCorrection}>取消</button></div>
             </div>
           )}
         </section>

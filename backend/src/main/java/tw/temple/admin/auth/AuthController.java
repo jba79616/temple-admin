@@ -47,6 +47,9 @@ public class AuthController {
         } catch (AuthenticationException ex) {
             throw ApiException.unauthorized("帳號或密碼錯誤");
         }
+        if (request.getSession(false) != null) {
+            request.changeSessionId();
+        }
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);

@@ -1,28 +1,40 @@
 import { useEffect, useState, type KeyboardEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { closings, households } from '../api'
-import type { DaySummary, HouseholdSummary } from '../api/types'
+import type { DayStatus, HouseholdSummary } from '../api/types'
 import { money, rocDate } from '../lib/roc'
 
 export default function SearchPage() {
   const [q, setQ] = useState('')
-  const [results, setResults] = useState<HouseholdSummary[]>([])
-  const [today, setToday] = useState<DaySummary | null>(null)
+  const [results, setResults] = useState<{ q: string; rows: HouseholdSummary[] }>({ q: '', rows: [] })
+  const [today, setToday] = useState<DayStatus | null>(null)
   const [error, setError] = useState('')
   const navigate = useNavigate()
   const idle = q.trim() === ''
 
-  useEffect(() => { closings.summary().then(setToday).catch(() => setToday(null)) }, [])
+  useEffect(() => { closings.status().then(setToday).catch(() => setToday(null)) }, [])
 
   useEffect(() => {
+    let stale = false
     const handle = setTimeout(() => {
-      households.search(q).then((r) => { setResults(r); setError('') }).catch((e) => setError(e.message))
+      households.search(q)
+        .then((rows) => { if (!stale) { setResults({ q, rows }); setError('') } })
+        .catch((e) => { if (!stale) setError(e.message) })
     }, 150)
-    return () => clearTimeout(handle)
+    return () => { stale = true; clearTimeout(handle) }
   }, [q])
 
   function onKey(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter' && results.length > 0) navigate(`/households/${results[0].id}`)
+    if (e.key !== 'Enter' || idle) return
+    if (results.q === q) {
+      openFirst(results.rows)
+      return
+    }
+    households.search(q).then((rows) => { setResults({ q, rows }); openFirst(rows) }).catch((err) => setError(err.message))
+  }
+
+  function openFirst(rows: HouseholdSummary[]) {
+    if (rows.length > 0) navigate(`/households/${rows[0].id}`)
   }
 
   return (
@@ -45,7 +57,7 @@ export default function SearchPage() {
             <h2>今天{today ? ` ${rocDate(today.date)}` : ''}</h2>
             {today ? (
               <div>
-                <div className="line" style={{ borderTop: 0 }}><span>收款</span><span>{today.payments.length} 筆</span></div>
+                <div className="line" style={{ borderTop: 0 }}><span>{today.closed ? '今日收款' : '未日結收款'}</span><span>{today.payments} 筆</span></div>
                 <div className="line"><span>現金合計</span><span className="num" style={{ fontWeight: 700 }}>{money(today.systemCash)}</span></div>
                 <div className="line"><span>日結</span>{today.closed ? <span className="tag tag-ok">已日結</span> : <span className="tag tag-info">尚未日結</span>}</div>
               </div>
@@ -61,14 +73,14 @@ export default function SearchPage() {
       )}
 
       <section className="card" style={{ overflow: 'hidden' }}>
-        <div className="card-title">{idle ? '全部的戶' : `符合「${q.trim()}」的戶`}<span className="hint">點戶長姓名進戶頁</span></div>
+        <div className="card-title">{idle ? '戶號最前的 50 戶' : `符合「${q.trim()}」的戶`}<span className="hint">{idle ? '其他戶請輸入姓名、電話或戶號搜尋' : '點戶長姓名進戶頁'}</span></div>
         <div className="scroll-x">
           <table className="table" style={{ minWidth: 700 }}>
             <thead>
               <tr><th>戶號</th><th>戶長</th><th>縣市鄉鎮市區</th><th>成員</th><th>今年已安</th><th>電話</th></tr>
             </thead>
             <tbody>
-              {results.map((h) => (
+              {results.rows.map((h) => (
                 <tr key={h.id}>
                   <td className="num muted">{h.householdNumber}</td>
                   <td><Link to={`/households/${h.id}`} style={{ fontWeight: 700, fontSize: 16 }}>{h.headName ?? '（無戶長）'}</Link></td>
@@ -78,7 +90,7 @@ export default function SearchPage() {
                   <td className="muted">{h.phone ?? '—'}</td>
                 </tr>
               ))}
-              {results.length === 0 && <tr><td colSpan={6} className="muted" style={{ textAlign: 'center', padding: 32 }}>找不到符合的戶</td></tr>}
+              {results.rows.length === 0 && <tr><td colSpan={6} className="muted" style={{ textAlign: 'center', padding: 32 }}>找不到符合的戶</td></tr>}
             </tbody>
           </table>
         </div>

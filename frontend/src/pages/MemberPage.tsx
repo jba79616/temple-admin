@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { households, members as membersApi } from '../api'
-import type { HouseholdDetail, MemberInput, MemberView } from '../api/types'
+import type { HouseholdDetail, HouseholdSummary, MemberInput, MemberView } from '../api/types'
 import Crumbs from '../components/Crumbs'
 import MemberFields from '../components/MemberFields'
 import { useConfig } from '../lib/config'
 import { isValidGanzhi, rocYear } from '../lib/roc'
+import { useUnsavedGuard } from '../lib/useUnsavedGuard'
 
 const ZODIAC: Record<string, string> = { 子: '鼠', 丑: '牛', 寅: '虎', 卯: '兔', 辰: '龍', 巳: '蛇', 午: '馬', 未: '羊', 申: '猴', 酉: '雞', 戌: '狗', 亥: '豬' }
 
@@ -26,9 +27,17 @@ export default function MemberPage() {
   const [error, setError] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [removing, setRemoving] = useState(false)
   const [savedAt, setSavedAt] = useState('')
   const [deleteReason, setDeleteReason] = useState('')
   const [newHeadId, setNewHeadId] = useState<number | ''>('')
+  const [moving, setMoving] = useState(false)
+  const [moveQuery, setMoveQuery] = useState('')
+  const [moveHits, setMoveHits] = useState<HouseholdSummary[]>([])
+  const [movingBusy, setMovingBusy] = useState(false)
+
+  const dirty = form !== null && member !== null && JSON.stringify(form) !== JSON.stringify(toInput(member))
+  useUnsavedGuard(dirty && !saving && !removing && !movingBusy)
 
   useEffect(() => {
     membersApi.get(memberId).then(async (m) => {
@@ -44,7 +53,7 @@ export default function MemberPage() {
   const zodiac = branch ? ZODIAC[branch] : '—'
   const preview = `${form.birthGanzhi || '吉'}年 ${form.birthMonthIsLeap ? '閏' : ''}${form.birthMonth ?? '吉'}月 ${form.birthDay ?? '吉'}日 ${form.birthHourBranch ?? '吉'}時 生`
   const others = household.members.filter((m) => m.id !== member.id)
-  const dirty = JSON.stringify(form) !== JSON.stringify(toInput(member))
+  const headWithOthers = member.head && others.length > 0
 
   async function save() {
     if (!form) return
@@ -64,13 +73,41 @@ export default function MemberPage() {
   }
 
   async function remove() {
-    if (!member) return
+    if (!member || removing) return
+    setRemoving(true)
     setError('')
     try {
       await membersApi.remove(memberId, deleteReason.trim(), member.head && others.length > 0 ? Number(newHeadId) : null)
       navigate(`/households/${member.householdId}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : '刪除失敗')
+    } finally {
+      setRemoving(false)
+    }
+  }
+
+  async function searchTargets() {
+    if (!member || !moveQuery.trim()) return
+    setError('')
+    try {
+      const found = await households.search(moveQuery.trim())
+      setMoveHits(found.filter((h) => h.id !== member.householdId))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '搜尋失敗')
+    }
+  }
+
+  async function moveTo(target: HouseholdSummary) {
+    if (!member || movingBusy) return
+    if (!window.confirm(`把 ${member.name} 移到戶 ${target.householdNumber} ${target.headName ?? ''}？今年已安的燈會跟著過去，歷年紀錄保留。`)) return
+    setMovingBusy(true)
+    setError('')
+    try {
+      await membersApi.move(memberId, target.id)
+      navigate(`/households/${target.id}`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '移戶失敗')
+      setMovingBusy(false)
     }
   }
 
@@ -86,10 +123,38 @@ export default function MemberPage() {
             {dirty
               ? <span className="small" style={{ color: 'var(--warn-text)', fontWeight: 500 }}>有未儲存的修改</span>
               : savedAt && <span className="small" style={{ color: 'var(--success-text)', fontWeight: 700 }}>✓ 已儲存 {savedAt}</span>}
-            <button type="button" className="btn btn-danger" style={{ marginLeft: 'auto' }} onClick={() => setDeleting(true)}>刪除此成員</button>
+            <button type="button" className="btn btn-ghost" style={{ marginLeft: 'auto' }} onClick={() => { setMoving(true); setDeleting(false) }}>移到別戶</button>
+            <button type="button" className="btn btn-danger" onClick={() => { setDeleting(true); setMoving(false) }}>刪除此成員</button>
           </div>
           {message && !dirty && <div className="banner banner-ok">{message} 修改前後已寫入稽核日誌。</div>}
           {error && <div className="banner banner-bad">{error}</div>}
+          {moving && (
+            <div className="panel">
+              <strong>移到別戶</strong>
+              {headWithOthers ? (
+                <div className="small" style={{ color: 'var(--warn-text)' }}>這位是戶長，請先回戶頁把其他成員設為戶長，再移戶。</div>
+              ) : (
+                <>
+                  <div className="row" style={{ flexWrap: 'nowrap' }}>
+                    <input className="inp" value={moveQuery} onChange={(e) => setMoveQuery(e.target.value)} placeholder="目標戶：戶長姓名、電話或戶號"
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); searchTargets() } }} />
+                    <button type="button" className="btn btn-ghost" disabled={!moveQuery.trim()} onClick={searchTargets}>搜尋</button>
+                  </div>
+                  {moveHits.length > 0 && (
+                    <div className="row">
+                      {moveHits.map((h) => (
+                        <button key={h.id} type="button" className="btn btn-sm btn-ghost" disabled={movingBusy} onClick={() => moveTo(h)}>
+                          戶 {h.householdNumber} {h.headName ?? ''} · {h.cityDistrict || '—'} · {h.memberCount} 人
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="small muted">移過去後排在目標戶最後；不會變成目標戶的戶長。</div>
+                </>
+              )}
+              <div className="row"><button type="button" className="btn btn-ghost" onClick={() => { setMoving(false); setMoveHits([]); setMoveQuery('') }}>返回</button></div>
+            </div>
+          )}
           {deleting && (
             <div className="panel panel-danger">
               <label className="lbl" htmlFor="dr" style={{ fontWeight: 700 }}>刪除原因（必填）</label>
@@ -104,7 +169,7 @@ export default function MemberPage() {
               )}
               <div className="small muted">歷年安燈紀錄全部保留，今年已安的燈留到年底，名冊照印。</div>
               <div className="row">
-                <button type="button" className="btn btn-danger" onClick={remove} disabled={!deleteReason.trim() || (member.head && others.length > 0 && !newHeadId)}>確認刪除</button>
+                <button type="button" className="btn btn-danger" onClick={remove} disabled={removing || !deleteReason.trim() || (member.head && others.length > 0 && !newHeadId)}>{removing ? '刪除中…' : '確認刪除'}</button>
                 <button type="button" className="btn btn-ghost" onClick={() => setDeleting(false)}>返回</button>
               </div>
             </div>

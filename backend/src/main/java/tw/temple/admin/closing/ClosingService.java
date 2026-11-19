@@ -2,10 +2,13 @@ package tw.temple.admin.closing;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tw.temple.admin.closing.ClosingDtos.ClosingView;
+import tw.temple.admin.closing.ClosingDtos.DayStatus;
 import tw.temple.admin.closing.ClosingDtos.DaySummary;
 import tw.temple.admin.closing.ClosingDtos.PaymentRow;
 import tw.temple.admin.common.ApiException;
@@ -36,11 +39,24 @@ public class ClosingService {
     @Transactional(readOnly = true)
     public DaySummary summary(LocalDate dateOrNull) {
         LocalDate date = dateOrNull == null ? clock.today() : dateOrNull;
-        List<PaymentRow> rows = payments.findByPostedOnOrderByIdAsc(date).stream().map(this::toRow).toList();
-        int systemCash = payments.sumByKindAndPostedOn(PaymentKind.CASH, date);
+        LocalDate after = closings.findTopByClosingDateLessThanOrderByClosingDateDesc(date).map(DailyClosing::getClosingDate).orElse(null);
+        List<Payment> posted = payments.findPostedBetweenExcludingImport(after, date);
+        Map<Long, String> headNames = headNames(posted);
+        List<PaymentRow> rows = posted.stream().map(p -> toRow(p, headNames)).toList();
+        int systemCash = payments.sumByKindPostedBetween(PaymentKind.CASH, after, date);
         Optional<LocalDate> through = closedThrough();
-        boolean closed = through.map(t -> !date.isAfter(t)).orElse(false);
-        return new DaySummary(date, systemCash, closed, through.orElse(null), rows);
+        return new DaySummary(date, after == null ? null : after.plusDays(1), systemCash, isClosed(date), through.orElse(null), rows);
+    }
+
+    @Transactional(readOnly = true)
+    public DayStatus status() {
+        LocalDate today = clock.today();
+        Optional<LocalDate> through = closedThrough();
+        LocalDate after = closings.findTopByClosingDateLessThanOrderByClosingDateDesc(today).map(DailyClosing::getClosingDate).orElse(null);
+        int count = (int) payments.countPostedBetweenExcludingImport(after, today);
+        int systemCash = payments.sumByKindPostedBetween(PaymentKind.CASH, after, today);
+        boolean closed = through.map(t -> !today.isAfter(t)).orElse(false);
+        return new DayStatus(today, closed, through.orElse(null), count, systemCash);
     }
 
     public DailyClosing close(LocalDate dateOrNull, int countedCash, String note, User actor) {
@@ -53,7 +69,7 @@ public class ClosingService {
         if (through.isPresent() && !date.isAfter(through.get())) {
             throw ApiException.conflict("該日已日結");
         }
-        int systemCash = payments.sumByKindAndPostedOn(PaymentKind.CASH, date);
+        int systemCash = payments.sumByKindPostedBetween(PaymentKind.CASH, through.orElse(null), date);
         DailyClosing saved = closings.saveAndFlush(new DailyClosing(date, systemCash, countedCash, actor,
             note == null || note.isBlank() ? null : note.trim()));
         return closings.findById(saved.getClosingDate()).orElse(saved);
@@ -69,11 +85,24 @@ public class ClosingService {
         return closings.findTopByOrderByClosingDateDesc().map(DailyClosing::getClosingDate);
     }
 
-    private PaymentRow toRow(Payment p) {
-        Long householdId = p.getOrder().getHousehold().getId();
-        String headName = members.findFirstByHouseholdIdAndHeadTrueAndDeletedAtIsNull(householdId).map(Member::getName).orElse(null);
+    @Transactional(readOnly = true)
+    public boolean isClosed(LocalDate date) {
+        return closedThrough().map(through -> !date.isAfter(through)).orElse(false);
+    }
+
+    private Map<Long, String> headNames(List<Payment> posted) {
+        List<Long> householdIds = posted.stream().map(p -> p.getOrder().getHousehold().getId()).distinct().toList();
+        if (householdIds.isEmpty()) {
+            return Map.of();
+        }
+        return members.findByHouseholdIdInAndDeletedAtIsNullOrderBySortOrderAscIdAsc(householdIds).stream()
+            .filter(Member::isHead)
+            .collect(Collectors.toMap(m -> m.getHousehold().getId(), Member::getName, (first, second) -> first));
+    }
+
+    private PaymentRow toRow(Payment p, Map<Long, String> headNames) {
         return new PaymentRow(p.getId(), p.getCreatedAt(), p.getOrder().getId(), p.getOrder().getKind(),
-            p.getOrder().getHousehold().getHouseholdNumber(), headName, p.getKind(), p.getAmount(), p.getReceivedOn(),
-            p.getReceivedBy() == null ? null : p.getReceivedBy().getDisplayName(), p.getNote());
+            p.getOrder().getHousehold().getHouseholdNumber(), headNames.get(p.getOrder().getHousehold().getId()), p.getKind(),
+            p.getAmount(), p.getReceivedOn(), p.getReceivedBy() == null ? null : p.getReceivedBy().getDisplayName(), p.getNote());
     }
 }

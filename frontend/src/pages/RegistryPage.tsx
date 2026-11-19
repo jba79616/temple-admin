@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router'
 import { registry } from '../api'
 import type { HouseholdRow, MemberRow, PageView } from '../api/types'
 import { useConfig } from '../lib/config'
+import { genderLabel } from '../lib/labels'
 import { rocYear } from '../lib/roc'
 
 function Pager({ p, onPage }: { p: PageView<unknown>; onPage: (n: number) => void }) {
@@ -20,7 +21,7 @@ function Zodiac({ zodiac, taisui }: { zodiac: string | null; taisui: string | nu
   return <span className={`zodiac ${taisui ? 'zodiac-ts' : ''}`} title={taisui ?? undefined}>{zodiac}</span>
 }
 
-const gender = (g: string | null) => (g === 'M' ? '男' : g === 'F' ? '女' : '—')
+const gender = (g: string | null) => genderLabel(g)
 
 function MemberCells({ m, householdCell }: { m: MemberRow; householdCell?: ReactNode }) {
   return (

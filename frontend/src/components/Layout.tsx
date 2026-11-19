@@ -19,7 +19,7 @@ function Icon({ d }: { d: string }) {
 
 export default function Layout() {
   const { me, logout } = useAuth()
-  const { templeName, yearLabel } = useConfig()
+  const { templeName, yearLabel, loadError, reload } = useConfig()
   const { pathname } = useLocation()
   const isAdmin = me?.role === 'ADMIN'
   const menuRef = useRef<HTMLDetailsElement>(null)
@@ -59,6 +59,12 @@ export default function Layout() {
           <button type="button" className="btn btn-sm" onClick={() => logout()}>登出</button>
         </div>
       </header>
+      {loadError && (
+        <div className="banner banner-bad" style={{ margin: '12px 16px 0' }}>
+          讀不到系統設定（年度、寺廟名稱），畫面可能顯示錯的年度：{loadError}
+          <button type="button" className="btn btn-sm" style={{ marginLeft: 12 }} onClick={() => reload().catch(() => {})}>重試</button>
+        </div>
+      )}
       <Outlet />
       <nav className="tabbar" aria-label="主要功能">
         <NavLink to="/" end className={counterActive ? 'active' : ''}><Icon d={ICONS.counter} />櫃台</NavLink>

@@ -12,6 +12,7 @@ export default function ClosingPage() {
   const [counted, setCounted] = useState('')
   const [note, setNote] = useState('')
   const [confirming, setConfirming] = useState(false)
+  const [closing, setClosing] = useState(false)
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
@@ -24,7 +25,8 @@ export default function ClosingPage() {
   useEffect(() => { load().catch((e) => setError(e.message)) }, [load])
 
   async function close() {
-    if (!summary) return
+    if (!summary || closing) return
+    setClosing(true)
     setError('')
     try {
       await closingsApi.close(Number(counted), note)
@@ -34,10 +36,17 @@ export default function ClosingPage() {
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : '日結失敗')
+    } finally {
+      setClosing(false)
     }
   }
 
   if (!summary) return <main className="page muted">{error || '載入中…'}</main>
+  const neverClosed = summary.from === null
+  const multiDay = !neverClosed && summary.from !== summary.date
+  const period = neverClosed ? '尚未日結過，列出到今天為止所有入帳的收款'
+    : multiDay ? `${rocDate(summary.from)} 至 ${rocDate(summary.date)} 入帳的收款（含中間漏結的日子）` : `今日收款（入帳日 ${rocDate(summary.date)}）`
+  const confirmNote = neverClosed ? '第一次日結，會把到今天為止所有現金一起結掉。' : multiDay ? '這次日結會把上次日結之後的現金一起結掉。' : ''
   const countedNum = counted === '' ? null : Number(counted)
   const diff = countedNum === null ? null : countedNum - summary.systemCash
 
@@ -53,7 +62,7 @@ export default function ClosingPage() {
 
       <div className="split">
         <section className="card main" style={{ overflow: 'hidden' }}>
-          <div className="card-title">今日收款（入帳日 {rocDate(summary.date)}）</div>
+          <div className="card-title">{period}</div>
           <div className="scroll-x">
             <table className="table" style={{ minWidth: 640 }}>
               <thead><tr><th>時間</th><th>戶</th><th>單號</th><th>種類</th><th className="right">金額</th><th>收款人 / 備註</th></tr></thead>
@@ -62,11 +71,11 @@ export default function ClosingPage() {
                   <tr key={p.id} style={{ color: p.kind !== 'CASH' ? 'var(--muted)' : p.amount < 0 ? 'var(--danger-text)' : undefined }}>
                     <td>{rocDateTime(p.createdAt).slice(-5)}</td><td>{p.householdNumber} {p.headName ?? ''}</td>
                     <td><Link to={`/orders/${p.orderId}`}>#{p.orderId}</Link></td><td><span className="tag">{PAYMENT_KIND[p.kind]}</span></td>
-                    <td className="num right" style={{ fontWeight: 500 }}>{p.amount > 0 ? '+' : ''}{p.amount.toLocaleString()}</td>
+                    <td className="num right" style={{ fontWeight: 500 }}>{p.amount > 0 ? '+' : ''}{money(p.amount)}</td>
                     <td className="small muted">{p.receivedBy} {p.note}</td>
                   </tr>
                 ))}
-                {summary.payments.length === 0 && <tr><td colSpan={6} className="muted" style={{ textAlign: 'center', padding: 24 }}>今天還沒有收款</td></tr>}
+                {summary.payments.length === 0 && <tr><td colSpan={6} className="muted" style={{ textAlign: 'center', padding: 24 }}>尚無收款</td></tr>}
               </tbody>
             </table>
           </div>
@@ -79,15 +88,15 @@ export default function ClosingPage() {
           <label className="lbl" htmlFor="cc">實點現金</label>
           <input id="cc" className="inp inp-lg right" type="number" inputMode="numeric" value={counted} disabled={summary.closed} placeholder="數完抽屜後輸入" onChange={(e) => setCounted(e.target.value)} />
           <div className="line" style={{ borderTop: 0 }}><span>系統合計</span><span className="num">{money(summary.systemCash)}</span></div>
-          <div className="line" style={{ fontSize: 18, fontWeight: 700, color: diff === null || diff === 0 ? 'var(--success-text)' : 'var(--danger-text)' }}><span>長短款</span><span className="num">{diff === null ? '—' : diff === 0 ? 'NT$ 0' : diff > 0 ? `長款 +${diff}` : `短款 ${diff}`}</span></div>
+          <div className="line" style={{ fontSize: 18, fontWeight: 700, color: diff === null || diff === 0 ? 'var(--success-text)' : 'var(--danger-text)' }}><span>長短款</span><span className="num">{diff === null ? '—' : diff === 0 ? money(0) : diff > 0 ? `長款 +${money(diff)}` : `短款 ${money(diff)}`}</span></div>
           <div className="small muted">{diff === null ? '輸入實點金額後即時計算' : diff === 0 ? '帳平' : '差額會記入日結，不改任何單據；事後查明用更正單對銷'}</div>
           <label className="lbl" htmlFor="nt">備註</label>
           <input id="nt" className="inp" value={note} disabled={summary.closed} onChange={(e) => setNote(e.target.value)} />
           {confirming ? (
             <div className="panel">
               <strong>確認日結 {rocDate(summary.date)}？</strong>
-              <span className="small muted">日結後今天的單不能再作廢，補登也只能入帳在明天以後。</span>
-              <div className="row"><button type="button" className="btn" onClick={close}>確認日結</button><button type="button" className="btn btn-ghost" onClick={() => setConfirming(false)}>返回</button></div>
+              <span className="small muted">{confirmNote}日結後今天的單不能再作廢，補登也只能入帳在明天以後。</span>
+              <div className="row"><button type="button" className="btn" onClick={close} disabled={closing}>{closing ? '處理中…' : '確認日結'}</button><button type="button" className="btn btn-ghost" onClick={() => setConfirming(false)}>返回</button></div>
             </div>
           ) : (
             <button type="button" className="btn btn-lg" disabled={countedNum === null || summary.closed} onClick={() => setConfirming(true)}>完成日結</button>
@@ -119,8 +128,8 @@ export default function ClosingPage() {
             <thead><tr><th>日期</th><th className="right">系統合計</th><th className="right">實點</th><th className="right">長短款</th><th>日結人 / 備註</th></tr></thead>
             <tbody>
               {history.map((h) => (
-                <tr key={h.closingDate}><td>{rocDate(h.closingDate)}</td><td className="num right">{h.systemCash.toLocaleString()}</td><td className="num right">{h.countedCash.toLocaleString()}</td>
-                  <td className="num right" style={{ fontWeight: 500, color: h.difference === 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>{h.difference > 0 ? `+${h.difference}` : h.difference}</td>
+                <tr key={h.closingDate}><td>{rocDate(h.closingDate)}</td><td className="num right">{money(h.systemCash)}</td><td className="num right">{money(h.countedCash)}</td>
+                  <td className="num right" style={{ fontWeight: 500, color: h.difference === 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>{h.difference > 0 ? `+${money(h.difference)}` : money(h.difference)}</td>
                   <td className="small muted">{h.closedBy} {h.note}</td></tr>
               ))}
               {history.length === 0 && <tr><td colSpan={5} className="muted" style={{ textAlign: 'center', padding: 24 }}>尚未日結過</td></tr>}

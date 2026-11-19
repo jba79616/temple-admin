@@ -30,6 +30,7 @@ import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import tw.temple.admin.calendar.Ganzhi;
 import tw.temple.admin.common.ApiException;
 import tw.temple.admin.config.TempleClock;
+import tw.temple.admin.systemconfig.ConfigService;
 import tw.temple.admin.household.Household;
 import tw.temple.admin.household.HouseholdFields;
 import tw.temple.admin.household.HouseholdRepository;
@@ -144,6 +145,9 @@ public class LegacyImportService {
     private static final String UNKNOWN = "吉";
     private static final String IMPORT_NOTE = "舊系統匯入";
     private static final String DELETED_REASON = "舊系統已刪除";
+    private static final int NAME_MAX = 50;
+    private static final int ADDRESS_MAX = 200;
+    private static final int PHONE_MAX = 20;
     private static final Comparator<Person> BY_ORDER_THEN_ID =
         Comparator.comparing(Person::order, Comparator.nullsLast(Comparator.naturalOrder())).thenComparingInt(Person::id);
 
@@ -154,12 +158,13 @@ public class LegacyImportService {
     private final LightOrderItemRepository items;
     private final PaymentRepository payments;
     private final AnnualLightRecordRepository records;
+    private final ConfigService config;
     private final TempleClock clock;
     private final EntityManager em;
 
     public LegacyImportService(HouseholdRepository households, MemberRepository members, LightTypeRepository lightTypes,
                                LightOrderRepository orders, LightOrderItemRepository items, PaymentRepository payments,
-                               AnnualLightRecordRepository records, TempleClock clock, EntityManager em) {
+                               AnnualLightRecordRepository records, ConfigService config, TempleClock clock, EntityManager em) {
         this.households = households;
         this.members = members;
         this.lightTypes = lightTypes;
@@ -167,6 +172,7 @@ public class LegacyImportService {
         this.items = items;
         this.payments = payments;
         this.records = records;
+        this.config = config;
         this.clock = clock;
         this.em = em;
     }
@@ -193,7 +199,7 @@ public class LegacyImportService {
         List<HouseholdPlan> plans = plan(persons, issues, tally);
         tally.households = plans.size();
 
-        Map<Integer, Household> householdsByNumber = writeHouseholds(plans, tally);
+        Map<Integer, Household> householdsByNumber = writeHouseholds(plans, issues, tally);
         Map<Integer, Member> membersByLegacyId = writeMembers(plans, householdsByNumber, issues, tally);
         writeRecords(plans, years, householdsByNumber, membersByLegacyId, types, prices, actor, tally);
         em.flush();
@@ -406,6 +412,9 @@ public class LegacyImportService {
             issues.add(new Issue(IssueKind.DISTRICT, number, p.name(), "有縣市沒有鄉鎮市區：" + a.raw()));
         } else {
             tally.addressesSplit++;
+            if (a.districtGuessed()) {
+                issues.add(new Issue(IssueKind.DISTRICT, number, p.name(), "鄉鎮市區依尾字推成「" + a.district() + "」，請核對：" + a.raw()));
+            }
         }
     }
 
@@ -415,7 +424,7 @@ public class LegacyImportService {
         return own != null && !own.equals(anchors);
     }
 
-    private Map<Integer, Household> writeHouseholds(List<HouseholdPlan> plans, Tally tally) {
+    private Map<Integer, Household> writeHouseholds(List<HouseholdPlan> plans, List<Issue> issues, Tally tally) {
         Map<Integer, Household> byNumber = households.findAll().stream()
             .collect(Collectors.toMap(Household::getHouseholdNumber, Function.identity()));
         List<Integer> conflicts = plans.stream().map(HouseholdPlan::number)
@@ -427,7 +436,7 @@ public class LegacyImportService {
                 + " 已被現有資料使用，不能匯入；請在空的資料庫匯入");
         }
         for (HouseholdPlan plan : plans) {
-            HouseholdFields fields = householdFields(plan);
+            HouseholdFields fields = householdFields(plan, issues);
             Household existing = byNumber.get(plan.number());
             if (existing != null) {
                 existing.update(new HouseholdFields(fields.city(), fields.district(), fields.address(), fields.phone(),
@@ -441,9 +450,11 @@ public class LegacyImportService {
         return households.findByLegacyIdIsNotNull().stream().collect(Collectors.toMap(Household::getLegacyId, Function.identity()));
     }
 
-    private HouseholdFields householdFields(HouseholdPlan plan) {
-        Split a = plan.anchor().address();
-        String address = a.hasCity() ? a.street() : a.raw();
+    private HouseholdFields householdFields(HouseholdPlan plan, List<Issue> issues) {
+        Person anchor = plan.anchor();
+        Split a = anchor.address();
+        String address = clip(a.hasCity() ? a.street() : a.raw(), ADDRESS_MAX, "地址", plan.number(), anchor.name(), issues);
+        String phone = clip(anchor.phone(), PHONE_MAX, "電話", plan.number(), anchor.name(), issues);
         Map<String, List<String>> remarks = new LinkedHashMap<>();
         for (Person p : plan.people()) {
             if (p.remark() != null) {
@@ -453,7 +464,7 @@ public class LegacyImportService {
         String notes = remarks.isEmpty() ? null : remarks.entrySet().stream()
             .map(e -> String.join("、", e.getValue()) + "：" + e.getKey())
             .collect(Collectors.joining("\n"));
-        return new HouseholdFields(a.city(), a.district(), address, plan.anchor().phone(), null, notes);
+        return new HouseholdFields(a.city(), a.district(), address, phone, null, notes);
     }
 
     private void insertHousehold(int number, HouseholdFields f) {
@@ -481,6 +492,7 @@ public class LegacyImportService {
             Member currentHead = currentHeads.get(h.getId());
             Person currentHeadInDump = currentHead == null ? null : personOf(currentHead, plan);
             if (currentHeadInDump != null && currentHeadInDump.deleted()) {
+                issues.add(new Issue(IssueKind.HEAD, plan.number(), currentHead.getName(), "新系統的戶長在舊資料已刪除，改依舊資料重新指定戶長"));
                 currentHead.softDelete(DELETED_REASON, currentHeadInDump.deletedAt());
                 members.saveAndFlush(currentHead);
                 currentHead = null;
@@ -488,7 +500,7 @@ public class LegacyImportService {
             Person newHead = currentHead == null ? headToSet(plan, existing, issues) : null;
             int sortOrder = 0;
             for (Person p : plan.people()) {
-                MemberFields fields = memberFields(p, plan.anchor(), ++sortOrder);
+                MemberFields fields = memberFields(p, plan.anchor(), ++sortOrder, issues);
                 Member m = existing.get(p.id());
                 if (m == null) {
                     m = new Member(h, fields, p == newHead);
@@ -496,7 +508,7 @@ public class LegacyImportService {
                     tally.membersCreated++;
                 } else {
                     if (!m.getHousehold().getId().equals(h.getId())) {
-                        m.moveTo(h);
+                        moveAcrossHouseholds(m, h, plan.number(), issues);
                     }
                     m.update(fields);
                     if (p == newHead) {
@@ -540,19 +552,42 @@ public class LegacyImportService {
         return head;
     }
 
-    private MemberFields memberFields(Person p, Person anchor, int sortOrder) {
+    private void moveAcrossHouseholds(Member m, Household target, int targetNumber, List<Issue> issues) {
+        Integer fromNumber = m.getHousehold().getHouseholdNumber();
+        String detail = "舊資料的戶號從 " + fromNumber + " 改成 " + targetNumber + "，成員與今年已安的燈一併移過去，歷年紀錄保留"
+            + (m.isHead() ? "；原本在 " + fromNumber + " 戶是戶長，移走後該戶沒有戶長" : "");
+        issues.add(new Issue(IssueKind.HEAD, targetNumber, m.getName(), detail));
+        m.moveTo(target);
+        for (AnnualLightRecord record : records.findByMemberIdAndYearAndActiveTrue(m.getId(), config.currentYear())) {
+            record.moveTo(target);
+            records.save(record);
+        }
+    }
+
+    private MemberFields memberFields(Person p, Person anchor, int sortOrder, List<Issue> issues) {
         String city = null;
         String district = null;
         String address = null;
+        Integer number = p.householdNumber();
         if (p != anchor && hasOwnAddress(p, anchor)) {
             Split a = p.address();
             city = a.city();
             district = a.district();
-            address = a.hasCity() ? a.street() : a.raw();
+            address = clip(a.hasCity() ? a.street() : a.raw(), ADDRESS_MAX, "地址", number, p.name(), issues);
         }
         Birth b = p.birth();
-        return new MemberFields(p.name(), p.gender(), city, district, address, p.phone(), b.ganzhi(), b.month(), b.leap(), b.day(), b.hour(),
+        String name = clip(p.name(), NAME_MAX, "姓名", number, p.name(), issues);
+        String phone = clip(p.phone(), PHONE_MAX, "電話", number, p.name(), issues);
+        return new MemberFields(name, p.gender(), city, district, address, phone, b.ganzhi(), b.month(), b.leap(), b.day(), b.hour(),
             sortOrder);
+    }
+
+    private String clip(String value, int max, String field, Integer number, String name, List<Issue> issues) {
+        if (value == null || value.length() <= max) {
+            return value;
+        }
+        issues.add(new Issue(IssueKind.PERSON, number, name, field + "超過 " + max + " 字，只存前 " + max + " 字：" + value));
+        return value.substring(0, max);
     }
 
     private void writeRecords(List<HouseholdPlan> plans, List<Integer> years, Map<Integer, Household> householdsByNumber,

@@ -1,5 +1,6 @@
 package tw.temple.admin.admin;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -52,11 +53,13 @@ public class RebuildService {
         Map<String, Expected> expected = new HashMap<>();
         for (LightOrderItem item : allItems) {
             LightOrder order = item.getOrder();
-            if (!"作廢沖正".equals(item.getOverrideReason())) {
+            if (!item.isReversal()) {
                 dueByOrder.merge(order.getId(), item.getAction() == ItemAction.ADD ? item.getUnitPrice() : -item.getUnitPrice(), Integer::sum);
             }
             String key = item.getMember().getId() + ":" + item.getLightType().getId() + ":" + order.getYear();
-            expected.put(key, new Expected(item.getAction() == ItemAction.ADD, item.getUnitPrice(), item));
+            Expected previous = expected.get(key);
+            int recordPrice = item.getAction() == ItemAction.REMOVE && previous != null ? previous.unitPrice() : item.getUnitPrice();
+            expected.put(key, new Expected(item.getAction() == ItemAction.ADD, recordPrice, item));
         }
 
         List<String> dueMismatches = new ArrayList<>();
@@ -111,12 +114,14 @@ public class RebuildService {
         }
 
         List<String> closingMismatches = new ArrayList<>();
-        List<DailyClosing> allClosings = closings.findAll();
+        List<DailyClosing> allClosings = closings.findAllByOrderByClosingDateAsc();
+        LocalDate after = null;
         for (DailyClosing closing : allClosings) {
-            int computed = payments.sumByKindAndPostedOn(PaymentKind.CASH, closing.getClosingDate());
+            int computed = payments.sumByKindPostedBetween(PaymentKind.CASH, after, closing.getClosingDate());
             if (computed != closing.getSystemCash()) {
                 closingMismatches.add("日結 " + closing.getClosingDate() + " 系統合計 " + closing.getSystemCash() + "，收款重算 " + computed);
             }
+            after = closing.getClosingDate();
         }
         return new Report(allOrders.size(), dueMismatches, allRecords.size(), recordMismatches, allClosings.size(), closingMismatches, fix);
     }

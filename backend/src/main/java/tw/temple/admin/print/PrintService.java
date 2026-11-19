@@ -116,8 +116,11 @@ public class PrintService {
 
     public Cards cardsByOrder(Long orderId) {
         LightOrder order = orders.findById(orderId).orElseThrow(() -> ApiException.notFound("找不到單據"));
+        if (!order.isActive()) {
+            throw ApiException.badRequest("已作廢的單不能印安燈卡");
+        }
         List<Card> cards = items.findByOrderIdOrderByIdAsc(orderId).stream()
-            .filter(i -> i.getAction() == ItemAction.ADD && i.getOverrideReason() == null || i.getAction() == ItemAction.ADD)
+            .filter(i -> i.getAction() == ItemAction.ADD && !i.isReversal())
             .map(i -> toCard(i.getLightType(), i.getMember()))
             .toList();
         return new Cards(config.get(ConfigService.TEMPLE_NAME), order.getYear(), Ganzhi.roc(order.getYear()), null, cards);

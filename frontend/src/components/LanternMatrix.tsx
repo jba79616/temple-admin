@@ -1,11 +1,18 @@
 import type { ReactNode } from 'react'
 import type { LightType, MemberView } from '../api/types'
 import { money } from '../lib/roc'
+import { genderLabel } from '../lib/labels'
 
 export type CellStatus = 'none' | 'existing' | 'add' | 'remove'
 export type Cells = Record<string, CellStatus>
 
 export const cellKey = (memberId: number, lightTypeId: number) => `${memberId}:${lightTypeId}`
+
+export const statusOf = (cells: Cells, memberId: number, lightTypeId: number): CellStatus => cells[cellKey(memberId, lightTypeId)] ?? 'none'
+
+export function visibleLightTypes(lightTypes: LightType[], members: MemberView[], cells: Cells): LightType[] {
+  return lightTypes.filter((t) => t.active || members.some((m) => statusOf(cells, m.id, t.id) !== 'none'))
+}
 
 export function nextStatus(current: CellStatus): CellStatus {
   switch (current) {
@@ -31,9 +38,10 @@ interface Props {
 const STATUS_TITLE: Record<CellStatus, string> = { none: '未安', existing: '已安', add: '本次新增', remove: '本次取消' }
 
 export default function LanternMatrix({ members, lightTypes, cells, onToggle, showPrice, showBagua, showGeneral = true, renderActions, footer }: Props) {
+  const status = (m: MemberView, t: LightType): CellStatus => statusOf(cells, m.id, t.id)
   const general = lightTypes.filter((t) => t.category === 'GENERAL')
   const bagua = lightTypes.filter((t) => t.category === 'BAGUA')
-  const status = (m: MemberView, t: LightType): CellStatus => cells[cellKey(m.id, t.id)] ?? 'none'
+  const title = (t: LightType, st: CellStatus) => (t.active ? STATUS_TITLE[st] : `${STATUS_TITLE[st]}（燈種已停用，不能新安）`)
   const priceOf = (t: LightType) => (showPrice ? money(t.price) : '')
 
   return (
@@ -50,7 +58,7 @@ export default function LanternMatrix({ members, lightTypes, cells, onToggle, sh
                   {m.taisui && <span className="tag tag-ts">{m.taisui}</span>}
                 </div>
                 <div className="small muted" style={{ fontSize: 12 }}>
-                  {m.gender === 'M' ? '男' : m.gender === 'F' ? '女' : '—'} · {m.zodiac ?? '生辰待補'} · {m.birthText}
+                  {genderLabel(m.gender)} · {m.zodiac ?? '生辰待補'} · {m.birthText}
                 </div>
               </div>
               {showGeneral && <div className="lights">
@@ -60,9 +68,9 @@ export default function LanternMatrix({ members, lightTypes, cells, onToggle, sh
                   const cls = st === 'none' ? (hint ? 'chip-hint' : '') : `chip-${st}`
                   return (
                     <button key={t.id} type="button" className={`chip chip-lg ${cls}`} aria-pressed={st === 'existing' || st === 'add'}
-                      aria-label={`${m.name} ${t.name}`} title={STATUS_TITLE[st]} onClick={() => onToggle(m.id, t.id)}>
+                      aria-label={`${m.name} ${t.name}`} title={title(t, st)} disabled={st === 'none' && !t.active} onClick={() => onToggle(m.id, t.id)}>
                       <span>{t.name}</span>
-                      <span className="chip-sub">{showPrice ? priceOf(t) : hint ? '建議' : ''}</span>
+                      <span className="chip-sub">{[hint ? '建議' : '', priceOf(t)].filter(Boolean).join(' ')}</span>
                     </button>
                   )
                 })}
@@ -77,7 +85,7 @@ export default function LanternMatrix({ members, lightTypes, cells, onToggle, sh
                     const st = status(m, t)
                     return (
                       <button key={t.id} type="button" className={`chip ${st === 'none' ? '' : `chip-${st}`}`}
-                        aria-pressed={st === 'existing' || st === 'add'} aria-label={`${m.name} ${t.name}`} title={STATUS_TITLE[st]} onClick={() => onToggle(m.id, t.id)}>
+                        aria-pressed={st === 'existing' || st === 'add'} aria-label={`${m.name} ${t.name}`} title={title(t, st)} disabled={st === 'none' && !t.active} onClick={() => onToggle(m.id, t.id)}>
                         <span>{t.name}</span>
                         <span className="chip-sub">{priceOf(t)}</span>
                       </button>

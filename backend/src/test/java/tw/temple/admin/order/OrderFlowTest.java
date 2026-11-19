@@ -12,9 +12,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import tw.temple.admin.TestcontainersConfiguration;
+import tw.temple.admin.admin.RebuildService;
+import tw.temple.admin.closing.ClosingDtos.PaymentRow;
 import tw.temple.admin.closing.ClosingService;
 import tw.temple.admin.closing.DailyClosingRepository;
 import tw.temple.admin.common.ApiException;
+import tw.temple.admin.config.TempleClock;
 import tw.temple.admin.household.Household;
 import tw.temple.admin.household.HouseholdDtos.HouseholdInput;
 import tw.temple.admin.household.HouseholdDtos.MemberInput;
@@ -38,6 +41,7 @@ class OrderFlowTest {
     @Autowired OrderService orderService;
     @Autowired HouseholdService householdService;
     @Autowired ClosingService closingService;
+    @Autowired RebuildService rebuildService;
     @Autowired LightTypeRepository lightTypes;
     @Autowired AnnualLightRecordRepository records;
     @Autowired LightOrderRepository orders;
@@ -45,6 +49,7 @@ class OrderFlowTest {
     @Autowired DailyClosingRepository closings;
     @Autowired UserRepository users;
     @Autowired UserService userService;
+    @Autowired TempleClock clock;
 
     User admin;
     User staff;
@@ -184,7 +189,7 @@ class OrderFlowTest {
 
         assertThatThrownBy(() -> orderService.voidOrder(view.id(), "作廢", admin)).hasMessageContaining("已日結");
 
-        CreateCorrectionRequest upgrade = new CreateCorrectionRequest(null, null, null, null, "打成光明燈，應為八卦斗",
+        CreateCorrectionRequest upgrade = new CreateCorrectionRequest(null, null, null, "打成光明燈，應為八卦斗",
             Settlement.CASH, List.of(remove(a, guangming), add(a, bagua1)));
         OrderView corrected = orderService.view(orderService.correctOrder(view.id(), upgrade, admin).getId());
         assertThat(corrected.kind()).isEqualTo(OrderKind.CORRECTION);
@@ -193,13 +198,13 @@ class OrderFlowTest {
         assertThat(corrected.payments()).singleElement().satisfies(p -> assertThat(p.amount()).isEqualTo(200));
         assertThat(orderService.view(view.id()).correctedByOrderIds()).containsExactly(corrected.id());
 
-        CreateCorrectionRequest downgrade = new CreateCorrectionRequest(null, null, null, null, "改回光明燈",
+        CreateCorrectionRequest downgrade = new CreateCorrectionRequest(null, null, null, "改回光明燈",
             Settlement.FORFEIT, List.of(remove(a, bagua1), add(a, guangming)));
         OrderView down = orderService.view(orderService.correctOrder(view.id(), downgrade, admin).getId());
         assertThat(down.totalDue()).isEqualTo(-200);
         assertThat(down.payments()).singleElement().satisfies(p -> assertThat(p.kind()).isEqualTo(PaymentKind.FORFEIT));
 
-        CreateCorrectionRequest pending = new CreateCorrectionRequest(null, null, null, null, "補文昌燈，先不收",
+        CreateCorrectionRequest pending = new CreateCorrectionRequest(null, null, null, "補文昌燈，先不收",
             Settlement.PENDING, List.of(add(a, wenchang)));
         OrderView pend = orderService.view(orderService.correctOrder(view.id(), pending, admin).getId());
         assertThat(pend.balance()).isEqualTo(300);
@@ -220,5 +225,55 @@ class OrderFlowTest {
         assertThatThrownBy(() -> counter(staff, add(b, guangming))).hasMessageContaining("已日結");
         assertThatThrownBy(() -> orderService.voidOrder(view.id(), "作廢", admin)).hasMessageContaining("已日結");
         assertThatThrownBy(() -> closingService.close(null, 0, null, admin)).hasMessageContaining("已日結");
+    }
+
+    @Test
+    void removeRefundsThePricePaidNotTheCurrentPrice() {
+        counter(admin, new ItemInput(a.getId(), guangming.getId(), ItemAction.ADD, 200, "優惠價"));
+        OrderView cancel = counter(staff, remove(a, guangming));
+
+        assertThat(cancel.totalDue()).isEqualTo(-200);
+        assertThat(cancel.items()).singleElement().satisfies(i -> {
+            assertThat(i.unitPrice()).isEqualTo(200);
+            assertThat(i.overrideReason()).isNull();
+        });
+        String recordKey = a.getId() + ":" + guangming.getId() + ":";
+        assertThat(rebuildService.run(false).recordMismatches()).noneMatch(line -> line.contains(recordKey));
+    }
+
+    @Test
+    void voidingACancelRestoresThePricePaidNotTheRefund() {
+        counter(admin, new ItemInput(a.getId(), guangming.getId(), ItemAction.ADD, 200, "優惠價"));
+        OrderView cancel = counter(admin, new ItemInput(a.getId(), guangming.getId(), ItemAction.REMOVE, 150, "部分退費"));
+
+        orderService.voidOrder(cancel.id(), "退錯了", admin);
+
+        AnnualLightRecord record = records.findByMemberIdAndLightTypeIdAndYear(a.getId(), guangming.getId(), cancel.year()).orElseThrow();
+        assertThat(record.isActive()).isTrue();
+        assertThat(record.getUnitPrice()).isEqualTo(200);
+        String recordKey = a.getId() + ":" + guangming.getId() + ":";
+        assertThat(rebuildService.run(false).recordMismatches()).noneMatch(line -> line.contains(recordKey));
+    }
+
+    @Test
+    void closingCoversEveryDaySinceLastClosing() {
+        LocalDate today = clock.today();
+        OrderView view = counter(staff, add(a, guangming));
+        LightOrder order = orders.findById(view.id()).orElseThrow();
+        payments.save(new Payment(order, PaymentKind.CASH, 50, today.minusDays(4), today.minusDays(4), staff, "上次日結已含"));
+        closingService.close(today.minusDays(3), 0, null, admin);
+        int before = closingService.summary(null).systemCash();
+
+        payments.save(new Payment(order, PaymentKind.CASH, 100, today.minusDays(1), today.minusDays(1), staff, "漏結那天的現金"));
+
+        var summary = closingService.summary(null);
+        assertThat(summary.from()).isEqualTo(today.minusDays(2));
+        assertThat(summary.systemCash()).isEqualTo(before + 100);
+        assertThat(summary.payments()).extracting(PaymentRow::amount).contains(100).doesNotContain(50);
+
+        var closing = closingService.close(null, before + 100, null, admin);
+        assertThat(closing.getSystemCash()).isEqualTo(before + 100);
+        assertThat(closing.getDifference()).isZero();
+        assertThat(rebuildService.run(false).closingMismatches()).isEmpty();
     }
 }

@@ -1,6 +1,7 @@
 package tw.temple.admin.print;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,7 @@ import tw.temple.admin.household.HouseholdService;
 import tw.temple.admin.light.LightCategory;
 import tw.temple.admin.light.LightTypeRepository;
 import tw.temple.admin.order.ItemAction;
+import tw.temple.admin.order.LightOrder;
 import tw.temple.admin.order.OrderDtos.CreateOrderRequest;
 import tw.temple.admin.order.OrderDtos.ItemInput;
 import tw.temple.admin.order.OrderService;
@@ -111,5 +113,22 @@ class PrintServiceTest {
             assertThat(g.householdNumber()).isEqualTo(lit.getHouseholdNumber());
             assertThat(g.rows()).extracting(r -> r.name()).containsExactly("王申報");
         });
+    }
+
+    @Test
+    void voidedOrderHasNoCardsToPrint() {
+        User admin = users.findByUsername("admin").orElseThrow();
+        int year = config.currentYear();
+        Household h = households.create(new HouseholdInput(null, null, null, null, null, null,
+            member("周作廢", "丙子", 1, false, 1, "丑")), admin);
+        Long headId = households.detail(h.getId(), null).members().get(0).id();
+        var guangming = lightTypes.findByName("光明燈").orElseThrow();
+        LightOrder order = orders.createCounter(new CreateOrderRequest(year, h.getId(), null, null, null,
+            List.of(new ItemInput(headId, guangming.getId(), ItemAction.ADD, null, null))), admin);
+        assertThat(print.cardsByOrder(order.getId()).cards()).extracting(c -> c.name()).containsExactly("周作廢");
+
+        orders.voidOrder(order.getId(), "開錯", admin);
+
+        assertThatThrownBy(() -> print.cardsByOrder(order.getId())).hasMessageContaining("已作廢");
     }
 }

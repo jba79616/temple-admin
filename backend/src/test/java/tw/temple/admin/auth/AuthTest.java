@@ -63,6 +63,25 @@ class AuthTest {
     }
 
     @Test
+    void deactivatedUserIsKickedOutOnNextRequest() throws Exception {
+        if (users.findByUsername("staff3").isEmpty()) {
+            userService.create("staff3", "staff123", "志工三", Role.STAFF);
+        }
+        MvcResult login = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"staff3\",\"password\":\"staff123\"}"))
+            .andExpect(status().isOk()).andReturn();
+        MockHttpSession session = (MockHttpSession) login.getRequest().getSession(false);
+        mvc.perform(get("/api/light-types").session(session)).andExpect(status().isOk());
+
+        var staff = users.findByUsername("staff3").orElseThrow();
+        var admin = users.findByUsername("admin").orElseThrow();
+        userService.update(staff.getId(), "志工三", Role.STAFF, false, admin);
+
+        mvc.perform(get("/api/light-types").session(session)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/auth/me").session(session)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void spaFallbackDoesNotHijackApi() throws Exception {
         mvc.perform(get("/api/does-not-exist")).andExpect(status().isUnauthorized());
     }

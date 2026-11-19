@@ -5,6 +5,7 @@ import { ganzhiOfYear, rocYear } from './roc'
 
 interface ConfigState {
   configs: ConfigView[]
+  loadError: string
   currentYear: number
   templeName: string
   yearLabel: string
@@ -15,13 +16,20 @@ const ConfigContext = createContext<ConfigState | null>(null)
 
 export function ConfigProvider({ children }: { children: ReactNode }) {
   const [configs, setConfigs] = useState<ConfigView[]>([])
+  const [loadError, setLoadError] = useState('')
 
   const reload = useCallback(async () => {
-    setConfigs(await configsApi.list())
+    try {
+      setConfigs(await configsApi.list())
+      setLoadError('')
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : '讀取設定失敗')
+      throw e
+    }
   }, [])
 
   useEffect(() => {
-    reload().catch(() => setConfigs([]))
+    reload().catch(() => {})
   }, [reload])
 
   const value = useMemo(() => {
@@ -29,12 +37,13 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     const currentYear = Number(get('current_year')) || new Date().getFullYear()
     return {
       configs,
+      loadError,
       currentYear,
       templeName: get('temple_name') || '安燈系統',
       yearLabel: `民國 ${rocYear(currentYear)} 年 ${ganzhiOfYear(currentYear)}`,
       reload,
     }
-  }, [configs, reload])
+  }, [configs, loadError, reload])
 
   return <ConfigContext.Provider value={value}>{children}</ConfigContext.Provider>
 }

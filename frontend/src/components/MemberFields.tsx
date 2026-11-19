@@ -1,4 +1,5 @@
 import type { MemberInput } from '../api/types'
+import { GENDER } from '../lib/labels'
 import { BRANCHES, GANZHI_LIST, isValidGanzhi } from '../lib/roc'
 import { CITIES, DISTRICTS, postalCode } from '../lib/taiwan'
 
@@ -19,8 +20,9 @@ export default function MemberFields({ value, onChange, householdCityDistrict, h
         <div className="fld"><label className="lbl" htmlFor="m-name">姓名</label><input id="m-name" className="inp" value={value.name} onChange={(e) => set({ name: e.target.value })} /></div>
         <div className="fld"><span className="lbl">性別</span>
           <div className="row" style={{ minHeight: 44, gap: 16 }}>
-            <label className="row" style={{ gap: 6 }}><input type="radio" name="gender" checked={value.gender === 'M'} onChange={() => set({ gender: 'M' })} style={{ width: 18, height: 18 }} />男</label>
-            <label className="row" style={{ gap: 6 }}><input type="radio" name="gender" checked={value.gender === 'F'} onChange={() => set({ gender: 'F' })} style={{ width: 18, height: 18 }} />女</label>
+            {Object.entries(GENDER).map(([code, label]) => (
+              <label key={code} className="row" style={{ gap: 6 }}><input type="radio" name="gender" checked={value.gender === code} onChange={() => set({ gender: code })} style={{ width: 18, height: 18 }} />{label}</label>
+            ))}
             <label className="row" style={{ gap: 6 }}><input type="radio" name="gender" checked={!value.gender} onChange={() => set({ gender: null })} style={{ width: 18, height: 18 }} />未填</label>
           </div>
         </div>

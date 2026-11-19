@@ -34,8 +34,8 @@ export default function AuditPage() {
       <h1>稽核日誌</h1>
       {error && <div className="banner banner-bad">{error}</div>}
       <section className="card card-pad row">
-        <label className="fld small muted">表<select className="inp" value={table} onChange={(e) => setTable(e.target.value)}>{TABLES.map((t) => <option key={t} value={t}>{t || '全部'}</option>)}</select></label>
-        <label className="fld small muted">對象 ID<input className="inp" type="number" value={rowId} onChange={(e) => setRowId(e.target.value)} /></label>
+        <label className="fld small muted">表<select className="inp" value={table} onChange={(e) => { setTable(e.target.value); if (!e.target.value) setRowId('') }}>{TABLES.map((t) => <option key={t} value={t}>{t ? TABLE_NAME[t] ?? t : '全部'}</option>)}</select></label>
+        <label className="fld small muted">對象 ID<input className="inp" type="number" value={rowId} disabled={!table} placeholder={table ? '' : '先選表'} onChange={(e) => setRowId(e.target.value)} /></label>
       </section>
       <section className="card" style={{ overflow: 'hidden' }}>
         <div className="scroll-x">

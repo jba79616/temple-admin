@@ -6,6 +6,8 @@ export const PAYMENT_KIND: Record<PaymentKind, string> = { CASH: '現金', FORFE
 export const SETTLEMENT: Record<Settlement, string> = { CASH: '現金', FORFEIT: '轉功德金', PENDING: '待處理' }
 export const ITEM_ACTION: Record<ItemAction, string> = { ADD: '新增', REMOVE: '取消' }
 export const ROLE: Record<Role, string> = { ADMIN: '管理員', STAFF: '櫃台' }
+export const GENDER: Record<string, string> = { M: '男', F: '女' }
+export const genderLabel = (g: string | null | undefined, fallback = '—') => (g ? GENDER[g] ?? g : fallback)
 export const LIGHT_CATEGORY: Record<LightCategory, string> = { GENERAL: '一般燈', BAGUA: '八卦轉運斗' }
 export const LEGACY_ISSUE: Record<LegacyIssueKind, string> = {
   ADDRESS: '地址拆不出縣市', DISTRICT: '地址缺鄉鎮市區', HEAD: '戶長', BIRTH: '生辰', PERSON: '姓名與性別', ORDER: '成員順序',

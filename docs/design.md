@@ -343,13 +343,13 @@ CREATE TRIGGER trg_audit_logs_immutable
 | 補登 | 紙本事後鍵入 | 同櫃台單，但 `registered_on` 與 `received_on` 逐筆填紙本日期；入帳日仍是今天 | STAFF |
 | 沖正（作廢） | 該單 `posted_on` 尚未日結 | `status = VOIDED`，寫反向明細讓狀態表復原，已收現金以 CASH 負數記退款 | ADMIN |
 | 調整（更正單） | 原單已日結 | 開 `kind = CORRECTION` 引用原單，明細 REMOVE 加 ADD，可跨戶；差額以今天的 CASH 或 FORFEIT 結清，溢收短收先留差額待處理 | ADMIN |
-| 日結 | 每日收班 | 輸入實點現金，系統算當日 CASH 合計與長短款；日結後該日凍結 | STAFF |
+| 日結 | 每日收班 | 輸入實點現金，系統算上次日結之後到該日（含）的 CASH 合計與長短款，中間漏結的日子一併算進來；日結後該日及之前凍結 | STAFF |
 | 關帳 | 安燈季結束 | 把最後一天日結，關帳日即最大的 `closing_date` | ADMIN |
 
 ### 其他規則
 
 - 事後發現的長短款以更正單的收款對銷，不改原日結。
-- `unit_price` 預設燈種現價，ADMIN 可改並必填 `override_reason`。
+- ADD 的 `unit_price` 預設燈種現價；REMOVE 預設狀態表上那盞燈當時付的 `unit_price`，折抵的是實際付過的錢而不是現價。ADMIN 可改並必填 `override_reason`。
 - 匯入單不可作廢。
 - Rebuild 工具核對三件事：`total_due` 對明細、狀態表對明細、`system_cash` 對收款。
 

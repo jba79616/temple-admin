@@ -13,8 +13,6 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     List<Member> findByHouseholdIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(Long householdId);
 
-    List<Member> findByHouseholdIdOrderBySortOrderAscIdAsc(Long householdId);
-
     Optional<Member> findFirstByHouseholdIdAndHeadTrueAndDeletedAtIsNull(Long householdId);
 
     int countByHouseholdIdAndDeletedAtIsNull(Long householdId);

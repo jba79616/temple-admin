@@ -23,12 +23,17 @@ public class WebConfig implements WebMvcConfigurer {
                     if (requested.exists() && requested.isReadable()) {
                         return requested;
                     }
-                    if (resourcePath.startsWith("api/")) {
+                    if (resourcePath.startsWith("api/") || isMissingAsset(resourcePath)) {
                         return null;
                     }
                     Resource index = new ClassPathResource("/static/index.html");
                     return index.exists() ? index : null;
                 }
             });
+    }
+
+    /** Vite 的產出只有 assets/、fonts/ 兩個目錄和根目錄的檔案；SPA 路由都是不帶副檔名的多段路徑。 */
+    private static boolean isMissingAsset(String path) {
+        return path.startsWith("assets/") || path.startsWith("fonts/") || (!path.contains("/") && path.contains("."));
     }
 }

@@ -1,6 +1,6 @@
 import { api } from './client'
 import type {
-  AuditView, Cards, ClosingView, ConfigView, CreateCorrectionRequest, CreateOrderRequest, DaySummary, HouseholdDetail,
+  AuditView, Cards, ClosingView, ConfigView, CreateCorrectionRequest, CreateOrderRequest, DayStatus, DaySummary, HouseholdDetail,
   HouseholdInput, HouseholdSummary, LightType, Me, MemberInput, MemberView, NameList, OrderView, RebuildReport, Role,
   TaisuiView, UserView, PageView, MemberRow, HouseholdRow, ApplicationForm, FormScope, LightCategory, LegacyImportReport,
 } from './types'
@@ -49,6 +49,7 @@ export const registry = {
 }
 
 export const closings = {
+  status: () => api<DayStatus>('/api/closings/status'),
   summary: (date?: string) => api<DaySummary>(`/api/closings/summary${date ? `?date=${date}` : ''}`),
   history: () => api<ClosingView[]>('/api/closings'),
   close: (countedCash: number, note: string, closingDate?: string) =>

@@ -22,7 +22,7 @@ public final class OrderDtos {
                                      @Size(max = 200) String note, @NotEmpty List<@Valid ItemInput> items) {
     }
 
-    public record CreateCorrectionRequest(Integer year, Long householdId, LocalDate registeredOn, LocalDate receivedOn,
+    public record CreateCorrectionRequest(Long householdId, LocalDate registeredOn, LocalDate receivedOn,
                                           @NotBlank @Size(max = 200) String reason, @NotNull Settlement settlement,
                                           @NotEmpty List<@Valid ItemInput> items) {
     }
@@ -31,7 +31,7 @@ public final class OrderDtos {
     }
 
     public record ItemView(Long id, Long memberId, String memberName, Long lightTypeId, String lightTypeName, ItemAction action,
-                           int unitPrice, String overrideReason, OffsetDateTime createdAt) {
+                           int unitPrice, String overrideReason, boolean reversal, OffsetDateTime createdAt) {
     }
 
     public record PaymentView(Long id, PaymentKind kind, int amount, LocalDate receivedOn, LocalDate postedOn, String receivedBy,

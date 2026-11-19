@@ -24,7 +24,11 @@ export default function LightTypesPage() {
     setForm({ category: t.category, name: t.name, shortName: t.shortName, price: t.price, taisui: t.taisui, sortOrder: t.sortOrder, active: t.active, legacyCode: t.legacyCode })
   }
 
+  const [saving, setSaving] = useState(false)
+
   async function save() {
+    if (saving) return
+    setSaving(true)
     setError('')
     try {
       if (editing === 'new') await api.create(form)
@@ -33,6 +37,8 @@ export default function LightTypesPage() {
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : '儲存失敗')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -58,7 +64,7 @@ export default function LightTypesPage() {
             <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={form.active} onChange={(e) => set({ active: e.target.checked })} />啟用</label>
           </div>
           <div className="small muted">改價只影響之後的單，已安的燈保留當時價格。</div>
-          <div className="row"><button type="button" className="btn" onClick={save} disabled={!form.name.trim() || !form.shortName.trim()}>儲存</button><button type="button" className="btn btn-ghost" onClick={() => setEditing(null)}>取消</button></div>
+          <div className="row"><button type="button" className="btn" onClick={save} disabled={saving || !form.name.trim() || !form.shortName.trim()}>{saving ? '儲存中…' : '儲存'}</button><button type="button" className="btn btn-ghost" onClick={() => setEditing(null)}>取消</button></div>
         </section>
       )}
       <section className="card" style={{ overflow: 'hidden' }}>

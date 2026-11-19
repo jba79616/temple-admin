@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { admin as adminApi, configs as api } from '../api'
 import type { RebuildReport, TaisuiView } from '../api/types'
 import { useAuth } from '../lib/auth'
@@ -17,20 +17,34 @@ export default function SettingsPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [report, setReport] = useState<RebuildReport | null>(null)
+  const serverValues = useRef<Record<string, string>>({})
+
+  const taisuiInputs = configs.filter((c) => c.key === 'current_year' || c.key === 'taisui_relations').map((c) => c.value).join('|')
 
   useEffect(() => {
-    const next: Record<string, string> = {}
-    configs.forEach((c) => { next[c.key] = c.value })
-    setDraft(next)
-    api.taisui().then(setTaisui).catch(() => setTaisui(null))
+    const previous = serverValues.current
+    serverValues.current = Object.fromEntries(configs.map((c) => [c.key, c.value]))
+    setDraft((prev) => {
+      const next = { ...prev }
+      configs.forEach((c) => {
+        const untouched = !(c.key in next) || next[c.key] === previous[c.key]
+        if (untouched) next[c.key] = c.value
+      })
+      return next
+    })
   }, [configs])
+
+  useEffect(() => {
+    api.taisui().then(setTaisui).catch(() => setTaisui(null))
+  }, [taisuiInputs])
 
   async function save(key: string) {
     setError('')
     setMessage('')
     if (key === 'current_year' && !window.confirm(`確定把年度切換到西元 ${draft[key]}（民國 ${rocYear(Number(draft[key]))} 年 ${ganzhiOfYear(Number(draft[key]))}）？安燈操作會自動帶入新年度，矩陣一開始全空，歷史年度完整保留。`)) return
     try {
-      await api.update(key, draft[key])
+      const updated = await api.update(key, draft[key])
+      setDraft((prev) => ({ ...prev, [key]: updated.value }))
       await reload()
       setMessage(`${LABELS[key] ?? key} 已更新`)
     } catch (e) {

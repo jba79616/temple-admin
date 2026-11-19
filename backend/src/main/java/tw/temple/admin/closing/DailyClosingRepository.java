@@ -10,4 +10,8 @@ public interface DailyClosingRepository extends JpaRepository<DailyClosing, Loca
     Optional<DailyClosing> findTopByOrderByClosingDateDesc();
 
     List<DailyClosing> findAllByOrderByClosingDateDesc();
+
+    List<DailyClosing> findAllByOrderByClosingDateAsc();
+
+    Optional<DailyClosing> findTopByClosingDateLessThanOrderByClosingDateDesc(LocalDate date);
 }

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useParams } from 'react-router'
-import { households, lightTypes as lightTypesApi, members as membersApi, orders as ordersApi } from '../api'
+import { closings as closingsApi, households, lightTypes as lightTypesApi, members as membersApi, orders as ordersApi } from '../api'
 import type { HouseholdDetail, ItemInput, LightType, MemberView, OrderView } from '../api/types'
 import Crumbs from '../components/Crumbs'
-import LanternMatrix, { cellKey, nextStatus, type Cells } from '../components/LanternMatrix'
+import LanternMatrix, { cellKey, nextStatus, visibleLightTypes, type Cells } from '../components/LanternMatrix'
 import { useAuth } from '../lib/auth'
 import { money, rocDate, rocYear, todayIso } from '../lib/roc'
-import { ORDER_KIND, ORDER_STATUS, PAYMENT_KIND } from '../lib/labels'
+import { GENDER, ORDER_KIND, ORDER_STATUS, PAYMENT_KIND } from '../lib/labels'
+import { useUnsavedGuard } from '../lib/useUnsavedGuard'
 
 export default function HouseholdPage() {
   const { id } = useParams()
@@ -31,18 +32,25 @@ export default function HouseholdPage() {
   const [error, setError] = useState('')
   const [newName, setNewName] = useState('')
   const [newGender, setNewGender] = useState('M')
+  const [adding, setAdding] = useState(false)
+  const [todayClosed, setTodayClosed] = useState(false)
   const asideRef = useRef<HTMLElement>(null)
 
   const load = useCallback(async () => {
-    const [d, t, h] = await Promise.all([households.get(householdId), lightTypesApi.list(), ordersApi.byHousehold(householdId)])
+    const [d, t, h, today] = await Promise.all([
+      households.get(householdId), lightTypesApi.list(true), ordersApi.byHousehold(householdId), closingsApi.status().catch(() => null),
+    ])
     setDetail(d)
     setTypes(t)
     setHistory(h)
+    setTodayClosed(today?.closed ?? false)
     const initial: Cells = {}
     d.records.forEach((r) => { initial[cellKey(r.memberId, r.lightTypeId)] = 'existing' })
     setCells(initial)
     setOverrides({})
   }, [householdId])
+
+  const refreshDetail = useCallback(async () => setDetail(await households.get(householdId)), [householdId])
 
   useEffect(() => {
     load().catch((e) => setError(e.message))
@@ -50,6 +58,8 @@ export default function HouseholdPage() {
 
   const typeById = useMemo(() => new Map(types.map((t) => [t.id, t])), [types])
   const memberById = useMemo(() => new Map((detail?.members ?? []).map((m) => [m.id, m])), [detail])
+  const paidPrice = useMemo(() => new Map((detail?.records ?? []).map((r) => [cellKey(r.memberId, r.lightTypeId), r.unitPrice])), [detail])
+  const visibleTypes = useMemo(() => visibleLightTypes(types, detail?.members ?? [], cells), [types, detail, cells])
 
   const changes = useMemo(() => {
     const adds: { key: string; member: MemberView; type: LightType; price: number; override?: { price: number; reason: string } }[] = []
@@ -60,12 +70,12 @@ export default function HouseholdPage() {
       const type = typeById.get(tid)
       if (!member || !type) return
       if (st === 'add') adds.push({ key, member, type, price: overrides[key]?.price ?? type.price, override: overrides[key] })
-      if (st === 'remove') removes.push({ key, member, type, price: type.price })
+      if (st === 'remove') removes.push({ key, member, type, price: paidPrice.get(key) ?? type.price })
     })
     const addSum = adds.reduce((s, a) => s + a.price, 0)
     const removeSum = removes.reduce((s, r) => s + r.price, 0)
     return { adds, removes, addSum, removeSum, due: addSum - removeSum }
-  }, [cells, overrides, memberById, typeById])
+  }, [cells, overrides, memberById, typeById, paidPrice])
 
   function toggle(memberId: number, lightTypeId: number) {
     const key = cellKey(memberId, lightTypeId)
@@ -80,19 +90,15 @@ export default function HouseholdPage() {
   }
 
   function toggleOverride(key: string) {
-    setOverrides((prev) => {
-      const copy = { ...prev }
-      if (copy[key]) delete copy[key]
-      else {
-        const reason = window.prompt('改價原因（必填）', '同年取消後再加回')
-        if (!reason || !reason.trim()) return prev
-        const priceText = window.prompt('改後單價', '0')
-        const price = Number(priceText)
-        if (!Number.isInteger(price) || price < 0) return prev
-        copy[key] = { price, reason: reason.trim() }
-      }
-      return copy
-    })
+    if (overrides[key]) {
+      setOverrides((prev) => Object.fromEntries(Object.entries(prev).filter(([k]) => k !== key)))
+      return
+    }
+    const reason = window.prompt('改價原因（必填）', '同年取消後再加回')
+    if (!reason || !reason.trim()) return
+    const price = Number(window.prompt('改後單價', '0'))
+    if (!Number.isInteger(price) || price < 0) return
+    setOverrides((prev) => ({ ...prev, [key]: { price, reason: reason.trim() } }))
   }
 
   async function save() {
@@ -118,20 +124,23 @@ export default function HouseholdPage() {
   }
 
   async function addMember() {
-    if (!detail || !newName.trim()) return
+    if (!detail || !newName.trim() || adding) return
+    setAdding(true)
     try {
       await households.addMember(detail.id, { name: newName.trim(), gender: newGender })
       setNewName('')
-      await load()
+      await refreshDetail()
     } catch (e) {
       setError(e instanceof Error ? e.message : '新增失敗')
+    } finally {
+      setAdding(false)
     }
   }
 
   async function setHead(memberId: number) {
     try {
       await membersApi.setHead(memberId)
-      await load()
+      await refreshDetail()
     } catch (e) {
       setError(e instanceof Error ? e.message : '設定失敗')
     }
@@ -141,9 +150,12 @@ export default function HouseholdPage() {
     if (e.key === 'Enter') { e.preventDefault(); addMember() }
   }
 
+  const noChanges = changes.adds.length + changes.removes.length === 0
+  useUnsavedGuard(!noChanges && !saving)
+
   if (!detail) return <main className="page muted">{error || '載入中…'}</main>
   const head = detail.members.find((m) => m.head)
-  const noChanges = changes.adds.length + changes.removes.length === 0
+  const cannotSave = noChanges || todayClosed
 
   return (
     <>
@@ -164,7 +176,7 @@ export default function HouseholdPage() {
         <section className="banner banner-ok">
           <div className="kv">
             <strong>已存檔並收款：單號 #{saved.id}</strong>
-            <span className="small">應收 {money(saved.totalDue)}，{saved.payments.map((p) => `${PAYMENT_KIND[p.kind]} ${p.amount}`).join('、') || '無收款'}</span>
+            <span className="small">應收 {money(saved.totalDue)}，{saved.payments.map((p) => `${PAYMENT_KIND[p.kind]} ${money(p.amount)}`).join('、') || '無收款'}</span>
           </div>
           <div className="row" style={{ marginLeft: 'auto' }}>
             {saved.items.some((i) => i.action === 'ADD') && (
@@ -175,6 +187,7 @@ export default function HouseholdPage() {
         </section>
       )}
       {error && <div className="banner banner-bad">{error}</div>}
+      {todayClosed && <div className="banner banner-warn">今天已經日結，不能再開單收款；明天再登記，或請管理員處理。</div>}
 
       <div className="split">
         <section className="card main" style={{ overflow: 'hidden' }}>
@@ -188,7 +201,7 @@ export default function HouseholdPage() {
             </div>
             <span className="hint" style={{ flexBasis: '100%' }}>點燈種按鈕安燈或取消，改好後按「存檔並收款」。改生辰、地址用旁邊的按鈕。</span>
           </div>
-          <LanternMatrix members={detail.members} lightTypes={types} cells={cells} onToggle={toggle} showPrice={showPrice} showBagua={showBagua} showGeneral={showGeneral}
+          <LanternMatrix members={detail.members} lightTypes={visibleTypes} cells={cells} onToggle={toggle} showPrice={showPrice} showBagua={showBagua} showGeneral={showGeneral}
             renderActions={(m) => (
               <>
                 <Link to={`/members/${m.id}`} className="btn btn-sm">改生辰資料</Link>
@@ -206,10 +219,10 @@ export default function HouseholdPage() {
                       onChange={(e) => setNewName(e.target.value)} onKeyDown={onNewKey} />
                     <label className="sr-only" htmlFor="newGender">性別</label>
                     <select id="newGender" className="inp" style={{ minHeight: 40, width: 'auto' }} value={newGender} onChange={(e) => setNewGender(e.target.value)}>
-                      <option value="M">男</option><option value="F">女</option>
+                      {Object.entries(GENDER).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
                     </select>
                   </div>
-                  <div className="actions small muted"><button type="button" className="btn btn-sm" onClick={addMember}>加入成員</button><span>生辰之後按「改生辰資料」補</span></div>
+                  <div className="actions small muted"><button type="button" className="btn btn-sm" onClick={addMember} disabled={adding || !newName.trim()}>{adding ? '加入中…' : '加入成員'}</button><span>生辰之後按「改生辰資料」補</span></div>
                 </div>
               </div>
             )} />
@@ -254,7 +267,7 @@ export default function HouseholdPage() {
               </div>
             </div>
           ) : (
-            <button type="button" className="btn btn-lg" disabled={noChanges} onClick={() => setConfirming(true)}>存檔並收款</button>
+            <button type="button" className="btn btn-lg" disabled={cannotSave} onClick={() => setConfirming(true)}>存檔並收款</button>
           )}
           <div className="small muted">存檔會在同一筆交易寫入單據、明細、狀態表與收款。年度：民國 {rocYear(detail.year)} 年。</div>
         </aside>
@@ -272,7 +285,7 @@ export default function HouseholdPage() {
                   <td>{rocDate(o.registeredOn)}</td>
                   <td><span className="tag">{ORDER_KIND[o.kind]}</span></td>
                   <td><span className={`tag ${o.status === 'VOIDED' ? 'tag-bad' : 'tag-ok'}`}>{ORDER_STATUS[o.status]}</span></td>
-                  <td className="small" style={{ color: 'var(--text-2)' }}>{o.items.filter((i) => i.overrideReason !== '作廢沖正').map((i) => `${i.action === 'REMOVE' ? '取消 ' : ''}${i.memberName} ${i.lightTypeName}`).join('；')}</td>
+                  <td className="small" style={{ color: 'var(--text-2)' }}>{o.items.filter((i) => !i.reversal).map((i) => `${i.action === 'REMOVE' ? '取消 ' : ''}${i.memberName} ${i.lightTypeName}`).join('；')}</td>
                   <td className="num">{money(o.totalDue)}</td>
                   <td className={o.balance === 0 ? 'tag-ok' : ''} style={{ color: o.balance === 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>{o.balance === 0 ? '已結清' : `差額 ${money(o.balance)}`}</td>
                   <td className="muted">{o.createdBy}</td>
@@ -287,7 +300,7 @@ export default function HouseholdPage() {
     <div className="sticky-bar">
       <div className="kv"><span className="k">本次應收</span><strong style={{ fontSize: 20 }}>{money(changes.due)}</strong></div>
       <span className="small muted">新增 {changes.adds.length} · 取消 {changes.removes.length}</span>
-      <button type="button" className="btn" style={{ marginLeft: 'auto' }} disabled={noChanges}
+      <button type="button" className="btn" style={{ marginLeft: 'auto' }} disabled={cannotSave}
         onClick={() => { setConfirming(true); asideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>存檔並收款</button>
     </div>
     </>

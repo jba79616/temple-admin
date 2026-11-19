@@ -7,7 +7,7 @@ import java.util.Optional;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tw.temple.admin.closing.DailyClosingRepository;
+import tw.temple.admin.closing.ClosingService;
 import tw.temple.admin.common.ApiException;
 import tw.temple.admin.config.TempleClock;
 import tw.temple.admin.household.Household;
@@ -36,13 +36,13 @@ public class OrderService {
     private final HouseholdRepository households;
     private final MemberRepository members;
     private final LightTypeRepository lightTypes;
-    private final DailyClosingRepository closings;
+    private final ClosingService closingService;
     private final ConfigService config;
     private final TempleClock clock;
 
     public OrderService(LightOrderRepository orders, LightOrderItemRepository items, PaymentRepository payments,
                         AnnualLightRecordRepository records, HouseholdRepository households, MemberRepository members,
-                        LightTypeRepository lightTypes, DailyClosingRepository closings, ConfigService config, TempleClock clock) {
+                        LightTypeRepository lightTypes, ClosingService closingService, ConfigService config, TempleClock clock) {
         this.orders = orders;
         this.items = items;
         this.payments = payments;
@@ -50,7 +50,7 @@ public class OrderService {
         this.households = households;
         this.members = members;
         this.lightTypes = lightTypes;
-        this.closings = closings;
+        this.closingService = closingService;
         this.config = config;
         this.clock = clock;
     }
@@ -68,37 +68,6 @@ public class OrderService {
             payments.save(new Payment(order, PaymentKind.CASH, due, receivedOn, today, actor, null));
         } else if (due < 0) {
             payments.save(new Payment(order, PaymentKind.FORFEIT, due, receivedOn, today, actor, "取消不退費，轉功德金"));
-        }
-        return orders.save(order);
-    }
-
-    public LightOrder createCorrection(CreateCorrectionRequest req, User actor) {
-        if (!actor.isAdmin()) {
-            throw ApiException.forbidden("只有 ADMIN 可以開更正單");
-        }
-        LocalDate today = clock.today();
-        ensureOpenForPosting(today);
-        Household household = households.findById(req.householdId()).orElseThrow(() -> ApiException.notFound("找不到戶"));
-        LightOrder order = orders.save(new LightOrder(OrderKind.CORRECTION, resolveYear(req.year()), household,
-            resolvePastDate(req.registeredOn(), today, "登記日"), today, null, req.reason(), actor));
-        int due = applyItems(order, req.items(), actor, true);
-        order.settleTotalDue(due);
-        LocalDate receivedOn = resolvePastDate(req.receivedOn(), today, "收款日");
-        switch (req.settlement()) {
-            case CASH -> {
-                if (due != 0) {
-                    payments.save(new Payment(order, PaymentKind.CASH, due, receivedOn, today, actor, due < 0 ? "更正單退款" : "更正單補收"));
-                }
-            }
-            case FORFEIT -> {
-                if (due >= 0) {
-                    throw ApiException.badRequest("只有應退款時才能選擇放棄退款");
-                }
-                payments.save(new Payment(order, PaymentKind.FORFEIT, due, receivedOn, today, actor, "放棄退款，轉功德金"));
-            }
-            case PENDING -> {
-                // 留待處理：不產生收款，單據列入差額待處理
-            }
         }
         return orders.save(order);
     }
@@ -158,8 +127,7 @@ public class OrderService {
         }
         LocalDate today = clock.today();
         ensureOpenForPosting(today);
-        List<LightOrderItem> originalItems = items.findByOrderIdOrderByIdAsc(id);
-        for (LightOrderItem item : originalItems) {
+        for (LightOrderItem item : items.findByOrderIdOrderByIdAsc(id)) {
             AnnualLightRecord record = records.findByMemberIdAndLightTypeIdAndYear(item.getMember().getId(),
                 item.getLightType().getId(), order.getYear()).orElseThrow(() -> ApiException.conflict("狀態表缺少對應紀錄"));
             LightOrderItem last = record.getLastOrderItem();
@@ -167,14 +135,14 @@ public class OrderService {
                 throw ApiException.badRequest(item.getMember().getName() + " 的 " + item.getLightType().getName()
                     + " 已被後續單據異動，不能作廢，請改開更正單");
             }
-        }
-        for (LightOrderItem item : originalItems) {
+            int reversedPrice = item.getAction() == ItemAction.REMOVE ? record.getUnitPrice() : item.getUnitPrice();
             LightOrderItem reversed = items.save(new LightOrderItem(order, item.getMember(), item.getLightType(),
-                item.getAction().reversed(), item.getUnitPrice(), "作廢沖正"));
+                item.getAction().reversed(), reversedPrice, LightOrderItem.REVERSAL_REASON));
             applyToRecord(reversed, order);
         }
         for (Payment payment : payments.findByOrderIdOrderByIdAsc(id)) {
-            payments.save(new Payment(order, payment.getKind(), -payment.getAmount(), today, today, actor, "作廢沖正 #" + payment.getId()));
+            payments.save(new Payment(order, payment.getKind(), -payment.getAmount(), today, today, actor,
+                LightOrderItem.REVERSAL_REASON + " #" + payment.getId()));
         }
         order.markVoided(actor, clock.now(), reason.trim());
         return orders.save(order);
@@ -200,14 +168,8 @@ public class OrderService {
         return orders.findUnsettled().stream().map(this::toView).toList();
     }
 
-    @Transactional(readOnly = true)
-    public boolean isClosed(LocalDate date) {
-        return closedThrough().map(through -> !date.isAfter(through)).orElse(false);
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<LocalDate> closedThrough() {
-        return closings.findTopByOrderByClosingDateDesc().map(c -> c.getClosingDate());
+    private boolean isClosed(LocalDate date) {
+        return closingService.isClosed(date);
     }
 
     private void ensureOpenForPosting(LocalDate today) {
@@ -254,18 +216,20 @@ public class OrderService {
                     throw ApiException.badRequest(lightType.getName() + " 已停用");
                 }
             }
-            int unitPrice = resolveUnitPrice(input, lightType, actor);
+            Optional<AnnualLightRecord> existing = records.findByMemberIdAndLightTypeIdAndYear(member.getId(), lightType.getId(), order.getYear());
+            int defaultPrice = input.action() == ItemAction.ADD ? lightType.getPrice() : activeRecord(existing, member, lightType).getUnitPrice();
+            int unitPrice = resolveUnitPrice(input, defaultPrice, actor);
             LightOrderItem item = items.save(new LightOrderItem(order, member, lightType, input.action(), unitPrice,
-                unitPrice == lightType.getPrice() ? null : input.overrideReason().trim()));
-            applyToRecord(item, order);
+                unitPrice == defaultPrice ? null : input.overrideReason().trim()));
+            applyToRecord(item, order, existing);
             due += input.action() == ItemAction.ADD ? unitPrice : -unitPrice;
         }
         return due;
     }
 
-    private int resolveUnitPrice(ItemInput input, LightType lightType, User actor) {
-        if (input.unitPrice() == null || input.unitPrice() == lightType.getPrice()) {
-            return lightType.getPrice();
+    private int resolveUnitPrice(ItemInput input, int defaultPrice, User actor) {
+        if (input.unitPrice() == null || input.unitPrice() == defaultPrice) {
+            return defaultPrice;
         }
         if (!actor.isAdmin()) {
             throw ApiException.forbidden("只有 ADMIN 可以改價");
@@ -280,9 +244,13 @@ public class OrderService {
     }
 
     private void applyToRecord(LightOrderItem item, LightOrder order) {
+        applyToRecord(item, order, records.findByMemberIdAndLightTypeIdAndYear(item.getMember().getId(),
+            item.getLightType().getId(), order.getYear()));
+    }
+
+    private void applyToRecord(LightOrderItem item, LightOrder order, Optional<AnnualLightRecord> existing) {
         Member member = item.getMember();
         LightType lightType = item.getLightType();
-        Optional<AnnualLightRecord> existing = records.findByMemberIdAndLightTypeIdAndYear(member.getId(), lightType.getId(), order.getYear());
         switch (item.getAction()) {
             case ADD -> {
                 if (existing.isPresent() && existing.get().isActive()) {
@@ -297,19 +265,23 @@ public class OrderService {
                 }
             }
             case REMOVE -> {
-                AnnualLightRecord record = existing.filter(AnnualLightRecord::isActive)
-                    .orElseThrow(() -> ApiException.conflict(member.getName() + " 的 " + lightType.getName() + " 今年沒有安，無法取消"));
+                AnnualLightRecord record = activeRecord(existing, member, lightType);
                 record.deactivate(item);
                 records.save(record);
             }
         }
     }
 
+    private AnnualLightRecord activeRecord(Optional<AnnualLightRecord> existing, Member member, LightType lightType) {
+        return existing.filter(AnnualLightRecord::isActive)
+            .orElseThrow(() -> ApiException.conflict(member.getName() + " 的 " + lightType.getName() + " 今年沒有安，無法取消"));
+    }
+
     private OrderView toView(LightOrder order) {
         int paid = payments.sumByOrder(order.getId());
         List<ItemView> itemViews = items.findByOrderIdOrderByIdAsc(order.getId()).stream()
             .map(i -> new ItemView(i.getId(), i.getMember().getId(), i.getMember().getName(), i.getLightType().getId(),
-                i.getLightType().getName(), i.getAction(), i.getUnitPrice(), i.getOverrideReason(), i.getCreatedAt()))
+                i.getLightType().getName(), i.getAction(), i.getUnitPrice(), i.getOverrideReason(), i.isReversal(), i.getCreatedAt()))
             .toList();
         List<PaymentView> paymentViews = payments.findByOrderIdOrderByIdAsc(order.getId()).stream()
             .map(p -> new PaymentView(p.getId(), p.getKind(), p.getAmount(), p.getReceivedOn(), p.getPostedOn(),

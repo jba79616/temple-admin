@@ -153,9 +153,13 @@ public class HouseholdService {
                 if (newHeadId == null) {
                     throw ApiException.badRequest("刪除戶長前請先指定新戶長");
                 }
+                Member newHead = getMember(newHeadId);
+                if (newHead.getId().equals(memberId) || !newHead.getHousehold().getId().equals(m.getHousehold().getId())) {
+                    throw ApiException.badRequest("新戶長必須是同一戶的其他成員");
+                }
                 m.markHead(false);
                 members.saveAndFlush(m);
-                setHead(newHeadId, actor);
+                setHead(newHead, actor);
             }
         }
         m.softDelete(reason.trim(), clock.now());
@@ -164,13 +168,16 @@ public class HouseholdService {
     }
 
     public Member setHead(Long memberId, User actor) {
-        Member target = getMember(memberId);
+        return setHead(getMember(memberId), actor);
+    }
+
+    private Member setHead(Member target, User actor) {
         if (target.isDeleted()) {
             throw ApiException.badRequest("已刪除的成員不能當戶長");
         }
         Long householdId = target.getHousehold().getId();
         members.findFirstByHouseholdIdAndHeadTrueAndDeletedAtIsNull(householdId).ifPresent(current -> {
-            if (!current.getId().equals(memberId)) {
+            if (!current.getId().equals(target.getId())) {
                 var before = current.snapshot();
                 current.markHead(false);
                 members.saveAndFlush(current);

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import tw.temple.admin.closing.ClosingDtos.CloseRequest;
 import tw.temple.admin.closing.ClosingDtos.ClosingView;
+import tw.temple.admin.closing.ClosingDtos.DayStatus;
 import tw.temple.admin.closing.ClosingDtos.DaySummary;
 import tw.temple.admin.user.CurrentUser;
 
@@ -25,6 +26,11 @@ public class ClosingController {
     public ClosingController(ClosingService service, CurrentUser currentUser) {
         this.service = service;
         this.currentUser = currentUser;
+    }
+
+    @GetMapping("/status")
+    public DayStatus status() {
+        return service.status();
     }
 
     @GetMapping("/summary")

@@ -1,0 +1,2 @@
+ALTER TABLE light_orders ADD COLUMN version INT NOT NULL DEFAULT 0;
+ALTER TABLE annual_light_records ADD COLUMN version INT NOT NULL DEFAULT 0;

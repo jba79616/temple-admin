@@ -3,12 +3,12 @@ import { useSearchParams } from 'react-router'
 import { print as printApi } from '../../api'
 import type { ApplicationForm, BaguaType, FormHousehold, FormPerson, FormScope } from '../../api/types'
 import { rocYear } from '../../lib/roc'
+import { GENDER } from '../../lib/labels'
 import './print.css'
 import './form.css'
 
 const ROWS_PER_PAGE: Record<FormScope, number> = { ALL: 22, LIT: 22, BAGUA: 21 }
 const SCOPE_LABEL: Record<FormScope, string> = { ALL: '全部的人', LIT: '該年有安燈的人', BAGUA: '該年有安斗的人' }
-const GENDER: Record<string, string> = { M: '男', F: '女' }
 
 interface Xs { g: number; y: number; yl: number; leap: number; m: number; mw: number; ml: number; d: number; dl: number; h: number; hl: number }
 const X_GENERAL: Xs = { g: 58.6, y: 72.5, yl: 86.4, leap: 96.3, m: 103.2, mw: 7.2, ml: 110.9, d: 118.2, dl: 125.2, h: 131.8, hl: 139.0 }
