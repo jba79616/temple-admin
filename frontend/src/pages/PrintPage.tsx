@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { lightTypes as lightTypesApi } from '../api'
 import type { LightType } from '../api/types'
 import { useConfig } from '../lib/config'
+import { downloadPdf } from '../lib/pdf'
 import { ganzhiOfYear, rocYear } from '../lib/roc'
 
 export default function PrintPage() {
@@ -11,6 +12,8 @@ export default function PrintPage() {
   const [formYear, setFormYear] = useState(currentYear - 1)
   const [light, setLight] = useState('')
   const [error, setError] = useState('')
+  const [asPdf, setAsPdf] = useState(false)
+  const [pdfBusy, setPdfBusy] = useState(false)
 
   useEffect(() => {
     lightTypesApi.list().then((t) => {
@@ -21,7 +24,21 @@ export default function PrintPage() {
   useEffect(() => { setYear(currentYear); setFormYear(currentYear - 1) }, [currentYear])
 
   const years = [currentYear, currentYear - 1, currentYear - 2]
-  const open = (path: string) => window.open(path, '_blank', 'noopener')
+  const open = async (path: string) => {
+    if (!asPdf) {
+      window.open(path, '_blank', 'noopener')
+      return
+    }
+    setPdfBusy(true)
+    setError('')
+    try {
+      await downloadPdf(path)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'PDF 轉檔失敗')
+    } finally {
+      setPdfBusy(false)
+    }
+  }
   const yearOptions = years.map((y) => <option key={y} value={y}>民國 {rocYear(y)} 年 {ganzhiOfYear(y)}</option>)
   const general = types.filter((t) => t.category === 'GENERAL')
   const hasBagua = types.some((t) => t.category === 'BAGUA')
@@ -31,6 +48,12 @@ export default function PrintPage() {
     <main className="page page-narrow">
       {error && <div className="banner banner-bad">{error}</div>}
       <h1>列印</h1>
+      <section className="card card-pad row" style={{ alignItems: 'center' }}>
+        <label className="row" style={{ minHeight: 44, fontSize: 14 }}>
+          <input type="checkbox" checked={asPdf} onChange={(e) => setAsPdf(e.target.checked)} style={{ width: 20, height: 20 }} />下載 PDF 檔，不開列印頁
+        </label>
+        <span className="small muted">{pdfBusy ? '伺服器轉檔中，請稍候…' : '由伺服器用 Chrome 轉檔，版面與瀏覽器列印相同；拿來存檔或傳給廟方。'}</span>
+      </section>
       <section className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <h2>安燈卡與名冊</h2>
         <div className="row" style={{ alignItems: 'flex-end' }}>
@@ -44,9 +67,9 @@ export default function PrintPage() {
             </select>
           </label>
           <div className="row" style={{ gap: 6 }}>
-            <button type="button" className="btn" disabled={light === ''} onClick={() => open(`/print/cards?year=${year}&${lightQuery}`)}>安燈卡</button>
-            <button type="button" className="btn" disabled={light === ''} onClick={() => open(`/print/name-list?year=${year}&${lightQuery}`)}>頌經名冊（該年有安的人）</button>
-            <button type="button" className="btn btn-ghost" disabled={light === ''} onClick={() => open(`/print/name-list?year=${year}&${lightQuery}&all=true`)}>全部名冊</button>
+            <button type="button" className="btn" disabled={light === '' || pdfBusy} onClick={() => open(`/print/cards?year=${year}&${lightQuery}`)}>安燈卡</button>
+            <button type="button" className="btn" disabled={light === '' || pdfBusy} onClick={() => open(`/print/name-list?year=${year}&${lightQuery}`)}>頌經名冊（該年有安的人）</button>
+            <button type="button" className="btn btn-ghost" disabled={light === '' || pdfBusy} onClick={() => open(`/print/name-list?year=${year}&${lightQuery}&all=true`)}>全部名冊</button>
           </div>
         </div>
       </section>
@@ -58,14 +81,14 @@ export default function PrintPage() {
             <select className="inp" value={formYear} onChange={(e) => setFormYear(Number(e.target.value))}>{yearOptions}</select>
           </label>
           <div className="row" style={{ gap: 6 }}>
-            <button type="button" className="btn" onClick={() => open(`/print/application-form?scope=LIT&year=${formYear}`)}>申報單（該年有安燈的人）</button>
-            <button type="button" className="btn btn-ghost" onClick={() => open(`/print/application-form?scope=ALL&year=${formYear}`)}>申報單（全部的人）</button>
-            <button type="button" className="btn" onClick={() => open(`/print/application-form?scope=BAGUA&year=${formYear}`)}>八卦轉運斗（該年有安斗的人）</button>
+            <button type="button" className="btn" disabled={pdfBusy} onClick={() => open(`/print/application-form?scope=LIT&year=${formYear}`)}>申報單（該年有安燈的人）</button>
+            <button type="button" className="btn btn-ghost" disabled={pdfBusy} onClick={() => open(`/print/application-form?scope=ALL&year=${formYear}`)}>申報單（全部的人）</button>
+            <button type="button" className="btn" disabled={pdfBusy} onClick={() => open(`/print/application-form?scope=BAGUA&year=${formYear}`)}>八卦轉運斗（該年有安斗的人）</button>
           </div>
         </div>
       </section>
       <section className="card card-pad small muted" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div>列印頁會在新分頁開啟，按右上角「列印」或 Ctrl+P。安燈卡 A4 直印一頁 21 張；名冊 Letter 橫印、同戶不拆頁；申報單 Letter 直印、一戶一頁。</div>
+        <div>列印頁會在新分頁開啟，按右上角「列印」或 Ctrl+P，也可按「下載 PDF」。安燈卡 A4 直印一頁 21 張；名冊 Letter 橫印、同戶不拆頁；申報單 A4 直印、一戶一頁。</div>
         <div>列印對話框請關閉「頁首和頁尾」、邊界選「預設」、縮放 100%。單戶安燈卡從戶頁存檔後的綠色橫幅列印。</div>
       </section>
     </main>

@@ -4,10 +4,11 @@ import { print as printApi } from '../../api'
 import type { ApplicationForm, BaguaType, FormHousehold, FormPerson, FormScope } from '../../api/types'
 import { rocYear } from '../../lib/roc'
 import { GENDER } from '../../lib/labels'
+import PdfButton from './PdfButton'
 import './print.css'
 import './form.css'
 
-const ROWS_PER_PAGE: Record<FormScope, number> = { ALL: 22, LIT: 22, BAGUA: 21 }
+const ROWS_PER_PAGE: Record<FormScope, number> = { ALL: 24, LIT: 24, BAGUA: 23 }
 const SCOPE_LABEL: Record<FormScope, string> = { ALL: '全部的人', LIT: '該年有安燈的人', BAGUA: '該年有安斗的人' }
 
 interface Xs { g: number; y: number; yl: number; leap: number; m: number; mw: number; ml: number; d: number; dl: number; h: number; hl: number }
@@ -137,10 +138,11 @@ export default function ApplicationFormPrint() {
 
   return (
     <div className="print-root form-root">
-      <style>{'@page { size: 215.9mm 279.4mm; margin: 6.35mm; }'}</style>
+      <style>{'@page { size: A4 portrait; margin: 6.35mm 5mm; }'}</style>
       <div className="print-toolbar">
         <strong>{data.title}</strong><span>民國 {rocYear(data.year)} 年 {SCOPE_LABEL[data.scope]} · {data.households.length} 戶 · {sheets.length} 頁</span>
         <button type="button" className="btn btn-sm" style={{ marginLeft: 'auto' }} onClick={() => window.print()}>列印</button>
+        <PdfButton />
       </div>
       {sheets.length === 0 && <div className="page muted">沒有資料</div>}
       {sheets.map((s, i) => <FormSheet key={i} data={data} sheet={s} page={i + 1} pages={sheets.length} />)}

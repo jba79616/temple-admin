@@ -145,6 +145,11 @@ public class Member {
         return deletedAt != null;
     }
 
+    public void restore() {
+        this.deletedAt = null;
+        this.deleteReason = null;
+    }
+
     public Long getId() {
         return id;
     }

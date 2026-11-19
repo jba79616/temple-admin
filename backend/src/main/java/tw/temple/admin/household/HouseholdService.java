@@ -11,6 +11,7 @@ import tw.temple.admin.calendar.Ganzhi;
 import tw.temple.admin.calendar.Taisui;
 import tw.temple.admin.common.ApiException;
 import tw.temple.admin.config.TempleClock;
+import tw.temple.admin.household.HouseholdDtos.DeletedMemberView;
 import tw.temple.admin.household.HouseholdDtos.HouseholdDetail;
 import tw.temple.admin.household.HouseholdDtos.HouseholdInput;
 import tw.temple.admin.household.HouseholdDtos.HouseholdSummary;
@@ -75,8 +76,11 @@ public class HouseholdService {
         List<RecordView> recordViews = records.findByHouseholdIdAndYearAndActiveTrue(id, year).stream()
             .map(r -> new RecordView(r.getMember().getId(), r.getLightType().getId(), r.getUnitPrice()))
             .toList();
+        List<DeletedMemberView> deleted = members.findByHouseholdIdAndDeletedAtIsNotNullOrderByDeletedAtDesc(id).stream()
+            .map(m -> new DeletedMemberView(m.getId(), m.getName(), m.getGender(), m.birthText(), m.getDeletedAt(), m.getDeleteReason()))
+            .toList();
         return new HouseholdDetail(h.getId(), h.getHouseholdNumber(), h.getCity(), h.getDistrict(), h.getAddress(), h.getPhone(),
-            h.getContactNote(), h.getNotes(), year, views, recordViews);
+            h.getContactNote(), h.getNotes(), year, views, recordViews, deleted);
     }
 
     @Transactional(readOnly = true)
@@ -165,6 +169,23 @@ public class HouseholdService {
         m.softDelete(reason.trim(), clock.now());
         Member saved = members.save(m);
         audit.record("members", saved.getId(), "DELETE", before, saved.snapshot(), actor);
+    }
+
+    public Member restoreMember(Long memberId, User actor) {
+        Member m = getMember(memberId);
+        if (!m.isDeleted()) {
+            throw ApiException.badRequest("這位成員沒有被刪除");
+        }
+        var before = m.snapshot();
+        Long householdId = m.getHousehold().getId();
+        m.restore();
+        m.setSortOrder(members.maxSortOrder(householdId) + 1);
+        if (members.findFirstByHouseholdIdAndHeadTrueAndDeletedAtIsNull(householdId).isEmpty()) {
+            m.markHead(true);
+        }
+        Member saved = members.save(m);
+        audit.record("members", saved.getId(), "UPDATE", before, saved.snapshot(), actor);
+        return saved;
     }
 
     public Member setHead(Long memberId, User actor) {

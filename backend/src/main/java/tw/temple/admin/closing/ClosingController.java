@@ -5,11 +5,14 @@ import java.time.LocalDate;
 import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import tw.temple.admin.closing.ClosingDtos.AmendRequest;
 import tw.temple.admin.closing.ClosingDtos.CloseRequest;
 import tw.temple.admin.closing.ClosingDtos.ClosingView;
 import tw.temple.admin.closing.ClosingDtos.DayStatus;
@@ -46,5 +49,11 @@ public class ClosingController {
     @PostMapping
     public ClosingView close(@Valid @RequestBody CloseRequest req) {
         return ClosingView.of(service.close(req.closingDate(), req.countedCash(), req.note(), currentUser.get()));
+    }
+
+    @PutMapping("/{date}")
+    public ClosingView amend(@PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                             @Valid @RequestBody AmendRequest req) {
+        return ClosingView.of(service.amend(date, req.countedCash(), req.reason(), currentUser.get()));
     }
 }

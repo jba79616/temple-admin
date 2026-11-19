@@ -78,10 +78,11 @@ class LegacyImportServiceTest {
         assertThat(report.counts().householdsCreated()).isEqualTo(2);
         assertThat(report.counts().membersCreated()).isEqualTo(5);
         assertThat(report.counts().orders()).isEqualTo(3);
-        assertThat(report.counts().items()).isEqualTo(7);
+        assertThat(report.counts().items()).isEqualTo(9);
+        assertThat(report.counts().deletedItems()).isEqualTo(2);
         assertThat(report.counts().payments()).isEqualTo(3);
         assertThat(report.years()).extracting("year", "guangming", "wenchang", "taisui", "bagua")
-            .containsExactly(org.assertj.core.groups.Tuple.tuple(2023, 2, 0, 0, 1), org.assertj.core.groups.Tuple.tuple(2024, 2, 2, 0, 0));
+            .containsExactly(org.assertj.core.groups.Tuple.tuple(2023, 3, 0, 0, 1), org.assertj.core.groups.Tuple.tuple(2024, 3, 2, 0, 0));
         assertThat(households.findByLegacyIdIsNotNull()).isEmpty();
         assertThat(members.findByLegacyIdIsNotNull()).isEmpty();
 
@@ -130,8 +131,8 @@ class LegacyImportServiceTest {
         assertThat(gone.getDeletedAt().atZoneSameInstant(java.time.ZoneId.of("Asia/Taipei")).toLocalDateTime())
             .isEqualTo(java.time.LocalDateTime.of(2024, 2, 9, 17, 45, 58));
         assertThat(gone.getSortOrder()).isEqualTo((short) 3);
-        assertThat(records.findByMemberIdAndYearAndActiveTrue(gone.getId(), 2023)).isEmpty();
-        assertThat(records.findByMemberIdAndYearAndActiveTrue(gone.getId(), 2024)).isEmpty();
+        assertThat(records.findByMemberIdAndYearAndActiveTrue(gone.getId(), 2023)).hasSize(1);
+        assertThat(records.findByMemberIdAndYearAndActiveTrue(gone.getId(), 2024)).hasSize(1);
 
         Household h2 = households.findByLegacyIdIsNotNull().stream().filter(h -> h.getLegacyId() == 9002).findFirst().orElseThrow();
         assertThat(h2.getCity()).isEqualTo("桃園市");
@@ -163,12 +164,12 @@ class LegacyImportServiceTest {
         var h1Orders = orders.findByHouseholdIdOrderByIdDesc(h1.getId());
         assertThat(h1Orders).hasSize(2).allMatch(o -> o.getKind() == OrderKind.IMPORT);
         var order2023 = h1Orders.stream().filter(o -> o.getYear() == 2023).findFirst().orElseThrow();
-        assertThat(order2023.getTotalDue()).isEqualTo(1100);
+        assertThat(order2023.getTotalDue()).isEqualTo(1400);
         assertThat(order2023.getRegisteredOn()).hasYear(2023);
         var paid = payments.findByOrderIdOrderByIdAsc(order2023.getId());
         assertThat(paid).hasSize(1);
         assertThat(paid.get(0).getKind()).isEqualTo(PaymentKind.IMPORT);
-        assertThat(paid.get(0).getAmount()).isEqualTo(1100);
+        assertThat(paid.get(0).getAmount()).isEqualTo(1400);
 
         Household fresh = householdService.create(new HouseholdInput(null, null, null, null, null, null,
             new MemberInput("後來新增", null, null, null, null, null, null, null, false, null, null, null)), admin());
@@ -192,7 +193,7 @@ class LegacyImportServiceTest {
         assertThat(report.counts().membersUpdated()).isEqualTo(5);
         assertThat(report.counts().orders()).isZero();
         assertThat(report.counts().items()).isZero();
-        assertThat(report.counts().recordsExisting()).isEqualTo(7);
+        assertThat(report.counts().recordsExisting()).isEqualTo(9);
         assertThat(members.findByLegacyIdIsNotNull()).hasSize(5);
         assertThat(households.findById(h1.getId()).orElseThrow().getContactNote()).isEqualTo("請找兒子");
         assertThat(members.findByHouseholdIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(h1.getId()))

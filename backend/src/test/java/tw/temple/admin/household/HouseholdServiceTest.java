@@ -86,6 +86,39 @@ class HouseholdServiceTest {
     }
 
     @Test
+    void restoringDeletedMemberBringsBackRecordsAndHeadWhenNoneLeft() {
+        Household h = service.create(new HouseholdInput(null, null, null, null, null, null, member("林美玲", null)), admin);
+        Long headId = service.detail(h.getId(), null).members().get(0).id();
+        Member second = service.addMember(h.getId(), member("林小弟", null), admin);
+        var guangming = lightTypes.findByName("光明燈").orElseThrow();
+        orderService.createCounter(new CreateOrderRequest(null, h.getId(), null, null, null,
+            List.of(new ItemInput(headId, guangming.getId(), ItemAction.ADD, null, null))), admin);
+        service.deleteMember(headId, "搬走", second.getId(), admin);
+        service.deleteMember(second.getId(), "重複", null, admin);
+
+        var emptied = service.detail(h.getId(), null);
+        assertThat(emptied.members()).isEmpty();
+        assertThat(emptied.deletedMembers()).extracting(d -> d.name()).containsExactly("林小弟", "林美玲");
+        assertThat(emptied.deletedMembers().get(1).deleteReason()).isEqualTo("搬走");
+
+        Member restored = service.restoreMember(headId, admin);
+        assertThat(restored.isDeleted()).isFalse();
+        assertThat(restored.isHead()).isTrue();
+        assertThat(restored.getDeleteReason()).isNull();
+
+        var detail = service.detail(h.getId(), null);
+        assertThat(detail.members()).singleElement().satisfies(m -> assertThat(m.name()).isEqualTo("林美玲"));
+        assertThat(detail.deletedMembers()).singleElement().satisfies(d -> assertThat(d.name()).isEqualTo("林小弟"));
+        assertThat(detail.records()).singleElement().satisfies(r -> assertThat(r.memberId()).isEqualTo(headId));
+        assertThatThrownBy(() -> service.restoreMember(headId, admin)).hasMessageContaining("沒有被刪除");
+
+        Member secondBack = service.restoreMember(second.getId(), admin);
+        assertThat(secondBack.isHead()).isFalse();
+        assertThat(auditLogs.findAll()).filteredOn(a -> "members".equals(a.getTableName()) && "UPDATE".equals(a.getAction()))
+            .hasSizeGreaterThanOrEqualTo(2);
+    }
+
+    @Test
     void movingMemberCarriesCurrentYearRecords() {
         Household from = service.create(new HouseholdInput(null, null, null, null, null, null, member("陳志強", null)), admin);
         Household to = service.create(new HouseholdInput(null, null, null, null, null, null, member("陳建宏", null)), admin);

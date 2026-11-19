@@ -1,5 +1,6 @@
 package tw.temple.admin.closing;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
@@ -27,11 +28,16 @@ public final class ClosingDtos {
     public record CloseRequest(LocalDate closingDate, @NotNull Integer countedCash, @Size(max = 200) String note) {
     }
 
+    public record AmendRequest(@NotNull Integer countedCash, @NotBlank @Size(max = 200) String reason) {
+    }
+
     public record ClosingView(LocalDate closingDate, int systemCash, int countedCash, int difference, String closedBy,
-                              OffsetDateTime closedAt, String note) {
+                              OffsetDateTime closedAt, String note, Integer originalCountedCash, String amendReason,
+                              String amendedBy, OffsetDateTime amendedAt) {
         static ClosingView of(DailyClosing c) {
             return new ClosingView(c.getClosingDate(), c.getSystemCash(), c.getCountedCash(), c.getDifference(),
-                c.getClosedBy().getDisplayName(), c.getClosedAt(), c.getNote());
+                c.getClosedBy().getDisplayName(), c.getClosedAt(), c.getNote(), c.getOriginalCountedCash(), c.getAmendReason(),
+                c.getAmendedBy() == null ? null : c.getAmendedBy().getDisplayName(), c.getAmendedAt());
         }
     }
 }

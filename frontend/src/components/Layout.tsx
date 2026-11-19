@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../lib/auth'
 import { useConfig } from '../lib/config'
 import { ROLE } from '../lib/labels'
@@ -21,12 +21,24 @@ export default function Layout() {
   const { me, logout } = useAuth()
   const { templeName, yearLabel, loadError, reload } = useConfig()
   const { pathname } = useLocation()
+  const navigate = useNavigate()
   const isAdmin = me?.role === 'ADMIN'
   const menuRef = useRef<HTMLDetailsElement>(null)
   const counterActive = pathname === '/' || /^\/(households|members|orders)(\/|$)/.test(pathname)
   const adminActive = ADMIN_PATHS.some((p) => pathname.startsWith(p))
 
   useEffect(() => { menuRef.current?.removeAttribute('open') }, [pathname])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return
+      if ((e.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable]')) return
+      e.preventDefault()
+      const search = document.getElementById('q') as HTMLInputElement | null
+      if (pathname === '/' && search) { search.focus(); search.select() } else navigate('/')
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [pathname, navigate])
   useEffect(() => {
     const onClick = (e: MouseEvent) => { if (!menuRef.current?.contains(e.target as Node)) menuRef.current?.removeAttribute('open') }
     document.addEventListener('click', onClick)

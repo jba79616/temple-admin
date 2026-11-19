@@ -6,7 +6,7 @@ import Crumbs from '../components/Crumbs'
 import LanternMatrix, { cellKey, nextStatus, visibleLightTypes, type Cells } from '../components/LanternMatrix'
 import { useAuth } from '../lib/auth'
 import { money, rocDate, rocYear, todayIso } from '../lib/roc'
-import { GENDER, ORDER_KIND, ORDER_STATUS, PAYMENT_KIND } from '../lib/labels'
+import { GENDER, ORDER_KIND, ORDER_STATUS, PAYMENT_KIND, genderLabel } from '../lib/labels'
 import { useUnsavedGuard } from '../lib/useUnsavedGuard'
 
 export default function HouseholdPage() {
@@ -146,16 +146,44 @@ export default function HouseholdPage() {
     }
   }
 
+  async function restoreMember(memberId: number) {
+    try {
+      await membersApi.restore(memberId)
+      await load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '復原失敗')
+    }
+  }
+
   function onNewKey(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') { e.preventDefault(); addMember() }
   }
 
   const noChanges = changes.adds.length + changes.removes.length === 0
+  const cannotSave = noChanges || todayClosed
   useUnsavedGuard(!noChanges && !saving)
+
+  function startConfirm() {
+    setConfirming(true)
+    asideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const hotkey = useRef<() => void>(() => {})
+  hotkey.current = () => {
+    if (saving) return
+    if (confirming) save()
+    else if (!cannotSave) startConfirm()
+  }
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); hotkey.current() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   if (!detail) return <main className="page muted">{error || '載入中…'}</main>
   const head = detail.members.find((m) => m.head)
-  const cannotSave = noChanges || todayClosed
 
   return (
     <>
@@ -199,7 +227,7 @@ export default function HouseholdPage() {
               <button type="button" className={`btn btn-sm ${showBagua ? 'btn-on' : ''}`} onClick={() => setShowBagua(!showBagua)}>{showBagua ? '隱藏八卦斗' : '顯示八卦斗'}</button>
               <button type="button" className={`btn btn-sm ${showPrice ? 'btn-on' : ''}`} onClick={() => setShowPrice(!showPrice)}>{showPrice ? '隱藏價格' : '顯示價格'}</button>
             </div>
-            <span className="hint" style={{ flexBasis: '100%' }}>點燈種按鈕安燈或取消，改好後按「存檔並收款」。改生辰、地址用旁邊的按鈕。</span>
+            <span className="hint" style={{ flexBasis: '100%' }}>點燈種按鈕安燈或取消，改好後按「存檔並收款」。改生辰、地址用旁邊的按鈕。鍵盤：方向鍵在格子間移動、空白鍵切換、Ctrl+Enter 存檔。</span>
           </div>
           <LanternMatrix members={detail.members} lightTypes={visibleTypes} cells={cells} onToggle={toggle} showPrice={showPrice} showBagua={showBagua} showGeneral={showGeneral}
             renderActions={(m) => (
@@ -273,6 +301,31 @@ export default function HouseholdPage() {
         </aside>
       </div>
 
+      {detail.deletedMembers.length > 0 && (
+        <details className="card" style={{ overflow: 'hidden' }}>
+          <summary style={{ padding: '12px 16px', fontWeight: 700, cursor: 'pointer' }}>
+            已刪除成員（{detail.deletedMembers.length}）<span className="hint" style={{ marginLeft: 8 }}>歷年安燈紀錄都還在；復原後排在成員列最後，戶內沒戶長時直接成為戶長</span>
+          </summary>
+          <div className="scroll-x">
+            <table className="table" style={{ minWidth: 640 }}>
+              <thead><tr><th>姓名</th><th>性別</th><th>生辰</th><th>刪除時間</th><th>原因</th><th></th></tr></thead>
+              <tbody>
+                {detail.deletedMembers.map((d) => (
+                  <tr key={d.id}>
+                    <td style={{ fontWeight: 700 }}>{d.name}</td>
+                    <td>{genderLabel(d.gender)}</td>
+                    <td className="small">{d.birthText}</td>
+                    <td className="small muted">{rocDate(d.deletedAt.slice(0, 10))}</td>
+                    <td className="small muted">{d.deleteReason ?? '—'}</td>
+                    <td><button type="button" className="btn btn-sm" onClick={() => restoreMember(d.id)}>復原</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
+
       <section className="card" style={{ overflow: 'hidden' }}>
         <div className="card-title">本戶單據<span className="hint">點單號看明細、作廢或開更正單</span></div>
         <div className="scroll-x">
@@ -300,8 +353,7 @@ export default function HouseholdPage() {
     <div className="sticky-bar">
       <div className="kv"><span className="k">本次應收</span><strong style={{ fontSize: 20 }}>{money(changes.due)}</strong></div>
       <span className="small muted">新增 {changes.adds.length} · 取消 {changes.removes.length}</span>
-      <button type="button" className="btn" style={{ marginLeft: 'auto' }} disabled={cannotSave}
-        onClick={() => { setConfirming(true); asideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>存檔並收款</button>
+      <button type="button" className="btn" style={{ marginLeft: 'auto' }} disabled={cannotSave} onClick={startConfirm}>存檔並收款</button>
     </div>
     </>
   )

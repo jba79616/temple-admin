@@ -59,7 +59,7 @@ import tw.temple.admin.user.User;
  * 把舊系統（MariaDB，people 一人一列、每年四個燈的勾選欄）的 mysqldump 轉進新 schema。
  * 預覽模式會真的跑完整個流程再整筆 rollback，所以 DB 的約束檢查也會在預覽時就報出來。
  * 可重跑：戶與成員依 legacy_id 更新，已存在的年度紀錄不再補單；新系統已有的戶長與聯絡備註不動。
- * 舊系統標 is_deleted 的人也進戶，建成軟刪除成員，但不補他們的安燈紀錄（舊系統的 view 也不列他們）。
+ * 舊系統標 is_deleted 的人也進戶，建成軟刪除成員；歷年安燈紀錄照補（舊系統的 view 不列他們，但勾選仍在表裡）。
  */
 @Service
 public class LegacyImportService {
@@ -73,8 +73,8 @@ public class LegacyImportService {
     }
 
     public record Counts(int people, int deleted, int households, int householdsCreated, int householdsUpdated,
-                         int membersCreated, int membersUpdated, int orders, int items, int payments, int recordsExisting,
-                         int addressesSplit, int addressesPartial, int addressesUnparsed) {
+                         int membersCreated, int membersUpdated, int orders, int items, int deletedItems, int payments,
+                         int recordsExisting, int addressesSplit, int addressesPartial, int addressesUnparsed) {
     }
 
     public record Report(boolean committed, Counts counts, List<YearCount> years, List<Issue> issues) {
@@ -128,6 +128,7 @@ public class LegacyImportService {
         int membersUpdated;
         int orders;
         int items;
+        int deletedItems;
         int payments;
         int recordsExisting;
         int addressesSplit;
@@ -136,7 +137,7 @@ public class LegacyImportService {
 
         Counts toCounts() {
             return new Counts(people, deleted, households, householdsCreated, householdsUpdated, membersCreated, membersUpdated,
-                orders, items, payments, recordsExisting, addressesSplit, addressesPartial, addressesUnparsed);
+                orders, items, deletedItems, payments, recordsExisting, addressesSplit, addressesPartial, addressesUnparsed);
         }
     }
 
@@ -285,7 +286,7 @@ public class LegacyImportService {
                 yield null;
             }
         };
-        Map<Integer, EnumSet<Lamp>> lamps = deletedAt == null ? lamps(row) : Map.of();
+        Map<Integer, EnumSet<Lamp>> lamps = lamps(row);
         return new Person(id, householdNumber, "1".equals(row.get("ishouseholdhead")), parseInt(row.get("people_order")), name, gender,
             TaiwanAddress.split(row.get("address")), cleanName(row.get("householdhead")), blankToNull(row.get("phone")),
             blankToNull(row.get("remark")), parseBirth(row, householdNumber, name, sink), lamps, deletedAt);
@@ -620,6 +621,9 @@ public class LegacyImportService {
                         records.save(new AnnualLightRecord(year, m, type, h, price, item));
                         due += price;
                         tally.items++;
+                        if (p.deleted()) {
+                            tally.deletedItems++;
+                        }
                     }
                 }
                 if (order != null) {

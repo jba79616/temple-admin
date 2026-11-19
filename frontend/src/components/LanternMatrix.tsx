@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 import type { LightType, MemberView } from '../api/types'
 import { money } from '../lib/roc'
 import { genderLabel } from '../lib/labels'
@@ -36,6 +36,30 @@ interface Props {
 }
 
 const STATUS_TITLE: Record<CellStatus, string> = { none: '未安', existing: '已安', add: '本次新增', remove: '本次取消' }
+const ARROWS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']
+
+/** 左右在同一位成員的燈種間移動，上下換成員、停在同一個燈種（該成員沒那顆就落到第一顆）。 */
+function moveFocus(e: KeyboardEvent<HTMLDivElement>) {
+  const chip = e.target as HTMLElement
+  if (!ARROWS.includes(e.key) || !chip.matches('button.chip')) return
+  const row = chip.closest('.mrow')
+  if (!row) return
+  let next: Element | null | undefined
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    const chips = Array.from(row.querySelectorAll('button.chip:not([disabled])'))
+    next = chips[chips.indexOf(chip) + (e.key === 'ArrowRight' ? 1 : -1)]
+  } else {
+    const step = e.key === 'ArrowDown' ? 1 : -1
+    const rows = Array.from(e.currentTarget.querySelectorAll(':scope > .mrow'))
+    for (let i = rows.indexOf(row) + step; i >= 0 && i < rows.length && !next; i += step) {
+      next = rows[i].querySelector(`button.chip[data-col="${chip.dataset.col}"]:not([disabled])`) ?? rows[i].querySelector('button.chip:not([disabled])')
+    }
+  }
+  if (next instanceof HTMLElement) {
+    e.preventDefault()
+    next.focus()
+  }
+}
 
 export default function LanternMatrix({ members, lightTypes, cells, onToggle, showPrice, showBagua, showGeneral = true, renderActions, footer }: Props) {
   const status = (m: MemberView, t: LightType): CellStatus => statusOf(cells, m.id, t.id)
@@ -45,7 +69,7 @@ export default function LanternMatrix({ members, lightTypes, cells, onToggle, sh
   const priceOf = (t: LightType) => (showPrice ? money(t.price) : '')
 
   return (
-    <div>
+    <div onKeyDown={moveFocus}>
       {members.map((m) => {
         const picked = bagua.filter((t) => ['existing', 'add'].includes(status(m, t))).length
         return (
@@ -67,7 +91,7 @@ export default function LanternMatrix({ members, lightTypes, cells, onToggle, sh
                   const hint = st === 'none' && t.taisui && !!m.taisui
                   const cls = st === 'none' ? (hint ? 'chip-hint' : '') : `chip-${st}`
                   return (
-                    <button key={t.id} type="button" className={`chip chip-lg ${cls}`} aria-pressed={st === 'existing' || st === 'add'}
+                    <button key={t.id} type="button" className={`chip chip-lg ${cls}`} data-col={t.id} aria-pressed={st === 'existing' || st === 'add'}
                       aria-label={`${m.name} ${t.name}`} title={title(t, st)} disabled={st === 'none' && !t.active} onClick={() => onToggle(m.id, t.id)}>
                       <span>{t.name}</span>
                       <span className="chip-sub">{[hint ? '建議' : '', priceOf(t)].filter(Boolean).join(' ')}</span>
@@ -84,7 +108,7 @@ export default function LanternMatrix({ members, lightTypes, cells, onToggle, sh
                   {bagua.map((t) => {
                     const st = status(m, t)
                     return (
-                      <button key={t.id} type="button" className={`chip ${st === 'none' ? '' : `chip-${st}`}`}
+                      <button key={t.id} type="button" className={`chip ${st === 'none' ? '' : `chip-${st}`}`} data-col={t.id}
                         aria-pressed={st === 'existing' || st === 'add'} aria-label={`${m.name} ${t.name}`} title={title(t, st)} disabled={st === 'none' && !t.active} onClick={() => onToggle(m.id, t.id)}>
                         <span>{t.name}</span>
                         <span className="chip-sub">{priceOf(t)}</span>

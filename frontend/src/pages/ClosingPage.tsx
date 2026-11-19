@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { closings as closingsApi, orders as ordersApi } from '../api'
 import type { ClosingView, DaySummary, OrderView } from '../api/types'
@@ -14,6 +14,10 @@ export default function ClosingPage() {
   const [confirming, setConfirming] = useState(false)
   const [closing, setClosing] = useState(false)
   const [error, setError] = useState('')
+  const [amending, setAmending] = useState(false)
+  const [amendCash, setAmendCash] = useState('')
+  const [amendReason, setAmendReason] = useState('')
+  const [amendBusy, setAmendBusy] = useState(false)
 
   const load = useCallback(async () => {
     const [s, h, u] = await Promise.all([closingsApi.summary(), closingsApi.history(), ordersApi.unsettled()])
@@ -23,6 +27,28 @@ export default function ClosingPage() {
   }, [])
 
   useEffect(() => { load().catch((e) => setError(e.message)) }, [load])
+
+  function startAmend(h: ClosingView) {
+    setAmendCash(String(h.countedCash))
+    setAmendReason('')
+    setAmending(true)
+  }
+
+  async function amend(date: string) {
+    const cash = Number(amendCash)
+    if (!Number.isInteger(cash) || cash < 0 || !amendReason.trim() || amendBusy) return
+    setAmendBusy(true)
+    setError('')
+    try {
+      await closingsApi.amend(date, cash, amendReason.trim())
+      setAmending(false)
+      await load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '修改失敗')
+    } finally {
+      setAmendBusy(false)
+    }
+  }
 
   async function close() {
     if (!summary || closing) return
@@ -122,15 +148,43 @@ export default function ClosingPage() {
       </section>
 
       <section className="card" style={{ overflow: 'hidden' }}>
-        <div className="card-title">日結歷史</div>
+        <div className="card-title">日結歷史<span className="hint">實點打錯只能改最新一次，原值會留下；更早的差額請開更正單對銷</span></div>
         <div className="scroll-x">
           <table className="table" style={{ minWidth: 600 }}>
             <thead><tr><th>日期</th><th className="right">系統合計</th><th className="right">實點</th><th className="right">長短款</th><th>日結人 / 備註</th></tr></thead>
             <tbody>
-              {history.map((h) => (
-                <tr key={h.closingDate}><td>{rocDate(h.closingDate)}</td><td className="num right">{money(h.systemCash)}</td><td className="num right">{money(h.countedCash)}</td>
-                  <td className="num right" style={{ fontWeight: 500, color: h.difference === 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>{h.difference > 0 ? `+${money(h.difference)}` : money(h.difference)}</td>
-                  <td className="small muted">{h.closedBy} {h.note}</td></tr>
+              {history.map((h, i) => (
+                <Fragment key={h.closingDate}>
+                  <tr><td>{rocDate(h.closingDate)}</td><td className="num right">{money(h.systemCash)}</td><td className="num right">{money(h.countedCash)}</td>
+                    <td className="num right" style={{ fontWeight: 500, color: h.difference === 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>{h.difference > 0 ? `+${money(h.difference)}` : money(h.difference)}</td>
+                    <td className="small muted">
+                      <div className="row" style={{ gap: 8 }}>
+                        <span>{h.closedBy} {h.note}</span>
+                        {i === 0 && !amending && <button type="button" className="btn btn-sm" onClick={() => startAmend(h)}>修改實點</button>}
+                      </div>
+                      {h.originalCountedCash !== null && (
+                        <div>原實點 {money(h.originalCountedCash)}，{h.amendedBy}{h.amendedAt ? ` ${rocDateTime(h.amendedAt)}` : ''} 改：{h.amendReason}</div>
+                      )}
+                    </td></tr>
+                  {i === 0 && amending && (
+                    <tr><td colSpan={5}>
+                      <div className="panel">
+                        <strong>修改 {rocDate(h.closingDate)} 的實點金額</strong>
+                        <div className="row" style={{ alignItems: 'flex-end' }}>
+                          <label className="fld small muted">實點現金
+                            <input type="number" inputMode="numeric" min={0} className="inp" value={amendCash} onChange={(e) => setAmendCash(e.target.value)} />
+                          </label>
+                          <label className="fld small muted" style={{ flex: 1 }}>原因（必填）
+                            <input className="inp" maxLength={200} placeholder="例：實點 4300 打成 4600" value={amendReason} onChange={(e) => setAmendReason(e.target.value)} />
+                          </label>
+                          <button type="button" className="btn" disabled={amendBusy || !amendReason.trim() || amendCash === ''} onClick={() => amend(h.closingDate)}>{amendBusy ? '修改中…' : '確認修改'}</button>
+                          <button type="button" className="btn btn-ghost" onClick={() => setAmending(false)}>取消</button>
+                        </div>
+                        <span className="small muted">系統合計不變，長短款會重算。修改人與原因會記在這筆日結上。</span>
+                      </div>
+                    </td></tr>
+                  )}
+                </Fragment>
               ))}
               {history.length === 0 && <tr><td colSpan={5} className="muted" style={{ textAlign: 'center', padding: 24 }}>尚未日結過</td></tr>}
             </tbody>

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router'
 import { lightSelectionFrom, print as printApi } from '../../api'
 import type { Cards } from '../../api/types'
 import { rocYear } from '../../lib/roc'
+import PdfButton from './PdfButton'
 import './print.css'
 
 const PER_PAGE = 21
@@ -39,6 +40,7 @@ export default function CardsPrint() {
       <div className="print-toolbar">
         <strong>安燈卡</strong><span>{data.lightTypeName ?? '本單新增'} · 民國 {rocYear(data.year)} 年 · {data.cards.length} 張 · {pages.length} 頁</span>
         <button type="button" className="btn btn-sm" style={{ marginLeft: 'auto' }} onClick={() => window.print()}>列印</button>
+        <PdfButton />
       </div>
       {pages.length === 0 && <div className="page muted">沒有可印的卡片</div>}
       {pages.map((cards, pi) => (

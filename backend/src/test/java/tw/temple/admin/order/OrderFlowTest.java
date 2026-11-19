@@ -228,6 +228,33 @@ class OrderFlowTest {
     }
 
     @Test
+    void amendingCountedCashKeepsOriginalAndOnlyTouchesLatestClosing() {
+        counter(staff, add(a, guangming));
+        var summary = closingService.summary(null);
+        LocalDate today = clock.today();
+        var closing = closingService.close(null, summary.systemCash() + 300, "打錯", admin);
+        assertThat(closing.getDifference()).isEqualTo(300);
+
+        var amended = closingService.amend(today, summary.systemCash(), "實點 4300 打成 4600", staff);
+        assertThat(amended.getDifference()).isZero();
+        assertThat(amended.getCountedCash()).isEqualTo(summary.systemCash());
+        assertThat(amended.getOriginalCountedCash()).isEqualTo(summary.systemCash() + 300);
+        assertThat(amended.getAmendedBy().getId()).isEqualTo(staff.getId());
+        assertThat(amended.getAmendReason()).isEqualTo("實點 4300 打成 4600");
+
+        var again = closingService.amend(today, summary.systemCash() + 50, "再改一次", admin);
+        assertThat(again.getOriginalCountedCash()).isEqualTo(summary.systemCash() + 300);
+        assertThat(again.getDifference()).isEqualTo(50);
+
+        LocalDate yesterday = today.minusDays(1);
+        closings.deleteAll();
+        closingService.close(yesterday, 0, null, admin);
+        closingService.close(today, 0, null, admin);
+        assertThatThrownBy(() -> closingService.amend(yesterday, 10, "太晚了", admin)).hasMessageContaining("最新一次日結");
+        assertThatThrownBy(() -> closingService.amend(today.plusDays(1), 10, "沒這天", admin)).hasMessageContaining("找不到");
+    }
+
+    @Test
     void removeRefundsThePricePaidNotTheCurrentPrice() {
         counter(admin, new ItemInput(a.getId(), guangming.getId(), ItemAction.ADD, 200, "優惠價"));
         OrderView cancel = counter(staff, remove(a, guangming));

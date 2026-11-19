@@ -418,17 +418,17 @@ CREATE TRIGGER trg_audit_logs_immutable
 
 ### 申報單（報表 4、5）
 
-- Letter 直印，四邊 6.35mm，一戶一頁；版面照舊系統 .rtm 的 mm 座標還原，字型用內建楷體。
+- A4 直印，上下 6.35mm、左右 5mm，一戶一頁；版面照舊系統 .rtm 的 Letter mm 座標還原，整張用 CSS `zoom: 0.98425` 縮到 200mm 可印寬，多出的高度拿來多放兩列（一般燈 24 列、八卦斗 23 列）。字型用內建楷體。
 - 三層標頭：戶號（18pt 粗斜體）、斗首＝戶長名（16pt，下橫線）、住址＝戶的縣市鄉鎮加街路（14pt，下橫線），再接欄位標題 姓名、性別、生辰。
 - 每人一列：一般燈版左邊三個圓角方框（光明、文昌、太歲）留白給信眾勾，列高 9.5mm；八卦轉運斗版左邊一個 25.6mm 手寫框填斗型編號，列高 8.6mm，頁首多一排 22 型對照（`legacy_code` 01–22 加名稱直書）。
 - 生辰拆五段：干支年「年」、閏、月「月」、日「日」、時辰「時生」，空白印「吉」。頁尾頁碼「n of N」置中，右側「計　元」留白。
 - 範圍：`LIT` 該年狀態表有燈的人、`ALL` 全部成員、`BAGUA` 該年有安八卦斗的人；已刪除成員不列。年度預設去年。
 - 字型：`frontend/public/fonts/LXGWWenKaiTC-Regular.woff2`（霞鶩文楷 TC，SIL OFL），由 jar 提供，Mac 與 Windows 的畫面與 PDF 一致。
 
-### 技術方案（建議，待拍板）
+### 技術方案（2026-11-19 已做）
 
-- 安燈卡與名冊各做成獨立的 React 列印頁，字型用 `@font-face` 從 jar 載入 Noto Sans TC，`@page` 定紙張與邊界，`break-before` 依戶分頁。
-- 因為 Windows 與 Mac 都要印且要歸檔，伺服器端用 Playwright Java 以 Chromium 開同一個列印頁產 PDF，`preferCSSPageSize` 開啟，回傳並存入年度歸檔目錄。櫃台用瀏覽器開 PDF，列印縮放選「實際大小」。
+- 安燈卡、名冊、申報單各是獨立的 React 列印頁，`@page` 定紙張與邊界，`break-after` 分頁。三種報表字型統一用 jar 內建的霞鶩文楷 TC（`@font-face 'Temple Kai'`，放在 `print.css`），Mac 與 Windows 畫面與 PDF 一致。
+- 伺服器端 PDF：`print.PdfService` 用 Playwright Java（1.65.1）接機器上已安裝的 Chrome 或 Edge（`temple.pdf.channels`，預設 `chrome,msedge`，不下載瀏覽器），帶著呼叫者的 session cookie 開同一個列印頁，等 `.sheet` 與字型載完後 `page.pdf(preferCSSPageSize)`；`GET /api/print/pdf?path=/print/...` 回 `application/pdf` 附檔，檔名取頁面 title。Playwright 不是 thread-safe，整個轉檔排在一把鎖後面，瀏覽器第一次用到才啟動、之後重用。沒裝 Chrome/Edge 回 503，前端提示改用瀏覽器列印。沒有做歸檔目錄，PDF 直接下載。
 - 不用 Flying Saucer 自己的 CSS 2.1 引擎，避免 XHTML、字型嵌入與兩套版面。
 - 戶籍清單：`GET /api/registry/members?page=0&size=10&lit=false` 一人一列照成員 id 排序，`GET /api/registry/households?...` 一戶一列照戶號排序、每列內含同戶成員的 `members`；兩者每頁預設 10 筆；`lit=true` 只列該年狀態表有燈的，`year` 不給就是目前年度。回傳 `{items, page, size, total, totalPages}`。
 - 端點：`GET /api/print/cards?year=2027&lightTypeId=1`（或 `category=BAGUA` 印全部八卦斗）、`GET /api/print/name-list?year=2027&lightTypeId=1&all=false`（同樣可用 `category=BAGUA`）、`GET /api/print/application-form?scope=LIT|ALL|BAGUA&year=2026`。
@@ -464,8 +464,8 @@ Phase 1 已完成並通過本地測試：後端 22 個測試（含 Testcontainer
 
 ### 待決
 
-- **列印方式**：第一版已做瀏覽器列印（React 列印頁加 `@page`）。2026-11-06 用 headless Chrome 把兩個列印頁輸出 PDF 試印：安燈卡 A4 直印 3×7、列高 38mm 間距 1mm；名冊 Letter 橫印、同戶不拆頁、表頭每頁重印、落款與最後一戶同頁。伺服器端 PDF（Playwright 渲染同一頁）尚未做，等卡片尺寸與欄位確認後再決定要不要加。
-- **日結打錯**：`daily_closings` 的實點金額若輸入錯誤怎麼改。建議只允許最新一日在下一次日結前修改並記錄原值，更早的不改，差額走更正單對銷。
+- **列印方式**：第一版已做瀏覽器列印（React 列印頁加 `@page`）。2026-11-06 用 headless Chrome 把兩個列印頁輸出 PDF 試印：安燈卡 A4 直印 3×7、列高 38mm 間距 1mm；名冊 Letter 橫印、同戶不拆頁、表頭每頁重印、落款與最後一戶同頁。2026-11-19 加上伺服器端 PDF（見技術方案）。卡片尺寸與名冊欄位仍待廟方確認。
+- **日結打錯（2026-11-19 已做）**：只允許最新一次日結在下一次日結前修改實點金額，`daily_closings` 多四欄 `original_counted_cash`（第一次修改才寫，之後再改仍保留最初輸入）、`amend_reason`、`amended_by`、`amended_at`；`PUT /api/closings/{date}`，系統合計不動、長短款重算。更早的日結不改，差額走更正單對銷。日結主鍵是日期，`audit_logs.row_id` 是 BIGINT，所以不寫稽核，改用這四欄記錄。
 - **備份**：PostgreSQL 每日 `pg_dump` 排程與異地副本，屬部署工作，尚未規劃。
-- **舊資料匯入（2026-11-14 已做）**：不經 pgloader，後端直接解析 mysqldump 文字（`legacy.MysqlDumpParser`，支援多段 INSERT、`_binary` 的 bit(1)），`legacy.LegacyImportService` 轉成新 schema。規則：`is_deleted = 1` 的人也進戶，建成軟刪除成員（`deleted_at` 取舊系統 `update_time`，沒有就取匯入時間，原因「舊系統已刪除」），排在戶內最後、不當戶長、不補安燈紀錄（舊 view 也不列他們），重跑時原地更新；重跑時戶已有有效戶長就不改戶長、`contact_note` 保留，只有沒戶長的戶才套舊資料的戶長；戶長取有標記且順序最前的，沒標就取第一位，標多位取第一位；`people_order` 重複依舊 id 重排；地址用 `household.TaiwanAddress` 拆三段（「台」視同「臺」、去郵遞區號、桃園縣與臺北縣等舊縣名換新名、中壢市→中壢區與頭份鎮→頭份市這類升格後綴對應），拆不出縣市的整段放街路欄、縣市留空；成員地址與戶長不同才存在成員自己的地址欄；干支、月、日、時辰無效或「吉」一律 NULL，閏月沒有月份不存；`remark` 併到戶的 `notes`；姓名去掉全形空白；單價取 dump 的 `lamp` 表，沒有就用現行燈種價格。報表列出需人工處理的項目：地址拆不出縣市、有縣市沒鄉鎮市區、戶長異常、生辰異常、姓名含無法辨識字、順序重複。實際 dump（2026-11-07）：4,031 人（75 已刪，其中 43 人有歷年勾選，多在 110–112 年）、824 戶（戶號 1–851）、民國 110–115 年，地址 98% 可自動拆，整個匯入約 7 秒。
-- **實作後的小項**：改價目前用瀏覽器 prompt 輸入原因與金額；日結合計未依收款人分列；鍵盤快捷鍵未做；安燈卡尺寸與名冊欄位待廟方確認（見列印方式）。已做：更正單可搜尋別戶成員加入（跨戶更正）；鄉鎮市區下拉內建全台 22 縣市 368 鄉鎮市區，附 3 碼郵遞區號。
+- **舊資料匯入（2026-11-14 已做）**：不經 pgloader，後端直接解析 mysqldump 文字（`legacy.MysqlDumpParser`，支援多段 INSERT、`_binary` 的 bit(1)），`legacy.LegacyImportService` 轉成新 schema。規則：`is_deleted = 1` 的人也進戶，建成軟刪除成員（`deleted_at` 取舊系統 `update_time`，沒有就取匯入時間，原因「舊系統已刪除」），排在戶內最後、不當戶長，歷年安燈紀錄照補（2026-11-19 起；舊 view 不列他們但勾選仍在表裡，報表另計「含已刪除成員 N 筆」），重跑時原地更新；重跑時戶已有有效戶長就不改戶長、`contact_note` 保留，只有沒戶長的戶才套舊資料的戶長；戶長取有標記且順序最前的，沒標就取第一位，標多位取第一位；`people_order` 重複依舊 id 重排；地址用 `household.TaiwanAddress` 拆三段（「台」視同「臺」、去郵遞區號、桃園縣與臺北縣等舊縣名換新名、中壢市→中壢區與頭份鎮→頭份市這類升格後綴對應），拆不出縣市的整段放街路欄、縣市留空；成員地址與戶長不同才存在成員自己的地址欄；干支、月、日、時辰無效或「吉」一律 NULL，閏月沒有月份不存；`remark` 併到戶的 `notes`；姓名去掉全形空白；單價取 dump 的 `lamp` 表，沒有就用現行燈種價格。報表列出需人工處理的項目：地址拆不出縣市、有縣市沒鄉鎮市區、戶長異常、生辰異常、姓名含無法辨識字、順序重複。實際 dump（2026-11-07）：4,031 人（75 已刪，其中 43 人有歷年勾選，多在 110–112 年）、824 戶（戶號 1–851）、民國 110–115 年，地址 98% 可自動拆，整個匯入約 7 秒。
+- **實作後的小項**：改價目前用瀏覽器 prompt 輸入原因與金額；日結合計未依收款人分列；安燈卡尺寸與名冊欄位待廟方確認（見列印方式）。已做：更正單可搜尋別戶成員加入（跨戶更正）；鄉鎮市區下拉內建全台 22 縣市 368 鄉鎮市區，附 3 碼郵遞區號；鍵盤快捷鍵（`/` 跳搜尋、`Enter` 開第一筆、矩陣方向鍵移動、空白鍵切換、`Ctrl+Enter` 存檔）；已刪除成員在戶頁可展開查看並復原（`POST /api/members/{id}/restore`，復原後排最後，戶內沒戶長就成為戶長，稽核記 UPDATE）。

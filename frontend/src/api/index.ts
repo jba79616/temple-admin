@@ -25,6 +25,7 @@ export const members = {
   remove: (id: number, reason: string, newHeadId?: number | null) =>
     api<void>(`/api/members/${id}`, { method: 'DELETE', json: { reason, newHeadId: newHeadId ?? null } }),
   setHead: (id: number) => api<MemberView>(`/api/members/${id}/head`, { method: 'POST' }),
+  restore: (id: number) => api<MemberView>(`/api/members/${id}/restore`, { method: 'POST' }),
   move: (id: number, householdId: number) => api<MemberView>(`/api/members/${id}/move`, { method: 'POST', json: { householdId } }),
 }
 
@@ -54,6 +55,8 @@ export const closings = {
   history: () => api<ClosingView[]>('/api/closings'),
   close: (countedCash: number, note: string, closingDate?: string) =>
     api<ClosingView>('/api/closings', { method: 'POST', json: { countedCash, note, closingDate: closingDate ?? null } }),
+  amend: (date: string, countedCash: number, reason: string) =>
+    api<ClosingView>(`/api/closings/${date}`, { method: 'PUT', json: { countedCash, reason } }),
 }
 
 export const configs = {

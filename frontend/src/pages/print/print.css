@@ -1,4 +1,6 @@
-.print-root { background: #fff; color: #111; font-family: 'Noto Serif TC', 'PMingLiU', serif; }
+@font-face { font-family: 'Temple Kai'; src: url('/fonts/LXGWWenKaiTC-Regular.woff2') format('woff2'); font-display: block; }
+
+.print-root { background: #fff; color: #111; font-family: 'Temple Kai', 'BiauKai', 'DFKai-SB', 'Kaiti TC', serif; }
 .print-toolbar { position: sticky; top: 0; background: #F3F4F6; border-bottom: 1px solid #E5E7EB; padding: 10px 16px; display: flex; gap: 12px; align-items: center; font-family: 'Noto Sans TC', system-ui, sans-serif; }
 .sheet { margin: 12px auto; background: #fff; box-shadow: 0 2px 12px rgba(16, 24, 40, .14); }
 

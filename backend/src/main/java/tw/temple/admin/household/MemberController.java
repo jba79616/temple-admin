@@ -43,6 +43,12 @@ public class MemberController {
         service.deleteMember(id, req.reason(), req.newHeadId(), currentUser.get());
     }
 
+    @PostMapping("/{id}/restore")
+    public MemberView restore(@PathVariable Long id) {
+        service.restoreMember(id, currentUser.get());
+        return service.memberView(id);
+    }
+
     @PostMapping("/{id}/head")
     public MemberView setHead(@PathVariable Long id) {
         service.setHead(id, currentUser.get());

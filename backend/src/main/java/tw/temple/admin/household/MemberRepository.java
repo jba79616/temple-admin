@@ -15,6 +15,8 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     Optional<Member> findFirstByHouseholdIdAndHeadTrueAndDeletedAtIsNull(Long householdId);
 
+    List<Member> findByHouseholdIdAndDeletedAtIsNotNullOrderByDeletedAtDesc(Long householdId);
+
     int countByHouseholdIdAndDeletedAtIsNull(Long householdId);
 
     List<Member> findByLegacyIdIsNotNull();

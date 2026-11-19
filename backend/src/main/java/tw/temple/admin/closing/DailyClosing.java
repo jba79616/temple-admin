@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
 import tw.temple.admin.user.User;
 
 @Entity
@@ -26,7 +27,7 @@ public class DailyClosing {
     @Column(name = "counted_cash", nullable = false)
     private int countedCash;
 
-    @Generated
+    @Generated(event = {EventType.INSERT, EventType.UPDATE})
     @Column(insertable = false, updatable = false)
     private Integer difference;
 
@@ -40,6 +41,19 @@ public class DailyClosing {
 
     @Column(length = 200)
     private String note;
+
+    @Column(name = "original_counted_cash")
+    private Integer originalCountedCash;
+
+    @Column(name = "amend_reason", length = 200)
+    private String amendReason;
+
+    @ManyToOne
+    @JoinColumn(name = "amended_by")
+    private User amendedBy;
+
+    @Column(name = "amended_at")
+    private OffsetDateTime amendedAt;
 
     protected DailyClosing() {
     }
@@ -78,5 +92,32 @@ public class DailyClosing {
 
     public String getNote() {
         return note;
+    }
+
+    /** 只改實點金額；系統合計是收款算出來的，不動。第一次修改才記原值，之後再改仍保留最初輸入的那筆。 */
+    public void amend(int newCountedCash, String reason, User actor, OffsetDateTime at) {
+        if (originalCountedCash == null) {
+            originalCountedCash = countedCash;
+        }
+        countedCash = newCountedCash;
+        amendReason = reason;
+        amendedBy = actor;
+        amendedAt = at;
+    }
+
+    public Integer getOriginalCountedCash() {
+        return originalCountedCash;
+    }
+
+    public String getAmendReason() {
+        return amendReason;
+    }
+
+    public User getAmendedBy() {
+        return amendedBy;
+    }
+
+    public OffsetDateTime getAmendedAt() {
+        return amendedAt;
     }
 }

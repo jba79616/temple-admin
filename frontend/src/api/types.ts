@@ -87,6 +87,16 @@ export interface HouseholdDetail {
   year: number
   members: MemberView[]
   records: RecordView[]
+  deletedMembers: DeletedMemberView[]
+}
+
+export interface DeletedMemberView {
+  id: number
+  name: string
+  gender: string | null
+  birthText: string
+  deletedAt: string
+  deleteReason: string | null
 }
 
 export type LightCategory = 'GENERAL' | 'BAGUA'
@@ -224,6 +234,10 @@ export interface ClosingView {
   closedBy: string
   closedAt: string
   note: string | null
+  originalCountedCash: number | null
+  amendReason: string | null
+  amendedBy: string | null
+  amendedAt: string | null
 }
 
 export interface ConfigView {
@@ -331,6 +345,7 @@ export interface LegacyCounts {
   membersUpdated: number
   orders: number
   items: number
+  deletedItems: number
   payments: number
   recordsExisting: number
   addressesSplit: number

@@ -46,7 +46,7 @@ function ReportView({ report }: { report: LegacyImportReport }) {
           <Stat label="舊資料人數" value={c.people} sub={`含舊系統已刪除 ${c.deleted} 人，匯成軟刪除`} />
           <Stat label="戶" value={c.households} sub={`新建 ${c.householdsCreated} · 更新 ${c.householdsUpdated}`} />
           <Stat label="成員" value={c.membersCreated + c.membersUpdated} sub={`新建 ${c.membersCreated} · 更新 ${c.membersUpdated}`} />
-          <Stat label="匯入單" value={c.orders} sub={`明細 ${c.items} 筆 · 收款 ${c.payments} 筆`} />
+          <Stat label="匯入單" value={c.orders} sub={`明細 ${c.items} 筆（含已刪除成員 ${c.deletedItems} 筆）· 收款 ${c.payments} 筆`} />
           <Stat label="地址拆成三段" value={c.addressesSplit} sub={`缺鄉鎮市區 ${c.addressesPartial} · 拆不開 ${c.addressesUnparsed}`} />
           <Stat label="已存在而略過的安燈紀錄" value={c.recordsExisting} sub="重跑時不會重複建單" />
         </div>

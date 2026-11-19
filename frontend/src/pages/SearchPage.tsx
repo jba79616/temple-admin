@@ -43,6 +43,7 @@ export default function SearchPage() {
         <label htmlFor="q" style={{ fontWeight: 700, fontSize: 18 }}>安燈、改資料、看紀錄：先找這一戶</label>
         <input id="q" type="search" className="inp inp-lg" placeholder="戶長或成員姓名、電話、戶號" value={q}
           onChange={(e) => setQ(e.target.value)} onKeyDown={onKey} autoComplete="off" autoFocus />
+        <div className="small muted">鍵盤：任何畫面按「/」跳回搜尋，「Enter」開啟第一筆。</div>
         <ol className="steps">
           <li><b>1</b>找到戶，點戶長姓名進去</li>
           <li><b>2</b>點成員的燈種按鈕：安燈或取消</li>

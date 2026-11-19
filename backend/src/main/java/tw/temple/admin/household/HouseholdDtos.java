@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 public final class HouseholdDtos {
@@ -46,8 +47,12 @@ public final class HouseholdDtos {
     public record RecordView(Long memberId, Long lightTypeId, int unitPrice) {
     }
 
+    public record DeletedMemberView(Long id, String name, String gender, String birthText, OffsetDateTime deletedAt, String deleteReason) {
+    }
+
     public record HouseholdDetail(Long id, Integer householdNumber, String city, String district, String address, String phone,
-                                  String contactNote, String notes, int year, List<MemberView> members, List<RecordView> records) {
+                                  String contactNote, String notes, int year, List<MemberView> members, List<RecordView> records,
+                                  List<DeletedMemberView> deletedMembers) {
     }
 
     public record DeleteMemberRequest(@NotBlank @Size(max = 100) String reason, Long newHeadId) {

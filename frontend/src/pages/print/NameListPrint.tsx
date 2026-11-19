@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router'
 import { lightSelectionFrom, print as printApi } from '../../api'
 import type { NameList } from '../../api/types'
 import { rocYear } from '../../lib/roc'
+import PdfButton from './PdfButton'
 import './print.css'
 
 export default function NameListPrint() {
@@ -41,6 +42,7 @@ export default function NameListPrint() {
       <div className="print-toolbar">
         <strong>{data.title}</strong><span>民國 {rocYear(data.year)} 年 {data.ganzhiYear} · {data.all ? '全部信眾' : '該年有安的人'} · {total} 人 · {data.groups.length} 戶</span>
         <button type="button" className="btn btn-sm" style={{ marginLeft: 'auto' }} onClick={() => window.print()}>列印</button>
+        <PdfButton />
       </div>
       <div className="sheet list-sheet">
         <div className="list-title">{data.title.split('').join(' ')}</div>

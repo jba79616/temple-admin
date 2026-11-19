@@ -75,6 +75,18 @@ public class ClosingService {
         return closings.findById(saved.getClosingDate()).orElse(saved);
     }
 
+    /** 只准改最新一次日結，再往前的日結已經被後面的日結承接，差額走更正單對銷。 */
+    public DailyClosing amend(LocalDate date, int countedCash, String reason, User actor) {
+        DailyClosing closing = closings.findById(date).orElseThrow(() -> ApiException.notFound("找不到這一天的日結"));
+        LocalDate latest = closedThrough().orElseThrow();
+        if (!date.equals(latest)) {
+            throw ApiException.badRequest("只能修改最新一次日結（" + latest + "）；更早的差額請用更正單對銷");
+        }
+        closing.amend(countedCash, reason.trim(), actor, clock.now());
+        closings.saveAndFlush(closing);
+        return closings.findById(date).orElse(closing);
+    }
+
     @Transactional(readOnly = true)
     public List<ClosingView> history() {
         return closings.findAllByOrderByClosingDateDesc().stream().map(ClosingView::of).toList();

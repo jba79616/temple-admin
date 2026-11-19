@@ -58,6 +58,7 @@ cd frontend && npm run build  # 含 tsc 型別檢查
 | `DB_USER` / `DB_PASSWORD` | `temple` / `temple` | 資料庫帳密 |
 | `PORT` | `8080` | HTTP port |
 | `TEMPLE_ADMIN_USERNAME` / `TEMPLE_ADMIN_PASSWORD` | `admin` / `admin123` | 使用者表為空時建立的管理員 |
+| `TEMPLE_PDF_CHANNELS` | `chrome,msedge` | 轉 PDF 用的瀏覽器，依序嘗試機器上已安裝的 Chrome、Edge；都沒有時「下載 PDF」會提示改用瀏覽器列印 |
 
 資料庫時區請設為 `Asia/Taipei`（`docker-compose.yml` 已設定），應用層所有日期一律由程式指定，不依賴資料庫預設。
 
