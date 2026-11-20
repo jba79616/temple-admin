@@ -360,6 +360,52 @@ export interface LegacyImportReport {
   issues: LegacyIssue[]
 }
 
+export interface MailingView {
+  id: number
+  householdId: number | null
+  householdNumber: number | null
+  headName: string | null
+  recipientName: string | null
+  name: string | null
+  zip: string | null
+  city: string | null
+  district: string | null
+  address: string | null
+  active: boolean
+  overseas: boolean
+  version: number
+  source: string | null
+  note: string | null
+}
+
+export interface MailingInput {
+  householdNumber?: number | null
+  recipientName?: string | null
+  zip?: string | null
+  address?: string | null
+  note?: string | null
+  active?: boolean
+  version?: number | null
+}
+
+export type MailingIssueKind = 'HOUSEHOLD' | 'REQUIRED' | 'TOO_LONG' | 'ZIP' | 'DUPLICATE'
+
+export interface MailingIssue {
+  line: number
+  kind: MailingIssueKind
+  name: string | null
+  detail: string
+}
+
+export interface MailingImportReport {
+  committed: boolean
+  rows: number
+  linked: number
+  standalone: number
+  skipped: number
+  issues: MailingIssue[]
+}
+
 export interface PageView<T> {
   items: T[]
   page: number

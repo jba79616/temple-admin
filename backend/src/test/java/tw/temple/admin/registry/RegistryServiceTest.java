@@ -77,4 +77,20 @@ class RegistryServiceTest {
         assertThat(small.size()).isEqualTo(1);
         assertThat(small.totalPages()).isGreaterThanOrEqualTo(2);
     }
+
+    @Test
+    void deletedMembersLanternsAreNotCountedInRegistry() {
+        User admin = users.findByUsername("admin").orElseThrow();
+        Household h = households.create(new HouseholdInput("新北市", "三重區", "重新路2號", null, null, null, member("陳刪後")), admin);
+        Long headId = households.detail(h.getId(), null).members().get(0).id();
+        var guangming = lightTypes.findByName("光明燈").orElseThrow();
+        orders.createCounter(new CreateOrderRequest(null, h.getId(), null, null, null,
+            List.of(new ItemInput(headId, guangming.getId(), ItemAction.ADD, null, null))), admin);
+        households.deleteMember(headId, "搬走", null, admin);
+
+        PageView<HouseholdRow> all = registry.households(0, 200, false, null);
+        HouseholdRow row = all.items().stream().filter(r -> r.id().equals(h.getId())).findFirst().orElseThrow();
+        assertThat(row.lanternCount()).isZero();
+        assertThat(registry.households(0, 200, true, null).items()).extracting(HouseholdRow::id).doesNotContain(h.getId());
+    }
 }

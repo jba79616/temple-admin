@@ -10,6 +10,8 @@ import com.microsoft.playwright.TimeoutError;
 import com.microsoft.playwright.options.Cookie;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
@@ -29,6 +31,8 @@ public class PdfService implements DisposableBean {
 
     private static final Logger log = LoggerFactory.getLogger(PdfService.class);
     private static final double PAGE_TIMEOUT_MS = 30_000;
+    private static final Set<String> PRINT_ROUTES = Set.of("/print/cards", "/print/name-list", "/print/application-form", "/print/labels");
+    private static final Pattern QUERY = Pattern.compile("[\\w&=%.-]*");
 
     public record Pdf(byte[] bytes, String title) {
     }
@@ -49,9 +53,7 @@ public class PdfService implements DisposableBean {
     }
 
     public Pdf render(String path, Map<String, String> cookies) {
-        if (!path.startsWith("/print/") || path.contains("..") || path.contains("//")) {
-            throw ApiException.badRequest("只能轉出 /print/ 底下的頁面");
-        }
+        requirePrintRoute(path);
         if (port == 0) {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "伺服器尚未就緒，請稍後再試");
         }
@@ -75,7 +77,21 @@ public class PdfService implements DisposableBean {
             } catch (TimeoutError e) {
                 log.warn("列印頁 {} 沒有在時限內畫出來", path);
                 throw new ApiException(HttpStatus.GATEWAY_TIMEOUT, "列印頁面載入逾時，請改用瀏覽器列印");
+            } catch (PlaywrightException e) {
+                log.error("列印頁 {} 轉 PDF 失敗，下次重新啟動瀏覽器", path, e);
+                reset();
+                throw new ApiException(HttpStatus.BAD_GATEWAY, "PDF 轉檔失敗，請再試一次或改用瀏覽器列印");
             }
+        }
+    }
+
+    /** 只接受列印路由本身加上單純的 query string，避免 %2e%2e 之類的寫法繞過，也不讓非列印頁佔住瀏覽器 30 秒。 */
+    private void requirePrintRoute(String path) {
+        int q = path.indexOf('?');
+        String route = q < 0 ? path : path.substring(0, q);
+        String query = q < 0 ? "" : path.substring(q + 1);
+        if (!PRINT_ROUTES.contains(route) || !QUERY.matcher(query).matches()) {
+            throw ApiException.badRequest("只能轉出列印頁面");
         }
     }
 
@@ -98,6 +114,7 @@ public class PdfService implements DisposableBean {
                 log.info("找不到可用的 {}：{}", channel, firstLine(e.getMessage()));
             }
         }
+        reset();
         throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "這台伺服器沒有安裝 Chrome 或 Edge，無法轉 PDF，請改用瀏覽器列印");
     }
 
@@ -117,14 +134,24 @@ public class PdfService implements DisposableBean {
         }
     }
 
+    /** 連 driver 行程一起丟掉；它掛掉後 launch 永遠失敗，只重開瀏覽器救不回來。 */
+    private void reset() {
+        closeQuietly();
+        try {
+            if (playwright != null) {
+                playwright.close();
+            }
+        } catch (PlaywrightException e) {
+            log.debug("關閉 Playwright 失敗", e);
+        } finally {
+            playwright = null;
+        }
+    }
+
     @Override
     public void destroy() {
         synchronized (lock) {
-            closeQuietly();
-            if (playwright != null) {
-                playwright.close();
-                playwright = null;
-            }
+            reset();
         }
     }
 }

@@ -9,6 +9,7 @@ import HouseholdPage from './pages/HouseholdPage'
 import ImportPage from './pages/ImportPage'
 import LightTypesPage from './pages/LightTypesPage'
 import LoginPage from './pages/LoginPage'
+import MailingPage from './pages/MailingPage'
 import MemberPage from './pages/MemberPage'
 import MorePage from './pages/MorePage'
 import OrderPage from './pages/OrderPage'
@@ -20,6 +21,7 @@ import UsersPage from './pages/UsersPage'
 import CardsPrint from './pages/print/CardsPrint'
 import NameListPrint from './pages/print/NameListPrint'
 import ApplicationFormPrint from './pages/print/ApplicationFormPrint'
+import LabelsPrint from './pages/print/LabelsPrint'
 
 export default function App() {
   const { me, loading } = useAuth()
@@ -31,6 +33,7 @@ export default function App() {
         <Route path="/print/name-list" element={<NameListPrint />} />
         <Route path="/print/cards" element={<CardsPrint />} />
         <Route path="/print/application-form" element={<ApplicationFormPrint />} />
+        <Route path="/print/labels" element={<LabelsPrint />} />
         <Route element={<Layout />}>
           <Route path="/" element={<SearchPage />} />
           <Route path="/registry" element={<RegistryPage />} />
@@ -41,6 +44,7 @@ export default function App() {
           <Route path="/orders/:id" element={<OrderPage />} />
           <Route path="/closing" element={<ClosingPage />} />
           <Route path="/print" element={<PrintPage />} />
+          <Route path="/mailing" element={<MailingPage />} />
           <Route path="/more" element={<MorePage />} />
           <Route path="/light-types" element={<LightTypesPage />} />
           <Route path="/settings" element={<SettingsPage />} />

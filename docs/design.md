@@ -70,7 +70,8 @@
 | `payments` | 收款、退款、放棄退款，只增不改 |
 | `daily_closings` | 日結：系統合計、實點現金、長短款 |
 | `annual_light_records` | 狀態表：某人某燈某年是否有安，由明細推得 |
-| `audit_logs` | 成員、戶、燈種、設定的異動歷史 |
+| `audit_logs` | 成員、戶、燈種、設定、帖子名單的異動歷史 |
+| `mailing_recipients` | 帖子（安斗邀請函）寄送名單，一列一個信封；可連到戶（寄給戶長、用戶地址）或獨立存姓名地址 |
 
 ### DDL（PostgreSQL，Flyway `V1__init.sql` 底稿）
 
@@ -379,6 +380,7 @@ CREATE TRIGGER trg_audit_logs_immutable
 | 3 | 頌經名冊 | ReportBuilder（guanming111 / taisui111 / wenchang111.rtm） | 依燈種分冊，列該年有安燈的人；也可列全部成員。 |
 | 4 | 參加安斗申報單 | ReportBuilder（people_list_report / people_total.rtm） | 一戶一頁，印給信眾勾光明、文昌、太歲。前者列去年有安燈的人（單子用完要再印時用），後者列全部的人。 |
 | 5 | 八卦轉運斗 | ReportBuilder（bagua_only.rtm） | 同申報單版面，列去年有安斗的人，每人一個手寫框填斗型編號，頁首印 22 型對照。 |
+| 6 | 帖子寄送標籤 | 廟方 Excel 名單（安斗_信眾地址.xlsx） | 帖子名單裡標為寄送的收件人，A4 標籤紙 2×7（99.1×38.1mm，Avery L7163 規格），每張印郵遞區號、地址、姓名加「收」，依郵遞區號排序。 |
 
 ### 安燈卡
 
@@ -433,6 +435,14 @@ CREATE TRIGGER trg_audit_logs_immutable
 - 戶籍清單：`GET /api/registry/members?page=0&size=10&lit=false` 一人一列照成員 id 排序，`GET /api/registry/households?...` 一戶一列照戶號排序、每列內含同戶成員的 `members`；兩者每頁預設 10 筆；`lit=true` 只列該年狀態表有燈的，`year` 不給就是目前年度。回傳 `{items, page, size, total, totalPages}`。
 - 端點：`GET /api/print/cards?year=2027&lightTypeId=1`（或 `category=BAGUA` 印全部八卦斗）、`GET /api/print/name-list?year=2027&lightTypeId=1&all=false`（同樣可用 `category=BAGUA`）、`GET /api/print/application-form?scope=LIT|ALL|BAGUA&year=2026`。
 
+### 帖子名單與標籤（2026-11-19 已做）
+
+- 帖子是安斗邀請函，一戶一封寄給戶長，與有沒有安八卦斗無關，所以名單不從安燈紀錄推，獨立成 `mailing_recipients` 表（`V7`）。一列一個信封：`household_id` 有值就是連到戶，列印時取該戶在籍戶長與戶地址，戶搬家名單自動跟著變，`recipient_name` 可覆寫收件人（名單上的姓名與戶長不同時用）；`household_id` 空就是獨立收件人，`recipient_name` 與 `address` 必填，給還沒建戶、不想為了寄帖建戶的人。`household_id` 有 UNIQUE，一戶最多一列。`active=false` 是暫停寄送，不刪列；`version` 給樂觀鎖；`source` 記來源（手動建立／CSV 的來源欄）、`note` 備註。增刪改都寫 `audit_logs`。
+- 郵遞區號不存權威值：連到戶的列由前端依戶的縣市鄉鎮查 `lib/taiwan.ts` 的 3 碼表，查不到才用 `zip` 欄；獨立列相反，名單上的 `zip` 優先。表單打地址時前端用 `lib/taiwan.ts` 的 `splitAddress`（與後端 `TaiwanAddress.split` 同規則）即時顯示查到的 3 碼。
+- 國外地址不寄：`TaiwanAddress.isOverseas` 判斷「拆不出臺灣縣市（`split` 會先去掉開頭的臺灣省，以及金門、連江前面的福建省），又出現中文國名、省名、英文國名，或整串只有英文沒有中文」；含 Taiwan、ROC 或臺灣縣市英文拼法的不算，中文地址裡夾幾個英文字母（大樓名之類）也不算。結果放在 `MailingView.overseas`，不另存欄位；標籤頁與「寄 N」統計都排除，列仍保留、狀態標「國外不寄」，地址改成臺灣地址就自動恢復。
+- 端點：`GET /api/mailing`（`?householdId=` 只看某戶）回 `MailingView`（含算好的收件姓名、完整地址、戶的縣市鄉鎮）；`POST /api/mailing`、`PUT /api/mailing/{id}` 收 `MailingInput`（`householdNumber`、`recipientName`、`zip`、`address`、`note`、`active`、`version`；編輯帶讀出時的 `version`，別人中途改過就回 409）；`PUT /api/mailing/{id}/active` 只切暫停／恢復、不碰其他欄位，戶頁勾選與名單頁的暫停鈕都走這條；`DELETE /api/mailing/{id}` 限 ADMIN。`POST /api/admin/mailing-import?commit=false|true`（ADMIN）上傳 CSV：第一列欄名「戶號、姓名、地址、郵遞區號、收件人、備註、來源」（任意順序、可缺），UTF-8 優先、不是就當 Big5；有戶號連到戶、沒戶號就建獨立收件人（姓名地址必填）；同一戶與同名同地址在檔內與資料庫都只留一筆（手動建立與匯入存的都是 `TaiwanAddress.normalize` 過的地址：台→臺、中文間空白拿掉、開頭郵遞區號去掉，所以直接比），欄位超過長度（姓名 50、地址 200、備註 200、來源 50）的列也略過，略過的列都進報表，報表的資料列數不含空白列；`commit=false` 跑完整流程後 rollback 只回報表。
+- 標籤列印頁 `/print/labels` 在前端讀 `GET /api/mailing` 篩 `active` 且非 `overseas`，依郵遞區號、地址、姓名排序，沒郵遞區號的排最後；一頁 14 張，走同一套伺服器 PDF（`PdfService.PRINT_ROUTES` 加了這條路由）。
+
 ## 9. 未來擴充
 
 - **年度複製**：去年有安燈的戶，一鍵帶入今年。讀取去年狀態表。
@@ -456,6 +466,7 @@ CREATE TRIGGER trg_audit_logs_immutable
 - 年份一律西元；戶號用 PostgreSQL identity；戶長只留 `members.is_head`；生辰「吉」一律 NULL；太歲提示依 `birth_branch` 計算。
 - 安燈卡燈名省略「燈」字，`light_types` 加 `short_name`。
 - 加 `audit_logs` 記成員、戶、燈種、設定的異動歷史。
+- 帖子名單（2026-11-19）：廟方的 Excel 邀請名單只看 `ALL` 工作表，比對以戶為單位、不看八卦斗紀錄；不在資料庫的人不為了寄帖建戶，改成獨立收件人；一戶只寄一封給戶長。
 - 姓名搜尋用 `LIKE`，不加 `pg_trgm`。
 
 ### 實作狀態（2026-11-06）

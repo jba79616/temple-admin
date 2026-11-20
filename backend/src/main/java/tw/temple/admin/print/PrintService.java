@@ -129,7 +129,7 @@ public class PrintService {
     public ApplicationForm applicationForm(FormScope scope, Integer yearParam) {
         int year = yearParam == null ? config.currentYear() - 1 : yearParam;
         Map<Household, Collection<Member>> grouped = scope == FormScope.ALL ? allByHousehold()
-            : litByHousehold(sortedRecords(year, r -> inScope(scope, r) && !r.getMember().isDeleted()));
+            : litByHousehold(sortedRecords(year, r -> inScope(scope, r)));
         List<FormHousehold> households = grouped.entrySet().stream()
             .map(e -> toFormHousehold(e.getKey(), e.getValue()))
             .toList();
@@ -168,7 +168,7 @@ public class PrintService {
     }
 
     private List<AnnualLightRecord> sortedRecords(int year, Predicate<AnnualLightRecord> filter) {
-        return records.findByYearAndActiveTrue(year).stream().filter(filter).sorted(BY_HOUSEHOLD_THEN_MEMBER).toList();
+        return records.findByYearAndActiveTrueAndMemberDeletedAtIsNull(year).stream().filter(filter).sorted(BY_HOUSEHOLD_THEN_MEMBER).toList();
     }
 
     private Map<Household, Collection<Member>> allByHousehold() {

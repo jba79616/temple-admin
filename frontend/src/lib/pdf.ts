@@ -1,4 +1,23 @@
+import { useState } from 'react'
 import { errorOf } from '../api/client'
+
+export function usePdfDownload(onError: (message: string) => void) {
+  const [busy, setBusy] = useState(false)
+
+  async function download(printPath: string) {
+    if (busy) return
+    setBusy(true)
+    try {
+      await downloadPdf(printPath)
+    } catch (e) {
+      onError(e instanceof Error ? e.message : 'PDF 轉檔失敗')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return { busy, download }
+}
 
 /** 請伺服器把列印頁轉成 PDF 後直接下載；檔名用後端給的 Content-Disposition。 */
 export async function downloadPdf(printPath: string): Promise<void> {

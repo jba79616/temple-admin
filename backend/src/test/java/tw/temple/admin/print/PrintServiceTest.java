@@ -116,6 +116,33 @@ class PrintServiceTest {
     }
 
     @Test
+    void deletedMembersAreLeftOutOfPrintsAndHouseholdCounts() {
+        User admin = users.findByUsername("admin").orElseThrow();
+        int year = config.currentYear();
+        Household h = households.create(new HouseholdInput("新北市", "三重區", "重新路9號", null, null, null,
+            member("陳在籍", "甲戌", 4, false, 2, "子")), admin);
+        households.addMember(h.getId(), member("陳已刪", "乙亥", null, false, null, null), admin);
+        var views = households.detail(h.getId(), null).members();
+        Long headId = views.get(0).id();
+        Long goneId = views.stream().filter(m -> m.name().equals("陳已刪")).findFirst().orElseThrow().id();
+        var guangming = lightTypes.findByName("光明燈").orElseThrow();
+        orders.createCounter(new CreateOrderRequest(year, h.getId(), null, null, null,
+            List.of(new ItemInput(headId, guangming.getId(), ItemAction.ADD, null, null),
+                new ItemInput(goneId, guangming.getId(), ItemAction.ADD, null, null))), admin);
+
+        households.deleteMember(goneId, "重複建檔", null, admin);
+
+        assertThat(print.cardsByYear(year, guangming.getId(), null).cards()).extracting(c -> c.name())
+            .contains("陳在籍").doesNotContain("陳已刪");
+        NameList list = print.nameList(year, guangming.getId(), null, false);
+        assertThat(list.groups()).filteredOn(g -> g.householdNumber().equals(h.getHouseholdNumber())).singleElement()
+            .satisfies(g -> assertThat(g.rows()).extracting(r -> r.name()).containsExactly("陳在籍"));
+        assertThat(find(print.applicationForm(FormScope.LIT, year), h).people()).extracting(FormPerson::name).containsExactly("陳在籍");
+        assertThat(households.search(String.valueOf(h.getHouseholdNumber()))).singleElement()
+            .satisfies(s -> assertThat(s.lanternCount()).isEqualTo(1));
+    }
+
+    @Test
     void voidedOrderHasNoCardsToPrint() {
         User admin = users.findByUsername("admin").orElseThrow();
         int year = config.currentYear();

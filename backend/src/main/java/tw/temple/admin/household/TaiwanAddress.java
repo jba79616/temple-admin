@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /** 全臺 22 縣市與 368 鄉鎮市區，與前端 lib/taiwan.ts 同一份；拆地址時「台」視同「臺」，舊縣市名換成現名。 */
 public final class TaiwanAddress {
@@ -49,12 +50,32 @@ public final class TaiwanAddress {
     private static final Map<String, String> RENAMED_CITIES = Map.of(
         "臺北縣", "新北市", "桃園縣", "桃園市", "臺中縣", "臺中市", "臺南縣", "臺南市", "高雄縣", "高雄市");
     private static final String DISTRICT_SUFFIXES = "區市鎮鄉";
+    /** 金門、馬祖的郵局寫法會帶「福建省」，不是國外。 */
+    private static final Pattern PROVINCE_PREFIX = Pattern.compile("^(臺灣省|福建省(?=金門|連江))");
+    private static final Pattern CJK = Pattern.compile("[\\u4e00-\\u9fff]");
+    private static final Pattern LATIN_WORD = Pattern.compile("[A-Za-z]{3,}");
+    private static final Pattern FOREIGN_CJK = Pattern.compile(
+        "中國|大陸|上海市|北京市|天津市|重慶市|香港|澳門|美國|日本|加拿大|澳洲|澳大利亞|馬來西亞|新加坡|英國|德國|法國|紐西蘭|泰國|越南"
+            + "|印尼|菲律賓|韓國|荷蘭|瑞士|義大利|西班牙|巴西|阿根廷|南非|緬甸|柬埔寨|汶萊|印度|杜拜|阿聯|[\\u4e00-\\u9fff]{1,3}省");
+    private static final Pattern FOREIGN_LATIN = Pattern.compile(
+        "(?i)\\b(usa|u\\.s\\.a|united ?states|america|canada|australia|japan|singapore|malaysia|china|hong ?kong|maca[ou]"
+            + "|united ?kingdom|england|britain|germany|france|new ?zealand|thailand|vietnam|indonesia|philippines|korea"
+            + "|netherlands|switzerland|italy|spain|brazil|india|dubai|uae)\\b");
+    private static final Pattern TAIWAN_LATIN = Pattern.compile(
+        "(?i)taiwan|\\br\\.?o\\.?c\\b|taipei|taichung|taoyuan|tainan|kaohsiung|keelung|hsinchu|chiayi|changhua|nantou|yunlin"
+            + "|pingtung|yilan|ilan|hualien|taitung|penghu|kinmen|lienchiang|matsu|miaoli");
 
     private TaiwanAddress() {
     }
 
+    /** 中文字與數字之間的空白拿掉、英文字之間的留著；開頭接著縣市名的 3／5 碼郵遞區號去掉。 */
     public static String normalize(String address) {
-        return address.replace('台', '臺').replaceAll("[\\s\\u3000]+", "").replaceFirst("^\\d{3}(\\d{2})?(?=\\D)", "");
+        return address.trim()
+            .replace('台', '臺')
+            .replaceAll("(?<=[\\u4e00-\\u9fff0-9])[\\s\\u3000]+(?=[\\u4e00-\\u9fff0-9])", "")
+            .replaceAll("[\\s\\u3000]+", " ")
+            .replaceFirst("^\\d{3}(\\d{2})?(?=[\\u4e00-\\u9fff])(?![號巷弄樓室段路街村鄰里])", "")
+            .trim();
     }
 
     public static Split split(String rawAddress) {
@@ -62,7 +83,7 @@ public final class TaiwanAddress {
         if (raw.isEmpty()) {
             return new Split(null, null, null, null, false);
         }
-        String rest = normalize(raw);
+        String rest = stripProvince(normalize(raw));
         String city = null;
         for (Map.Entry<String, String> renamed : RENAMED_CITIES.entrySet()) {
             if (rest.startsWith(renamed.getKey())) {
@@ -95,6 +116,25 @@ public final class TaiwanAddress {
             }
         }
         return new Split(city, null, blankToNull(rest), raw, false);
+    }
+
+    /** 拆不出臺灣縣市，又出現國名、省名、英文國名，或整串只有英文沒有中文的地址視為國外，帖子不寄。 */
+    public static boolean isOverseas(String address) {
+        if (address == null || address.isBlank() || split(address).hasCity()) {
+            return false;
+        }
+        String rest = stripProvince(normalize(address));
+        if (TAIWAN_LATIN.matcher(rest).find()) {
+            return false;
+        }
+        if (FOREIGN_CJK.matcher(rest).find() || FOREIGN_LATIN.matcher(rest).find()) {
+            return true;
+        }
+        return !CJK.matcher(rest).find() && LATIN_WORD.matcher(rest).find();
+    }
+
+    private static String stripProvince(String s) {
+        return PROVINCE_PREFIX.matcher(s).replaceFirst("");
     }
 
     private static String blankToNull(String s) {

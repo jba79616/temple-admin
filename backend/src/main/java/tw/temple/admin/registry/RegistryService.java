@@ -64,7 +64,7 @@ public class RegistryService {
         Map<Long, List<Member>> membersByHousehold = ids.isEmpty() ? Map.of()
             : members.findByHouseholdIdInAndDeletedAtIsNullOrderBySortOrderAscIdAsc(ids).stream()
                 .collect(Collectors.groupingBy(m -> m.getHousehold().getId()));
-        List<AnnualLightRecord> lit = ids.isEmpty() ? List.of() : records.findByYearAndHouseholdIdInAndActiveTrue(year, ids);
+        List<AnnualLightRecord> lit = ids.isEmpty() ? List.of() : records.findByYearAndHouseholdIdInAndActiveTrueAndMemberDeletedAtIsNull(year, ids);
         Map<Long, Long> lanternCounts = lit.stream().collect(Collectors.groupingBy(r -> r.getHousehold().getId(), Collectors.counting()));
         Map<Long, List<String>> lanterns = lanternNames(lit);
         Map<Character, String> taisui = householdService.taisuiMap(year);

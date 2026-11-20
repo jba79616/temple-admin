@@ -61,7 +61,8 @@ public class HouseholdService {
         Member head = members.findFirstByHouseholdIdAndHeadTrueAndDeletedAtIsNull(h.getId()).orElse(null);
         String phone = h.getPhone() != null ? h.getPhone() : (head != null ? head.getPhone() : null);
         return new HouseholdSummary(h.getId(), h.getHouseholdNumber(), head == null ? null : head.getName(), h.cityDistrict(),
-            members.countByHouseholdIdAndDeletedAtIsNull(h.getId()), records.countByHouseholdIdAndYearAndActiveTrue(h.getId(), year),
+            members.countByHouseholdIdAndDeletedAtIsNull(h.getId()),
+            records.countByHouseholdIdAndYearAndActiveTrueAndMemberDeletedAtIsNull(h.getId(), year),
             phone);
     }
 
@@ -76,7 +77,7 @@ public class HouseholdService {
         List<RecordView> recordViews = records.findByHouseholdIdAndYearAndActiveTrue(id, year).stream()
             .map(r -> new RecordView(r.getMember().getId(), r.getLightType().getId(), r.getUnitPrice()))
             .toList();
-        List<DeletedMemberView> deleted = members.findByHouseholdIdAndDeletedAtIsNotNullOrderByDeletedAtDesc(id).stream()
+        List<DeletedMemberView> deleted = members.findByHouseholdIdAndDeletedAtIsNotNullOrderByDeletedAtDescIdAsc(id).stream()
             .map(m -> new DeletedMemberView(m.getId(), m.getName(), m.getGender(), m.birthText(), m.getDeletedAt(), m.getDeleteReason()))
             .toList();
         return new HouseholdDetail(h.getId(), h.getHouseholdNumber(), h.getCity(), h.getDistrict(), h.getAddress(), h.getPhone(),

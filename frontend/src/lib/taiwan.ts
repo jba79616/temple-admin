@@ -58,3 +58,35 @@ export function postalCode(city?: string | null, district?: string | null): stri
   if (!city || !district) return undefined
   return POSTAL_CODES.get(normalize(city) + normalize(district))
 }
+
+const RENAMED_CITIES: Record<string, string> = { 臺北縣: '新北市', 桃園縣: '桃園市', 臺中縣: '臺中市', 臺南縣: '臺南市', 高雄縣: '高雄市' }
+const DISTRICT_SUFFIXES = '區市鎮鄉'
+
+/** 和後端 TaiwanAddress.split 同一套規則，讓表單在打地址時就能顯示郵遞區號。 */
+export function splitAddress(address: string): { city?: string; district?: string } {
+  let rest = normalize(address).replace(/[\s\u3000]+/g, '').replace(/^\d{3}(\d{2})?(?=[一-鿿])(?![號巷弄樓室段路街村鄰里])/, '')
+  if (rest.startsWith('臺灣省')) rest = rest.slice(3)
+  const oldCounty = Object.keys(RENAMED_CITIES).find((c) => rest.startsWith(c))
+  let city: string | undefined
+  if (oldCounty) {
+    city = RENAMED_CITIES[oldCounty]
+    rest = rest.slice(oldCounty.length)
+  } else {
+    city = CITIES.find((c) => rest.startsWith(c))
+    if (city) rest = rest.slice(city.length)
+  }
+  if (!city) return {}
+  const districts = [...DISTRICTS[city]].sort((a, b) => b.length - a.length)
+  const exact = districts.find((d) => rest.startsWith(d))
+  if (exact) return { city, district: exact }
+  const guessed = districts.find((d) => {
+    const base = d.slice(0, -1)
+    return rest.startsWith(base) && DISTRICT_SUFFIXES.includes(rest.charAt(base.length) || '#')
+  })
+  return { city, district: guessed }
+}
+
+export function postalCodeOfAddress(address: string): string | undefined {
+  const { city, district } = splitAddress(address)
+  return postalCode(city, district)
+}

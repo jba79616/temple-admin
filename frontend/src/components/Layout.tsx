@@ -5,6 +5,7 @@ import { useConfig } from '../lib/config'
 import { ROLE } from '../lib/labels'
 
 const ADMIN_PATHS = ['/light-types', '/settings', '/users', '/audit', '/import', '/more']
+const MORE_PATHS = [...ADMIN_PATHS, '/mailing']
 const ICONS = {
   counter: 'M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zM20 20l-4-4',
   registry: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
@@ -26,6 +27,7 @@ export default function Layout() {
   const menuRef = useRef<HTMLDetailsElement>(null)
   const counterActive = pathname === '/' || /^\/(households|members|orders)(\/|$)/.test(pathname)
   const adminActive = ADMIN_PATHS.some((p) => pathname.startsWith(p))
+  const moreActive = MORE_PATHS.some((p) => pathname.startsWith(p))
 
   useEffect(() => { menuRef.current?.removeAttribute('open') }, [pathname])
   useEffect(() => {
@@ -55,6 +57,7 @@ export default function Layout() {
           <NavLink to="/registry">戶籍</NavLink>
           <NavLink to="/closing">收款與日結</NavLink>
           <NavLink to="/print">列印</NavLink>
+          <NavLink to="/mailing">帖子名單</NavLink>
         </nav>
         <details className="menu" ref={menuRef}>
           <summary className={adminActive ? 'active' : ''}>管理 ▾</summary>
@@ -83,7 +86,7 @@ export default function Layout() {
         <NavLink to="/registry"><Icon d={ICONS.registry} />戶籍</NavLink>
         <NavLink to="/closing"><Icon d={ICONS.closing} />日結</NavLink>
         <NavLink to="/print"><Icon d={ICONS.print} />列印</NavLink>
-        <NavLink to="/more" className={adminActive ? 'active' : ''}><Icon d={ICONS.more} />更多</NavLink>
+        <NavLink to="/more" className={moreActive ? 'active' : ''}><Icon d={ICONS.more} />更多</NavLink>
       </nav>
     </div>
   )

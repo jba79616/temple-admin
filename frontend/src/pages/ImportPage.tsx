@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { admin } from '../api'
-import type { LegacyImportReport, LegacyIssue, LegacyIssueKind } from '../api/types'
-import { LEGACY_ISSUE } from '../lib/labels'
+import type { LegacyImportReport, LegacyIssue, LegacyIssueKind, MailingImportReport, MailingIssueKind } from '../api/types'
+import { LEGACY_ISSUE, MAILING_ISSUE } from '../lib/labels'
 
 const ISSUE_ORDER: LegacyIssueKind[] = ['ADDRESS', 'DISTRICT', 'HEAD', 'BIRTH', 'PERSON', 'ORDER']
 
@@ -77,6 +77,94 @@ function ReportView({ report }: { report: LegacyImportReport }) {
   )
 }
 
+const MAILING_ISSUE_ORDER: MailingIssueKind[] = ['HOUSEHOLD', 'REQUIRED', 'TOO_LONG', 'ZIP', 'DUPLICATE']
+
+function MailingReportView({ report }: { report: MailingImportReport }) {
+  return (
+    <>
+      <section className="card card-pad">
+        <div className="card-title">{report.committed ? '帖子名單匯入結果' : '帖子名單預覽結果（尚未寫入）'}</div>
+        <div className="grid-3" style={{ gap: 16 }}>
+          <Stat label="資料列" value={report.rows} sub="不含空白列" />
+          <Stat label="連到戶" value={report.linked} sub="有戶號的列，寄給戶長、用戶地址" />
+          <Stat label="獨立收件人" value={report.standalone} sub="沒戶號的列，用名單上的姓名地址" />
+          <Stat label="略過" value={report.skipped} sub="重複、找不到戶、缺姓名地址、欄位太長" />
+        </div>
+      </section>
+      <h2 style={{ margin: '8px 0 0', fontSize: 18 }}>需要人工看的項目 <span className="muted small">· 共 {report.issues.length} 筆</span></h2>
+      {report.issues.length === 0 && <div className="banner banner-ok">沒有需要人工處理的項目</div>}
+      {MAILING_ISSUE_ORDER.map((kind) => {
+        const issues = report.issues.filter((i) => i.kind === kind)
+        if (issues.length === 0) return null
+        return (
+          <details key={kind} className="card" style={{ overflow: 'hidden' }}>
+            <summary style={{ padding: '14px 16px', cursor: 'pointer', fontWeight: 600 }}>{MAILING_ISSUE[kind]} <span className="muted">· {issues.length} 筆</span></summary>
+            <div className="scroll-x">
+              <table className="table">
+                <thead><tr><th style={{ width: 80 }}>第幾列</th><th style={{ width: 120 }}>姓名</th><th>說明</th></tr></thead>
+                <tbody>{issues.map((i, idx) => <tr key={idx}><td className="num">{i.line}</td><td>{i.name ?? '—'}</td><td>{i.detail}</td></tr>)}</tbody>
+              </table>
+            </div>
+          </details>
+        )
+      })}
+    </>
+  )
+}
+
+function MailingImportSection() {
+  const [file, setFile] = useState<File | null>(null)
+  const [previewed, setPreviewed] = useState<File | null>(null)
+  const [report, setReport] = useState<MailingImportReport | null>(null)
+  const [busy, setBusy] = useState<'preview' | 'commit' | null>(null)
+  const [error, setError] = useState('')
+
+  async function run(commit: boolean) {
+    if (!file) return
+    if (commit && !window.confirm('確定要正式匯入帖子名單？已在名單的戶與同名同地址的收件人會略過，不會覆寫。')) return
+    setBusy(commit ? 'commit' : 'preview')
+    setError('')
+    try {
+      const result = await admin.mailingImport(file, commit)
+      setReport(result)
+      setPreviewed(commit ? null : file)
+    } catch (e) {
+      setReport(null)
+      setError(e instanceof Error ? e.message : '匯入失敗')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const canCommit = !!file && previewed === file && !busy
+
+  return (
+    <>
+      <h1 style={{ marginTop: 16 }}>帖子名單匯入</h1>
+      <section className="card card-pad" style={{ gap: 12 }}>
+        <div className="small muted">
+          上傳 CSV（Excel 另存「CSV UTF-8」，Big5 也可）。第一列是欄名：<b>戶號</b>（有就連到戶，寄給戶長、用戶地址）、<b>姓名</b>、<b>地址</b>（沒戶號時必填）、<b>郵遞區號</b>、<b>收件人</b>（連到戶但不寄給戶長時填）、<b>備註</b>、<b>來源</b>。
+          同一戶只會有一筆、同名同地址只留一筆，重跑不會重複。
+        </div>
+        <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+          <input className="inp" type="file" accept=".csv,text/csv,text/plain" disabled={!!busy}
+            onChange={(e) => { setFile(e.target.files?.[0] ?? null); setPreviewed(null); setReport(null); setError('') }} />
+          <button type="button" className="btn btn-ghost" disabled={!file || !!busy} onClick={() => run(false)}>{busy === 'preview' ? '預覽中…' : '預覽'}</button>
+          <button type="button" className="btn" disabled={!canCommit} onClick={() => run(true)}>{busy === 'commit' ? '匯入中…' : '正式匯入'}</button>
+        </div>
+      </section>
+      {error && <div className="banner banner-bad">{error}</div>}
+      {report?.committed && (
+        <div className="banner banner-ok">
+          <span>帖子名單已匯入。</span>
+          <Link to="/mailing" className="btn btn-sm">看帖子名單</Link>
+        </div>
+      )}
+      {report && <MailingReportView report={report} />}
+    </>
+  )
+}
+
 export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null)
   const [previewed, setPreviewed] = useState<File | null>(null)
@@ -132,6 +220,7 @@ export default function ImportPage() {
         </div>
       )}
       {report && <ReportView report={report} />}
+      <MailingImportSection />
     </main>
   )
 }

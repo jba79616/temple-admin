@@ -14,7 +14,7 @@ export default function ClosingPage() {
   const [confirming, setConfirming] = useState(false)
   const [closing, setClosing] = useState(false)
   const [error, setError] = useState('')
-  const [amending, setAmending] = useState(false)
+  const [amendingDate, setAmendingDate] = useState<string | null>(null)
   const [amendCash, setAmendCash] = useState('')
   const [amendReason, setAmendReason] = useState('')
   const [amendBusy, setAmendBusy] = useState(false)
@@ -28,20 +28,23 @@ export default function ClosingPage() {
 
   useEffect(() => { load().catch((e) => setError(e.message)) }, [load])
 
+  const amendCashValue = Number(amendCash)
+  const amendCashValid = amendCash.trim() !== '' && Number.isInteger(amendCashValue) && amendCashValue >= 0
+  const canAmend = amendCashValid && amendReason.trim() !== '' && !amendBusy
+
   function startAmend(h: ClosingView) {
     setAmendCash(String(h.countedCash))
     setAmendReason('')
-    setAmending(true)
+    setAmendingDate(h.closingDate)
   }
 
-  async function amend(date: string) {
-    const cash = Number(amendCash)
-    if (!Number.isInteger(cash) || cash < 0 || !amendReason.trim() || amendBusy) return
+  async function amend() {
+    if (!amendingDate || !canAmend) return
     setAmendBusy(true)
     setError('')
     try {
-      await closingsApi.amend(date, cash, amendReason.trim())
-      setAmending(false)
+      await closingsApi.amend(amendingDate, amendCashValue, amendReason.trim())
+      setAmendingDate(null)
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : '修改失敗')
@@ -160,25 +163,25 @@ export default function ClosingPage() {
                     <td className="small muted">
                       <div className="row" style={{ gap: 8 }}>
                         <span>{h.closedBy} {h.note}</span>
-                        {i === 0 && !amending && <button type="button" className="btn btn-sm" onClick={() => startAmend(h)}>修改實點</button>}
+                        {i === 0 && amendingDate === null && <button type="button" className="btn btn-sm" onClick={() => startAmend(h)}>修改實點</button>}
                       </div>
                       {h.originalCountedCash !== null && (
                         <div>原實點 {money(h.originalCountedCash)}，{h.amendedBy}{h.amendedAt ? ` ${rocDateTime(h.amendedAt)}` : ''} 改：{h.amendReason}</div>
                       )}
                     </td></tr>
-                  {i === 0 && amending && (
+                  {h.closingDate === amendingDate && (
                     <tr><td colSpan={5}>
                       <div className="panel">
                         <strong>修改 {rocDate(h.closingDate)} 的實點金額</strong>
                         <div className="row" style={{ alignItems: 'flex-end' }}>
                           <label className="fld small muted">實點現金
-                            <input type="number" inputMode="numeric" min={0} className="inp" value={amendCash} onChange={(e) => setAmendCash(e.target.value)} />
+                            <input type="number" inputMode="numeric" min={0} step={1} className="inp" value={amendCash} onChange={(e) => setAmendCash(e.target.value)} />
                           </label>
                           <label className="fld small muted" style={{ flex: 1 }}>原因（必填）
                             <input className="inp" maxLength={200} placeholder="例：實點 4300 打成 4600" value={amendReason} onChange={(e) => setAmendReason(e.target.value)} />
                           </label>
-                          <button type="button" className="btn" disabled={amendBusy || !amendReason.trim() || amendCash === ''} onClick={() => amend(h.closingDate)}>{amendBusy ? '修改中…' : '確認修改'}</button>
-                          <button type="button" className="btn btn-ghost" onClick={() => setAmending(false)}>取消</button>
+                          <button type="button" className="btn" disabled={!canAmend} onClick={amend}>{amendBusy ? '修改中…' : '確認修改'}</button>
+                          <button type="button" className="btn btn-ghost" onClick={() => setAmendingDate(null)}>取消</button>
                         </div>
                         <span className="small muted">系統合計不變，長短款會重算。修改人與原因會記在這筆日結上。</span>
                       </div>

@@ -3,6 +3,7 @@ import type {
   AuditView, Cards, ClosingView, ConfigView, CreateCorrectionRequest, CreateOrderRequest, DayStatus, DaySummary, HouseholdDetail,
   HouseholdInput, HouseholdSummary, LightType, Me, MemberInput, MemberView, NameList, OrderView, RebuildReport, Role,
   TaisuiView, UserView, PageView, MemberRow, HouseholdRow, ApplicationForm, FormScope, LightCategory, LegacyImportReport,
+  MailingImportReport, MailingInput, MailingView,
 } from './types'
 
 export const auth = {
@@ -85,6 +86,15 @@ export const print = {
     api<ApplicationForm>(`/api/print/application-form?scope=${scope}${year ? `&year=${year}` : ''}`),
 }
 
+export const mailing = {
+  list: () => api<MailingView[]>('/api/mailing'),
+  byHousehold: (householdId: number) => api<MailingView[]>(`/api/mailing?householdId=${householdId}`),
+  create: (input: MailingInput) => api<MailingView>('/api/mailing', { method: 'POST', json: input }),
+  update: (id: number, input: MailingInput) => api<MailingView>(`/api/mailing/${id}`, { method: 'PUT', json: input }),
+  setActive: (id: number, active: boolean) => api<MailingView>(`/api/mailing/${id}/active`, { method: 'PUT', json: { active } }),
+  remove: (id: number) => api<void>(`/api/mailing/${id}`, { method: 'DELETE' }),
+}
+
 export const users = {
   list: () => api<UserView[]>('/api/users'),
   create: (input: { username: string; password: string; displayName: string; role: Role }) =>
@@ -105,5 +115,10 @@ export const admin = {
     const form = new FormData()
     form.append('file', file)
     return api<LegacyImportReport>(`/api/admin/legacy-import?commit=${commit}`, { method: 'POST', form })
+  },
+  mailingImport: (file: File, commit: boolean) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api<MailingImportReport>(`/api/admin/mailing-import?commit=${commit}`, { method: 'POST', form })
   },
 }

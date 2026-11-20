@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Link, useParams } from 'react-router'
-import { closings as closingsApi, households, lightTypes as lightTypesApi, members as membersApi, orders as ordersApi } from '../api'
-import type { HouseholdDetail, ItemInput, LightType, MemberView, OrderView } from '../api/types'
+import { closings as closingsApi, households, lightTypes as lightTypesApi, mailing as mailingApi, members as membersApi, orders as ordersApi } from '../api'
+import type { HouseholdDetail, ItemInput, LightType, MailingView, MemberView, OrderView } from '../api/types'
 import Crumbs from '../components/Crumbs'
 import LanternMatrix, { cellKey, nextStatus, visibleLightTypes, type Cells } from '../components/LanternMatrix'
 import { useAuth } from '../lib/auth'
-import { money, rocDate, rocYear, todayIso } from '../lib/roc'
+import { money, rocDate, rocDateTime, rocYear, todayIso } from '../lib/roc'
 import { GENDER, ORDER_KIND, ORDER_STATUS, PAYMENT_KIND, genderLabel } from '../lib/labels'
 import { useUnsavedGuard } from '../lib/useUnsavedGuard'
 
@@ -34,23 +34,36 @@ export default function HouseholdPage() {
   const [newGender, setNewGender] = useState('M')
   const [adding, setAdding] = useState(false)
   const [todayClosed, setTodayClosed] = useState(false)
+  const [mailingRow, setMailingRow] = useState<MailingView | null>(null)
+  const [mailingBusy, setMailingBusy] = useState(false)
   const asideRef = useRef<HTMLElement>(null)
 
   const load = useCallback(async () => {
-    const [d, t, h, today] = await Promise.all([
+    const [d, t, h, today, mail] = await Promise.all([
       households.get(householdId), lightTypesApi.list(true), ordersApi.byHousehold(householdId), closingsApi.status().catch(() => null),
+      mailingApi.byHousehold(householdId).catch(() => []),
     ])
     setDetail(d)
     setTypes(t)
     setHistory(h)
     setTodayClosed(today?.closed ?? false)
+    setMailingRow(mail[0] ?? null)
     const initial: Cells = {}
     d.records.forEach((r) => { initial[cellKey(r.memberId, r.lightTypeId)] = 'existing' })
     setCells(initial)
     setOverrides({})
   }, [householdId])
 
-  const refreshDetail = useCallback(async () => setDetail(await households.get(householdId)), [householdId])
+  // 只更新成員與紀錄，保留矩陣上還沒存檔的勾選；新出現的紀錄（例如復原成員今年已安的燈）補標成已安
+  const refreshDetail = useCallback(async () => {
+    const d = await households.get(householdId)
+    setDetail(d)
+    setCells((prev) => {
+      const next = { ...prev }
+      d.records.forEach((r) => { next[cellKey(r.memberId, r.lightTypeId)] ??= 'existing' })
+      return next
+    })
+  }, [householdId])
 
   useEffect(() => {
     load().catch((e) => setError(e.message))
@@ -149,7 +162,7 @@ export default function HouseholdPage() {
   async function restoreMember(memberId: number) {
     try {
       await membersApi.restore(memberId)
-      await load()
+      await refreshDetail()
     } catch (e) {
       setError(e instanceof Error ? e.message : '復原失敗')
     }
@@ -185,6 +198,23 @@ export default function HouseholdPage() {
   if (!detail) return <main className="page muted">{error || '載入中…'}</main>
   const head = detail.members.find((m) => m.head)
 
+  async function toggleMailing(on: boolean) {
+    if (mailingBusy) return
+    setMailingBusy(true)
+    setError('')
+    try {
+      if (mailingRow) {
+        setMailingRow(await mailingApi.setActive(mailingRow.id, on))
+      } else if (on && detail) {
+        setMailingRow(await mailingApi.create({ householdNumber: detail.householdNumber }))
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '更新帖子名單失敗')
+    } finally {
+      setMailingBusy(false)
+    }
+  }
+
   return (
     <>
     <main className="page">
@@ -197,6 +227,13 @@ export default function HouseholdPage() {
         <div className="kv"><span className="k">地址</span><span>{detail.address ?? '—'}</span></div>
         <div className="kv"><span className="k">電話</span><span>{detail.phone ?? '—'}</span></div>
         <div className="kv"><span className="k">聯絡備註</span><span>{detail.contactNote ?? '—'}</span></div>
+        <label className="kv" title="勾了就列在帖子名單，寄給戶長、用戶地址"><span className="k">寄帖</span>
+          <span className="row" style={{ gap: 6, minHeight: 24 }}>
+            <input type="checkbox" checked={mailingRow?.active ?? false} disabled={mailingBusy} onChange={(e) => toggleMailing(e.target.checked)} style={{ width: 20, height: 20 }} />
+            {mailingRow?.overseas && <span className="small muted" title="地址不是臺灣，標籤不印">國外地址不寄</span>}
+            {mailingRow && (mailingRow.recipientName || mailingRow.note) && <Link to="/mailing" className="small muted">{mailingRow.recipientName ? `收件人 ${mailingRow.recipientName}` : mailingRow.note}</Link>}
+          </span>
+        </label>
         <Link to={`/households/${detail.id}/edit`} className="btn btn-ghost" style={{ marginLeft: 'auto' }}>改地址電話</Link>
       </section>
 
@@ -315,7 +352,7 @@ export default function HouseholdPage() {
                     <td style={{ fontWeight: 700 }}>{d.name}</td>
                     <td>{genderLabel(d.gender)}</td>
                     <td className="small">{d.birthText}</td>
-                    <td className="small muted">{rocDate(d.deletedAt.slice(0, 10))}</td>
+                    <td className="small muted">{rocDateTime(d.deletedAt)}</td>
                     <td className="small muted">{d.deleteReason ?? '—'}</td>
                     <td><button type="button" className="btn btn-sm" onClick={() => restoreMember(d.id)}>復原</button></td>
                   </tr>

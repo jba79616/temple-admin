@@ -15,7 +15,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     Optional<Member> findFirstByHouseholdIdAndHeadTrueAndDeletedAtIsNull(Long householdId);
 
-    List<Member> findByHouseholdIdAndDeletedAtIsNotNullOrderByDeletedAtDesc(Long householdId);
+    List<Member> findByHouseholdIdAndDeletedAtIsNotNullOrderByDeletedAtDescIdAsc(Long householdId);
 
     int countByHouseholdIdAndDeletedAtIsNull(Long householdId);
 
@@ -29,6 +29,8 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     List<Member> findAllActiveOrdered();
 
     List<Member> findByHouseholdIdInAndDeletedAtIsNullOrderBySortOrderAscIdAsc(Collection<Long> householdIds);
+
+    List<Member> findByHouseholdIdInAndHeadTrueAndDeletedAtIsNull(Collection<Long> householdIds);
 
     @Query(value = "select m from Member m join fetch m.household where m.deletedAt is null order by m.id",
            countQuery = "select count(m) from Member m where m.deletedAt is null")

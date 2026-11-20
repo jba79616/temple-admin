@@ -6,6 +6,7 @@ export default function MorePage() {
   const { me, logout } = useAuth()
   const isAdmin = me?.role === 'ADMIN'
   const items = [
+    { to: '/mailing', title: '帖子名單', desc: '安斗帖子的寄送名單與標籤列印' },
     { to: '/light-types', title: '燈種與價格', desc: '光明、文昌、太歲、八卦轉運斗的名稱與單價' },
     { to: '/settings', title: '設定', desc: '廟名、年度、太歲規則' },
     ...(isAdmin ? [
