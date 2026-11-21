@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { lightSelectionFrom, print as printApi } from '../../api'
 import type { NameList } from '../../api/types'
+import { printName } from '../../lib/names'
 import { rocYear } from '../../lib/roc'
 import PdfButton from './PdfButton'
 import './print.css'
@@ -54,7 +55,7 @@ export default function NameListPrint() {
               {g.rows.map((r, i) => {
                 const [year, ...rest] = r.birthText.split(' ')
                 return (
-                  <tr key={i}><td>{r.name}</td><td>{year}</td><td>{rest.join(' ')}</td><td>{r.address}</td></tr>
+                  <tr key={i}><td>{printName(r.name)}</td><td>{year}</td><td>{rest.join(' ')}</td><td>{r.address}</td></tr>
                 )
               })}
               {gi === data.groups.length - 1 && <tr className="prayer-row"><td colSpan={4}>{prayer}</td></tr>}

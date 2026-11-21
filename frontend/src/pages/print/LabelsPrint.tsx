@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { mailing as mailingApi } from '../../api'
 import type { MailingView } from '../../api/types'
 import { compareForMail, mailable, zipOf } from '../../lib/mailing'
+import { printName } from '../../lib/names'
 import PdfButton from './PdfButton'
 import './print.css'
 
@@ -47,7 +48,7 @@ export default function LabelsPrint() {
             {page.map((r) => (
               <div key={r.id} className="label-cell">
                 <div className="zip-addr"><span className="zip">{zipOf(r)}</span>{r.address}</div>
-                <div className="name">{r.name}</div>
+                <div className="name">{printName(r.name)}</div>
               </div>
             ))}
           </div>

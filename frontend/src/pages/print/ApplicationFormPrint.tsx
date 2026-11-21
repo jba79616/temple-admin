@@ -4,6 +4,7 @@ import { print as printApi } from '../../api'
 import type { ApplicationForm, BaguaType, FormHousehold, FormPerson, FormScope } from '../../api/types'
 import { rocYear } from '../../lib/roc'
 import { GENDER } from '../../lib/labels'
+import { printName } from '../../lib/names'
 import PdfButton from './PdfButton'
 import './print.css'
 import './form.css'
@@ -44,7 +45,7 @@ function Legend({ types }: { types: BaguaType[] }) {
 function Birth({ p, x }: { p: FormPerson; x: Xs }) {
   return (
     <>
-      <El l={27.7} t={0.3} w={28.9} h={8.5}>{p.name}</El>
+      <El l={27.7} t={0.3} w={28.9} h={8.5}>{printName(p.name)}</El>
       <El l={x.g} t={0.2} w={9.2} h={8.5}>{GENDER[p.gender ?? ''] ?? ''}</El>
       <El l={x.y} t={0.2} w={13.4} h={8.5}>{p.ganzhi ?? '吉'}</El>
       <El l={x.yl} t={0.2} w={7.1} h={8.5}>年</El>

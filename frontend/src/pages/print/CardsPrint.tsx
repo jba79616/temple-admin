@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { lightSelectionFrom, print as printApi } from '../../api'
 import type { Cards } from '../../api/types'
+import { printName } from '../../lib/names'
 import { rocYear } from '../../lib/roc'
 import PdfButton from './PdfButton'
 import './print.css'
@@ -49,7 +50,7 @@ export default function CardsPrint() {
             {cards.map((c, i) => (
               <div key={i} className="card-cell">
                 <div className="light">{c.shortName}{c.detail ? `　${c.detail}` : ''}</div>
-                <div className="name">{c.name}</div>
+                <div className="name">{printName(c.name)}</div>
                 <div className="addr">{c.cityDistrict}</div>
                 <div className="addr">{c.address}</div>
               </div>
