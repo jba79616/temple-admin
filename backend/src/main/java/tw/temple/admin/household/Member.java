@@ -246,7 +246,7 @@ public class Member {
         return address != null ? address : (household.getAddress() == null ? "" : household.getAddress());
     }
 
-    /** 頌經名冊的生庚字串：{年}年 {閏?}{月}月 {日}日 {時}時 生，空值印「吉」。 */
+    /** 戶頁與清單顯示的生庚字串：{年}年 {閏?}{月}月 {日}日 {時}時 生，空值印「吉」。 */
     public String birthText() {
         String year = birthGanzhi == null ? "吉" : birthGanzhi;
         String month = (birthMonthIsLeap ? "閏" : "") + (birthMonth == null ? "吉" : birthMonth.toString());

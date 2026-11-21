@@ -1,6 +1,6 @@
 # temple-admin
 
-宮廟安燈管理系統（個人 side project）。以「戶」為單位登記每年度的安燈、收款、日結，列印安燈卡與頌經名冊。
+宮廟安燈管理系統（個人 side project）。以「戶」為單位登記每年度的安燈、收款、日結，列印安燈卡與燈疏文。
 
 需求與設計文件在 `docs/`：`design.md` 是定案的設計與資料模型，`screens.md` 是畫面規格，`open-source-survey.md` 是前期調研。
 

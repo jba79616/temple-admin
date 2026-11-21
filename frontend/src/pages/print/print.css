@@ -11,15 +11,18 @@
 .card-cell .name { font-size: 17pt; font-weight: 700; letter-spacing: 2px; }
 .card-cell .addr { font-size: 9.5pt; color: #333; text-align: center; }
 
-.list-sheet { width: 279mm; min-height: 216mm; padding: 14mm 16mm; }
-.list-title { text-align: center; font-size: 20pt; font-weight: 700; letter-spacing: 10px; margin-bottom: 6mm; }
-.list-table { width: 100%; border-collapse: collapse; font-size: 12pt; }
-.list-table th { border-top: 1px solid #333; border-bottom: 1px solid #333; padding: 2mm 1mm; text-align: left; font-weight: 700; }
-.list-table td { border-bottom: 1px solid #bbb; padding: 1.8mm 1mm; vertical-align: top; }
-.household-group { break-inside: avoid; page-break-inside: avoid; }
-.household-group .group-head td { background: #f3f3f3; font-size: 10.5pt; color: #333; }
-.prayer-row td { border-bottom: none; padding: 0; }
-.prayer { margin-top: 10mm; text-align: center; font-size: 12pt; line-height: 2.2; }
+/* 照廟方疏文範本（文昌燈疏文.pdf）：A4 橫印滿版、一戶一張，元素位置在 NameListPrint 以 mm 絕對定位 */
+.shuwen-sheet { position: relative; width: 297mm; height: 210mm; overflow: hidden; line-height: 1; white-space: nowrap; }
+.shuwen-sheet .bold { font-weight: 700; }
+/* 範本字距 1.5 字寬；text-indent 抵掉最後一字後面的 letter-spacing，才會置中 */
+.shuwen-title { position: absolute; left: 0; right: 0; text-align: center; font-size: 26pt; font-weight: 700; letter-spacing: 0.5em; text-indent: 0.5em; }
+.shuwen-household { font-family: 'Times New Roman', Times, serif; }
+.shuwen-rule { position: absolute; top: 39mm; left: 33mm; width: 252mm; border-top: 1px solid #111; }
+.shuwen-num { width: 10mm; text-align: right; }
+/* 折行的欄位行高 1.2，上移半個行距，第一行才會和同列其他欄位同一條基線 */
+.shuwen-addr { width: 137.5mm; white-space: normal; line-height: 1.2; margin-top: -0.1em; }
+.shuwen-long-name { width: 25mm; white-space: normal; line-height: 1.2; margin-top: -0.1em; }
+.shuwen-spaced { letter-spacing: 2.12mm; }
 
 /* 照廟方 Word 範本（安斗 地址格式.doc）：A4 滿版 2×9、每格 105×33mm、列高固定；縮排與字級沿用範本 */
 .labels-sheet { width: 210mm; min-height: 297mm; padding: 0; }
@@ -35,7 +38,6 @@
   .sheet { margin: 0; box-shadow: none; }
   .sheet-break { break-after: page; page-break-after: always; }
   .cards-sheet { width: auto; min-height: auto; padding: 0; }
-  .list-sheet { width: auto; min-height: auto; padding: 0; }
   .labels-sheet { width: auto; min-height: auto; padding: 0; }
   .label-cell { border-color: transparent; }
 }

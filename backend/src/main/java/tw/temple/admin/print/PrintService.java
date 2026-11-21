@@ -31,14 +31,15 @@ public class PrintService {
 
     public enum FormScope { ALL, LIT, BAGUA }
 
-    public record PersonRow(String name, String gender, String birthText, String address) {
+    public record PersonRow(String name, String gender, String birthYear, String birthMonth, String birthDay, String birthHour,
+                            String address) {
     }
 
-    public record HouseholdGroup(Integer householdNumber, String headName, List<PersonRow> rows) {
+    public record HouseholdGroup(Integer householdNumber, List<PersonRow> rows) {
     }
 
     public record NameList(String templeName, int year, int rocYear, String ganzhiYear, String lightTypeName, String title,
-                           String prayerMonth, boolean all, List<HouseholdGroup> groups) {
+                           String prayerMonth, List<HouseholdGroup> groups) {
     }
 
     public record Card(String shortName, String detail, String name, String cityDistrict, String address) {
@@ -96,15 +97,15 @@ public class PrintService {
         this.config = config;
     }
 
-    public NameList nameList(Integer yearParam, Long lightTypeId, LightCategory category, boolean all) {
+    public NameList nameList(Integer yearParam, Long lightTypeId, LightCategory category) {
         int year = yearParam == null ? config.currentYear() : yearParam;
         Selection sel = select(lightTypeId, category);
-        Map<Household, Collection<Member>> grouped = all ? allByHousehold() : litByHousehold(sortedRecords(year, sel::matches));
+        Map<Household, Collection<Member>> grouped = litByHousehold(sortedRecords(year, sel::matches));
         List<HouseholdGroup> groups = grouped.entrySet().stream()
-            .map(e -> new HouseholdGroup(e.getKey().getHouseholdNumber(), headName(e.getKey()), e.getValue().stream().map(this::toRow).toList()))
+            .map(e -> new HouseholdGroup(e.getKey().getHouseholdNumber(), e.getValue().stream().map(this::toRow).toList()))
             .toList();
         return new NameList(config.get(ConfigService.TEMPLE_NAME), year, Ganzhi.roc(year), Ganzhi.ofYear(year), sel.label(),
-            "安奉 " + sel.label() + " 善信名單", config.get(ConfigService.PRAYER_MONTH), all, groups);
+            "安奉 " + sel.label() + " 善信名單", config.get(ConfigService.PRAYER_MONTH), groups);
     }
 
     public Cards cardsByYear(Integer yearParam, Long lightTypeId, LightCategory category) {
@@ -144,7 +145,13 @@ public class PrintService {
     }
 
     private PersonRow toRow(Member m) {
-        return new PersonRow(m.getName(), m.getGender(), m.birthText(), m.printCityDistrict() + m.printAddress());
+        String month = (m.isBirthMonthIsLeap() ? "閏" : "") + orUnknown(m.getBirthMonth());
+        return new PersonRow(m.getName(), m.getGender(), orUnknown(m.getBirthGanzhi()), month, orUnknown(m.getBirthDay()),
+            orUnknown(m.getBirthHourBranch()), m.printCityDistrict() + m.printAddress());
+    }
+
+    private static String orUnknown(Object birthPart) {
+        return birthPart == null ? "吉" : birthPart.toString();
     }
 
     private Card toCard(LightType type, Member m) {

@@ -167,7 +167,7 @@ export default function MemberPage() {
                   </select>
                 </div>
               )}
-              <div className="small muted">歷年安燈紀錄全部保留，今年已安的燈留到年底，名冊照印。</div>
+              <div className="small muted">歷年安燈紀錄全部保留，今年已安的燈留到年底，疏文照印。</div>
               <div className="row">
                 <button type="button" className="btn btn-danger" onClick={remove} disabled={removing || !deleteReason.trim() || (member.head && others.length > 0 && !newHeadId)}>{removing ? '刪除中…' : '確認刪除'}</button>
                 <button type="button" className="btn btn-ghost" onClick={() => setDeleting(false)}>返回</button>
@@ -179,7 +179,7 @@ export default function MemberPage() {
           <h2>核對</h2>
           <div className="kv"><span className="k">生肖</span><span style={{ fontSize: 28, fontWeight: 700 }}>{zodiac}</span></div>
           <div className="kv"><span className="k">民國 {rocYear(currentYear)} 年太歲</span><span>{member.taisui ? <span className="tag tag-ts">{member.taisui}</span> : <span className="tag">儲存後顯示</span>}</span></div>
-          <div className="kv"><span className="k">名冊會印成</span><span style={{ fontFamily: 'serif', fontSize: 17, background: 'var(--border-soft)', padding: 10, borderRadius: 8 }}>{form.name}　{preview}</span></div>
+          <div className="kv"><span className="k">生庚會印成</span><span style={{ fontFamily: 'serif', fontSize: 17, background: 'var(--border-soft)', padding: 10, borderRadius: 8 }}>{form.name}　{preview}</span></div>
           <div className="small muted">生辰四欄空白一律印「吉」。干支年只存兩個字，年度地支由系統算。</div>
         </aside>
       </div>

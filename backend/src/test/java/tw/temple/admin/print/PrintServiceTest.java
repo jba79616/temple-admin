@@ -107,7 +107,7 @@ class PrintServiceTest {
             assertThat(c.detail()).isNull();
         });
 
-        NameList list = print.nameList(year, null, LightCategory.BAGUA, false);
+        NameList list = print.nameList(year, null, LightCategory.BAGUA);
         assertThat(list.title()).isEqualTo("安奉 八卦轉運斗 善信名單");
         assertThat(list.groups()).anySatisfy(g -> {
             assertThat(g.householdNumber()).isEqualTo(lit.getHouseholdNumber());
@@ -134,9 +134,12 @@ class PrintServiceTest {
 
         assertThat(print.cardsByYear(year, guangming.getId(), null).cards()).extracting(c -> c.name())
             .contains("陳在籍").doesNotContain("陳已刪");
-        NameList list = print.nameList(year, guangming.getId(), null, false);
+        NameList list = print.nameList(year, guangming.getId(), null);
         assertThat(list.groups()).filteredOn(g -> g.householdNumber().equals(h.getHouseholdNumber())).singleElement()
-            .satisfies(g -> assertThat(g.rows()).extracting(r -> r.name()).containsExactly("陳在籍"));
+            .satisfies(g -> assertThat(g.rows()).singleElement().satisfies(r -> {
+                assertThat(r.name()).isEqualTo("陳在籍");
+                assertThat(List.of(r.birthYear(), r.birthMonth(), r.birthDay(), r.birthHour())).containsExactly("甲戌", "4", "2", "子");
+            }));
         assertThat(find(print.applicationForm(FormScope.LIT, year), h).people()).extracting(FormPerson::name).containsExactly("陳在籍");
         assertThat(households.search(String.valueOf(h.getHouseholdNumber()))).singleElement()
             .satisfies(s -> assertThat(s.lanternCount()).isEqualTo(1));

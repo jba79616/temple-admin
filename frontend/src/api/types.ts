@@ -258,13 +258,15 @@ export interface TaisuiView {
 export interface PersonRow {
   name: string
   gender: string | null
-  birthText: string
+  birthYear: string
+  birthMonth: string
+  birthDay: string
+  birthHour: string
   address: string
 }
 
 export interface HouseholdGroup {
   householdNumber: number
-  headName: string | null
   rows: PersonRow[]
 }
 
@@ -276,7 +278,6 @@ export interface NameList {
   lightTypeName: string
   title: string
   prayerMonth: string
-  all: boolean
   groups: HouseholdGroup[]
 }
 

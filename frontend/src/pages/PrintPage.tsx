@@ -49,7 +49,7 @@ export default function PrintPage() {
         <span className="small muted">{pdf.busy ? '伺服器轉檔中，請稍候…' : '由伺服器用 Chrome 轉檔，版面與瀏覽器列印相同；拿來存檔或傳給廟方。'}</span>
       </section>
       <section className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <h2>安燈卡與名冊</h2>
+        <h2>安燈卡與疏文</h2>
         <div className="row" style={{ alignItems: 'flex-end' }}>
           <label className="fld small muted">年度
             <select className="inp" value={year} onChange={(e) => setYear(Number(e.target.value))}>{yearOptions}</select>
@@ -62,8 +62,7 @@ export default function PrintPage() {
           </label>
           <div className="row" style={{ gap: 6 }}>
             <button type="button" className="btn" disabled={light === '' || pdf.busy} onClick={() => open(`/print/cards?year=${year}&${lightQuery}`)}>安燈卡</button>
-            <button type="button" className="btn" disabled={light === '' || pdf.busy} onClick={() => open(`/print/name-list?year=${year}&${lightQuery}`)}>頌經名冊（該年有安的人）</button>
-            <button type="button" className="btn btn-ghost" disabled={light === '' || pdf.busy} onClick={() => open(`/print/name-list?year=${year}&${lightQuery}&all=true`)}>全部名冊</button>
+            <button type="button" className="btn" disabled={light === '' || pdf.busy} onClick={() => open(`/print/name-list?year=${year}&${lightQuery}`)}>疏文</button>
           </div>
         </div>
       </section>
@@ -91,7 +90,7 @@ export default function PrintPage() {
         </div>
       </section>
       <section className="card card-pad small muted" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div>列印頁會在新分頁開啟，按右上角「列印」或 Ctrl+P，也可按「下載 PDF」。安燈卡 A4 直印一頁 21 張；名冊 Letter 橫印、同戶不拆頁；申報單 A4 直印、一戶一頁。</div>
+        <div>列印頁會在新分頁開啟，按右上角「列印」或 Ctrl+P，也可按「下載 PDF」。安燈卡 A4 直印一頁 21 張；疏文 A4 橫印、一戶一張（超過 10 人接下一張）；申報單 A4 直印、一戶一頁。</div>
         <div>列印對話框請關閉「頁首和頁尾」、邊界選「預設」、縮放 100%。單戶安燈卡從戶頁存檔後的綠色橫幅列印。</div>
       </section>
     </main>

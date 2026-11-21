@@ -33,8 +33,8 @@ public class PrintController {
 
     @GetMapping("/name-list")
     public NameList nameList(@RequestParam(required = false) Integer year, @RequestParam(required = false) Long lightTypeId,
-                             @RequestParam(required = false) LightCategory category, @RequestParam(defaultValue = "false") boolean all) {
-        return service.nameList(year, lightTypeId, category, all);
+                             @RequestParam(required = false) LightCategory category) {
+        return service.nameList(year, lightTypeId, category);
     }
 
     @GetMapping("/cards")

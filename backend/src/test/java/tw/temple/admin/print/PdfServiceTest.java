@@ -30,7 +30,7 @@ class PdfServiceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/print/cards?year=2026&lightTypeId=3", "/print/name-list?year=2026&category=BAGUA&all=true",
+    @ValueSource(strings = {"/print/cards?year=2026&lightTypeId=3", "/print/name-list?year=2026&category=BAGUA",
         "/print/application-form?scope=LIT&year=2025", "/print/cards", "/print/labels"})
     void acceptsPrintRoutesButRefusesBeforeTheServerIsReady(String path) {
         assertThatThrownBy(() -> sut.render(path, Map.of()))

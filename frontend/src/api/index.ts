@@ -77,8 +77,8 @@ export const lightSelectionFrom = (params: URLSearchParams): LightSelection | nu
 }
 
 export const print = {
-  nameList: (sel: LightSelection, year?: number, all = false) =>
-    api<NameList>(`/api/print/name-list?${lightQuery(sel)}${year ? `&year=${year}` : ''}&all=${all}`),
+  nameList: (sel: LightSelection, year?: number) =>
+    api<NameList>(`/api/print/name-list?${lightQuery(sel)}${year ? `&year=${year}` : ''}`),
   cardsByYear: (sel: LightSelection, year?: number) =>
     api<Cards>(`/api/print/cards?${lightQuery(sel)}${year ? `&year=${year}` : ''}`),
   cardsByOrder: (orderId: number) => api<Cards>(`/api/print/cards?orderId=${orderId}`),
