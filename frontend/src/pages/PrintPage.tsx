@@ -84,7 +84,7 @@ export default function PrintPage() {
       <section className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <h2>帖子寄送標籤</h2>
         <div className="small muted">
-          <Link to="/mailing">帖子名單</Link>裡標為寄送的收件人，依郵遞區號排序；A4 標籤紙一頁 14 張（2×7，99.1×38.1mm），連到戶的列印戶長與戶地址。
+          <Link to="/mailing">帖子名單</Link>裡標為寄送的收件人，依郵遞區號排序；A4 標籤紙一頁 18 張（2×9，105×33mm，照廟方原本的 Word 範本），連到戶的列印戶長與戶地址。
         </div>
         <div className="row">
           <button type="button" className="btn" disabled={pdf.busy} onClick={() => open('/print/labels')}>帖子標籤</button>

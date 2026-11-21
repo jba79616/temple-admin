@@ -5,7 +5,7 @@ import { compareForMail, mailable, zipOf } from '../../lib/mailing'
 import PdfButton from './PdfButton'
 import './print.css'
 
-const PER_PAGE = 14
+const PER_PAGE = 18
 
 export default function LabelsPrint() {
   const [rows, setRows] = useState<MailingView[] | null>(null)
@@ -33,7 +33,7 @@ export default function LabelsPrint() {
 
   return (
     <div className="print-root">
-      <style>{'@page { size: A4 portrait; margin: 15.1mm 4.65mm; }'}</style>
+      <style>{'@page { size: A4 portrait; margin: 0; }'}</style>
       <div className="print-toolbar">
         <strong>帖子寄送標籤</strong>
         <span>{rows.length} 張 · {pages.length} 頁 · 依郵遞區號排序{noZip > 0 ? ` · ${noZip} 張沒有郵遞區號，排在最後` : ''}{overseas > 0 ? ` · ${overseas} 張國外地址不印` : ''}</span>
@@ -47,7 +47,7 @@ export default function LabelsPrint() {
             {page.map((r) => (
               <div key={r.id} className="label-cell">
                 <div className="zip-addr"><span className="zip">{zipOf(r)}</span>{r.address}</div>
-                <div className="name">{r.name}<span className="honor">收</span></div>
+                <div className="name">{r.name}</div>
               </div>
             ))}
           </div>

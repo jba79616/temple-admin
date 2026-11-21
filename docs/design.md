@@ -380,7 +380,7 @@ CREATE TRIGGER trg_audit_logs_immutable
 | 3 | 頌經名冊 | ReportBuilder（guanming111 / taisui111 / wenchang111.rtm） | 依燈種分冊，列該年有安燈的人；也可列全部成員。 |
 | 4 | 參加安斗申報單 | ReportBuilder（people_list_report / people_total.rtm） | 一戶一頁，印給信眾勾光明、文昌、太歲。前者列去年有安燈的人（單子用完要再印時用），後者列全部的人。 |
 | 5 | 八卦轉運斗 | ReportBuilder（bagua_only.rtm） | 同申報單版面，列去年有安斗的人，每人一個手寫框填斗型編號，頁首印 22 型對照。 |
-| 6 | 帖子寄送標籤 | 廟方 Excel 名單（安斗_信眾地址.xlsx） | 帖子名單裡標為寄送的收件人，A4 標籤紙 2×7（99.1×38.1mm，Avery L7163 規格），每張印郵遞區號、地址、姓名加「收」，依郵遞區號排序。 |
+| 6 | 帖子寄送標籤 | 廟方 Excel 名單（安斗_信眾地址.xlsx） | 帖子名單裡標為寄送的收件人，A4 標籤紙滿版 2×9（105×33mm，照廟方原本的 Word 合併列印範本「安斗 地址格式.doc」），每張印郵遞區號、地址、姓名（不加「收」），依郵遞區號排序。 |
 
 ### 安燈卡
 
@@ -441,7 +441,7 @@ CREATE TRIGGER trg_audit_logs_immutable
 - 郵遞區號不存權威值：連到戶的列由前端依戶的縣市鄉鎮查 `lib/taiwan.ts` 的 3 碼表，查不到才用 `zip` 欄；獨立列相反，名單上的 `zip` 優先。表單打地址時前端用 `lib/taiwan.ts` 的 `splitAddress`（與後端 `TaiwanAddress.split` 同規則）即時顯示查到的 3 碼。
 - 國外地址不寄：`TaiwanAddress.isOverseas` 判斷「拆不出臺灣縣市（`split` 會先去掉開頭的臺灣省，以及金門、連江前面的福建省），又出現中文國名、省名、英文國名，或整串只有英文沒有中文」；含 Taiwan、ROC 或臺灣縣市英文拼法的不算，中文地址裡夾幾個英文字母（大樓名之類）也不算。結果放在 `MailingView.overseas`，不另存欄位；標籤頁與「寄 N」統計都排除，列仍保留、狀態標「國外不寄」，地址改成臺灣地址就自動恢復。
 - 端點：`GET /api/mailing`（`?householdId=` 只看某戶）回 `MailingView`（含算好的收件姓名、完整地址、戶的縣市鄉鎮）；`POST /api/mailing`、`PUT /api/mailing/{id}` 收 `MailingInput`（`householdNumber`、`recipientName`、`zip`、`address`、`note`、`active`、`version`；編輯帶讀出時的 `version`，別人中途改過就回 409）；`PUT /api/mailing/{id}/active` 只切暫停／恢復、不碰其他欄位，戶頁勾選與名單頁的暫停鈕都走這條；`DELETE /api/mailing/{id}` 限 ADMIN。`POST /api/admin/mailing-import?commit=false|true`（ADMIN）上傳 CSV：第一列欄名「戶號、姓名、地址、郵遞區號、收件人、備註、來源」（任意順序、可缺），UTF-8 優先、不是就當 Big5；有戶號連到戶、沒戶號就建獨立收件人（姓名地址必填）；同一戶與同名同地址在檔內與資料庫都只留一筆（手動建立與匯入存的都是 `TaiwanAddress.normalize` 過的地址：台→臺、中文間空白拿掉、開頭郵遞區號去掉，所以直接比），欄位超過長度（姓名 50、地址 200、備註 200、來源 50）的列也略過，略過的列都進報表，報表的資料列數不含空白列；`commit=false` 跑完整流程後 rollback 只回報表。
-- 標籤列印頁 `/print/labels` 在前端讀 `GET /api/mailing` 篩 `active` 且非 `overseas`，依郵遞區號、地址、姓名排序，沒郵遞區號的排最後；一頁 14 張，走同一套伺服器 PDF（`PdfService.PRINT_ROUTES` 加了這條路由）。
+- 標籤列印頁 `/print/labels` 在前端讀 `GET /api/mailing` 篩 `active` 且非 `overseas`，依郵遞區號、地址、姓名排序，沒郵遞區號的排最後；一頁 18 張，走同一套伺服器 PDF（`PdfService.PRINT_ROUTES` 加了這條路由）。版面照廟方的 Word 範本（2026-11-22）：A4 無邊界 2 欄 × 9 列、每格 105×33mm 固定列高；第一行郵遞區號接地址 15pt、字距 -1pt，地址折行時懸掛縮排對齊在郵遞區號後；空一行後姓名 22pt 置中，不加「收」；地址固定佔兩行高，一行的地址姓名位置也不變（範本會跟著上移）。範本用標楷體，我們沿用列印頁的內建楷體。名單地址最長 27 字，兩行放得下；地址若折到第三行會把姓名推出格子、姓名被截掉（目前名單沒有這種地址，真的出現再加工具列提示）。姓名不折行。
 
 ## 9. 未來擴充
 

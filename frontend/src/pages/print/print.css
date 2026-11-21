@@ -21,14 +21,13 @@
 .prayer-row td { border-bottom: none; padding: 0; }
 .prayer { margin-top: 10mm; text-align: center; font-size: 12pt; line-height: 2.2; }
 
-/* A4 標籤紙 2×7（Avery L7163 規格：99.1×38.1mm，上下邊 15.1mm、左右邊 4.65mm、欄距 2.5mm） */
-.labels-sheet { width: 210mm; min-height: 297mm; padding: 15.1mm 4.65mm; }
-.labels-grid { display: grid; grid-template-columns: repeat(2, 99.1mm); grid-auto-rows: 38.1mm; column-gap: 2.5mm; }
-.label-cell { border: 1px dashed #ccc; padding: 3mm 7mm; display: flex; flex-direction: column; justify-content: center; gap: 2mm; overflow: hidden; }
-.label-cell .zip-addr { font-size: 10.5pt; color: #222; line-height: 1.35; }
-.label-cell .zip-addr .zip { font-family: 'Noto Sans TC', system-ui, sans-serif; letter-spacing: 1px; margin-right: 2mm; }
-.label-cell .name { font-size: 16pt; font-weight: 700; letter-spacing: 2px; }
-.label-cell .name .honor { font-size: 11pt; font-weight: 400; letter-spacing: 0; margin-left: 3mm; }
+/* 照廟方 Word 範本（安斗 地址格式.doc）：A4 滿版 2×9、每格 105×33mm、列高固定；縮排與字級沿用範本 */
+.labels-sheet { width: 210mm; min-height: 297mm; padding: 0; }
+.labels-grid { display: grid; grid-template-columns: repeat(2, 105mm); grid-auto-rows: 33mm; }
+.label-cell { border: 1px dashed #ccc; padding: 6pt 5.4mm 0 0; overflow: hidden; }
+.label-cell .zip-addr { font-size: 15pt; letter-spacing: -1pt; line-height: 1.25; min-height: 2.5em; padding-left: 19.1mm; text-indent: -14.87mm; }
+.label-cell .zip-addr .zip { display: inline-block; min-width: 14.87mm; padding-right: 1.5mm; text-indent: 0; letter-spacing: 0; }
+.label-cell .name { margin-top: 10pt; font-size: 22pt; line-height: 1.3; text-align: center; white-space: nowrap; }
 
 @media print {
   html, body { background: #fff; }
