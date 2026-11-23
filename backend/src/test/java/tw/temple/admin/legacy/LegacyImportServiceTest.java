@@ -155,6 +155,7 @@ class LegacyImportServiceTest {
         LightType bagua = lightTypes.findByLegacyCode("bagua").orElseThrow();
         LightType wenchang = lightTypes.findByName("文昌燈").orElseThrow();
         var baguaRecord = records.findByMemberIdAndLightTypeIdAndYear(dengHe.getId(), bagua.getId(), 2023).orElseThrow();
+        assertThat(baguaRecord.getCardPrintedAt()).as("舊系統的卡早就印過").isNotNull();
         assertThat(baguaRecord.isActive()).isTrue();
         assertThat(baguaRecord.getUnitPrice()).isEqualTo(500);
         var wenchangRecord = records.findByMemberIdAndLightTypeIdAndYear(dengHe.getId(), wenchang.getId(), 2024).orElseThrow();

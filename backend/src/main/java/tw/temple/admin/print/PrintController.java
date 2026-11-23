@@ -4,12 +4,15 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,6 +21,7 @@ import tw.temple.admin.print.PrintService.ApplicationForm;
 import tw.temple.admin.print.PrintService.Cards;
 import tw.temple.admin.print.PrintService.FormScope;
 import tw.temple.admin.print.PrintService.NameList;
+import tw.temple.admin.print.PrintService.PrintedCard;
 
 @RestController
 @RequestMapping("/api/print")
@@ -37,13 +41,25 @@ public class PrintController {
         return service.nameList(year, lightTypeId, category);
     }
 
+    public record MarkPrintedRequest(List<PrintedCard> cards) {
+    }
+
     @GetMapping("/cards")
     public Cards cards(@RequestParam(required = false) Integer year, @RequestParam(required = false) Long lightTypeId,
-                       @RequestParam(required = false) LightCategory category, @RequestParam(required = false) Long orderId) {
+                       @RequestParam(required = false) LightCategory category, @RequestParam(required = false) Long orderId,
+                       @RequestParam(required = false) Long householdId, @RequestParam(defaultValue = "false") boolean unprinted) {
         if (orderId != null) {
             return service.cardsByOrder(orderId);
         }
-        return service.cardsByYear(year, lightTypeId, category);
+        if (householdId != null) {
+            return service.cardsByHousehold(householdId, year);
+        }
+        return service.cardsByYear(year, lightTypeId, category, unprinted);
+    }
+
+    @PostMapping("/cards/printed")
+    public Map<String, Integer> markCardsPrinted(@RequestBody MarkPrintedRequest req) {
+        return Map.of("marked", service.markCardsPrinted(req.cards()));
     }
 
     @GetMapping("/application-form")

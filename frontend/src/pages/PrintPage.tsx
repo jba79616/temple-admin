@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { lightTypes as lightTypesApi } from '../api'
-import type { LightType } from '../api/types'
+import { lightTypes as lightTypesApi, print as printApi, type LightSelection } from '../api'
+import type { LightType, PrintedCard } from '../api/types'
 import { useConfig } from '../lib/config'
 import { usePdfDownload } from '../lib/pdf'
 import { ganzhiOfYear, rocYear } from '../lib/roc'
+import MarkPrintedButton, { printedCardsOf } from './print/MarkPrintedButton'
 
 export default function PrintPage() {
   const { currentYear } = useConfig()
@@ -14,6 +15,8 @@ export default function PrintPage() {
   const [light, setLight] = useState('')
   const [error, setError] = useState('')
   const [asPdf, setAsPdf] = useState(false)
+  const [unprintedOnly, setUnprintedOnly] = useState(true)
+  const [downloadedCards, setDownloadedCards] = useState<PrintedCard[] | null>(null)
   const pdf = usePdfDownload(setError)
 
   useEffect(() => {
@@ -31,16 +34,38 @@ export default function PrintPage() {
       return
     }
     setError('')
-    await pdf.download(path)
+    return pdf.download(path)
+  }
+  /** 直接下載 PDF 時看不到列印頁的標記按鈕，先抓這批卡的 id 留著；之後才進來的燈不在名單裡，下次照樣會印。 */
+  const printCards = async () => {
+    const path = `/print/cards?year=${year}&${lightQuery}${unprintedOnly ? '&unprinted=true' : ''}`
+    if (!asPdf) {
+      await open(path)
+      return
+    }
+    setDownloadedCards(null)
+    try {
+      const { cards } = await printApi.cardsByYear(selection, year, unprintedOnly)
+      if (await open(path)) setDownloadedCards(printedCardsOf(cards))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '讀取安燈卡失敗')
+    }
   }
   const yearOptions = years.map((y) => <option key={y} value={y}>民國 {rocYear(y)} 年 {ganzhiOfYear(y)}</option>)
   const general = types.filter((t) => t.category === 'GENERAL')
   const hasBagua = types.some((t) => t.category === 'BAGUA')
   const lightQuery = light === 'BAGUA' ? 'category=BAGUA' : `lightTypeId=${light}`
+  const selection: LightSelection = light === 'BAGUA' ? { category: 'BAGUA' } : { lightTypeId: Number(light) }
 
   return (
     <main className="page page-narrow">
       {error && <div className="banner banner-bad">{error}</div>}
+      {downloadedCards && (
+        <div className="banner banner-ok row">
+          <span>已下載 {downloadedCards.length} 張安燈卡的 PDF，印好後再按標記。</span>
+          <MarkPrintedButton cards={downloadedCards} onError={setError} />
+        </div>
+      )}
       <h1>列印</h1>
       <section className="card card-pad row" style={{ alignItems: 'center' }}>
         <label className="row" style={{ minHeight: 44, fontSize: 14 }}>
@@ -61,10 +86,14 @@ export default function PrintPage() {
             </select>
           </label>
           <div className="row" style={{ gap: 6 }}>
-            <button type="button" className="btn" disabled={light === '' || pdf.busy} onClick={() => open(`/print/cards?year=${year}&${lightQuery}`)}>安燈卡</button>
+            <button type="button" className="btn" disabled={light === '' || pdf.busy} onClick={printCards}>安燈卡</button>
             <button type="button" className="btn" disabled={light === '' || pdf.busy} onClick={() => open(`/print/name-list?year=${year}&${lightQuery}`)}>疏文</button>
           </div>
         </div>
+        <label className="row" style={{ minHeight: 44, fontSize: 14 }}>
+          <input type="checkbox" checked={unprintedOnly} onChange={(e) => setUnprintedOnly(e.target.checked)} style={{ width: 20, height: 20 }} />安燈卡只印還沒印過的
+        </label>
+        <div className="small muted">印好後在列印頁按「已印好，標記這批」，下次就只會印之後新來的。印壞要重印就取消勾選；單戶補印到戶頁按「印本戶安燈卡」。疏文不受影響，照樣印整年。</div>
       </section>
       <section className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <h2>申報單</h2>
@@ -91,7 +120,7 @@ export default function PrintPage() {
       </section>
       <section className="card card-pad small muted" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div>列印頁會在新分頁開啟，按右上角「列印」或 Ctrl+P，也可按「下載 PDF」。安燈卡 A4 直印一頁 21 張；疏文 A4 橫印、一戶一張（超過 10 人接下一張）；申報單 A4 直印、一戶一頁。</div>
-        <div>列印對話框請關閉「頁首和頁尾」、邊界選「預設」、縮放 100%。單戶安燈卡從戶頁存檔後的綠色橫幅列印。</div>
+        <div>列印對話框請關閉「頁首和頁尾」、邊界選「預設」、縮放 100%。單戶安燈卡從戶頁「印本戶安燈卡」或存檔後綠色橫幅的「列印本單安燈卡」列印。</div>
       </section>
     </main>
   )

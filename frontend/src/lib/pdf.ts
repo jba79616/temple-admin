@@ -4,13 +4,15 @@ import { errorOf } from '../api/client'
 export function usePdfDownload(onError: (message: string) => void) {
   const [busy, setBusy] = useState(false)
 
-  async function download(printPath: string) {
-    if (busy) return
+  async function download(printPath: string): Promise<boolean> {
+    if (busy) return false
     setBusy(true)
     try {
       await downloadPdf(printPath)
+      return true
     } catch (e) {
       onError(e instanceof Error ? e.message : 'PDF 轉檔失敗')
+      return false
     } finally {
       setBusy(false)
     }

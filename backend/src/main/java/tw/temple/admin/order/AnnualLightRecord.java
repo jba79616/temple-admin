@@ -12,12 +12,15 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.OffsetDateTime;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.UpdateTimestamp;
 import tw.temple.admin.household.Household;
 import tw.temple.admin.household.Member;
 import tw.temple.admin.light.LightType;
 
+/** 只寫有改的欄位：card_printed_at 由批次 UPDATE 標記，實體存檔不能拿載入時的舊值蓋回去。 */
 @Entity
+@DynamicUpdate
 @Table(name = "annual_light_records")
 public class AnnualLightRecord {
 
@@ -50,6 +53,9 @@ public class AnnualLightRecord {
     @JoinColumn(name = "last_order_item_id")
     private LightOrderItem lastOrderItem;
 
+    @Column(name = "card_printed_at")
+    private OffsetDateTime cardPrintedAt;
+
     @Version
     @Column(nullable = false)
     private int version;
@@ -75,11 +81,19 @@ public class AnnualLightRecord {
         this.lastOrderItem = lastOrderItem;
     }
 
+    /** 由停用轉回啟用才算新卡要重印；重建狀態表只修單價時不動已印紀錄。 */
     public void activate(int price, Household in, LightOrderItem byItem) {
+        if (!active) {
+            this.cardPrintedAt = null;
+        }
         this.active = true;
         this.unitPrice = price;
         this.household = in;
         this.lastOrderItem = byItem;
+    }
+
+    public void markCardPrinted(OffsetDateTime at) {
+        this.cardPrintedAt = at;
     }
 
     public void deactivate(LightOrderItem byItem) {
@@ -117,6 +131,10 @@ public class AnnualLightRecord {
 
     public boolean isActive() {
         return active;
+    }
+
+    public OffsetDateTime getCardPrintedAt() {
+        return cardPrintedAt;
     }
 
     public LightOrderItem getLastOrderItem() {

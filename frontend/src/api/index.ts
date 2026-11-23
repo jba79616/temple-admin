@@ -1,10 +1,5 @@
 import { api } from './client'
-import type {
-  AuditView, Cards, ClosingView, ConfigView, CreateCorrectionRequest, CreateOrderRequest, DayStatus, DaySummary, HouseholdDetail,
-  HouseholdInput, HouseholdSummary, LightType, Me, MemberInput, MemberView, NameList, OrderView, RebuildReport, Role,
-  TaisuiView, UserView, PageView, MemberRow, HouseholdRow, ApplicationForm, FormScope, LightCategory, LegacyImportReport,
-  MailingImportReport, MailingInput, MailingView,
-} from './types'
+import type { ApplicationForm, AuditView, Cards, ClosingView, ConfigView, CreateCorrectionRequest, CreateOrderRequest, DayStatus, DaySummary, FormScope, HouseholdDetail, HouseholdInput, HouseholdRow, HouseholdSummary, LegacyImportReport, LightCategory, LightType, MailingImportReport, MailingInput, MailingView, Me, MemberInput, MemberRow, MemberView, NameList, OrderView, PageView, PrintedCard, RebuildReport, Role, TaisuiView, UserView } from './types'
 
 export const auth = {
   login: (username: string, password: string) => api<Me>('/api/auth/login', { method: 'POST', json: { username, password } }),
@@ -79,9 +74,13 @@ export const lightSelectionFrom = (params: URLSearchParams): LightSelection | nu
 export const print = {
   nameList: (sel: LightSelection, year?: number) =>
     api<NameList>(`/api/print/name-list?${lightQuery(sel)}${year ? `&year=${year}` : ''}`),
-  cardsByYear: (sel: LightSelection, year?: number) =>
-    api<Cards>(`/api/print/cards?${lightQuery(sel)}${year ? `&year=${year}` : ''}`),
+  cardsByYear: (sel: LightSelection, year?: number, unprintedOnly = false) =>
+    api<Cards>(`/api/print/cards?${lightQuery(sel)}${year ? `&year=${year}` : ''}${unprintedOnly ? '&unprinted=true' : ''}`),
   cardsByOrder: (orderId: number) => api<Cards>(`/api/print/cards?orderId=${orderId}`),
+  cardsByHousehold: (householdId: number, year?: number) =>
+    api<Cards>(`/api/print/cards?householdId=${householdId}${year ? `&year=${year}` : ''}`),
+  markCardsPrinted: (cards: PrintedCard[]) =>
+    api<{ marked: number }>('/api/print/cards/printed', { method: 'POST', json: { cards } }),
   applicationForm: (scope: FormScope, year?: number) =>
     api<ApplicationForm>(`/api/print/application-form?scope=${scope}${year ? `&year=${year}` : ''}`),
 }

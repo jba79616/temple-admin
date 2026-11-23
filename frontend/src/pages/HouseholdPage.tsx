@@ -234,7 +234,9 @@ export default function HouseholdPage() {
             {mailingRow && (mailingRow.recipientName || mailingRow.note) && <Link to="/mailing" className="small muted">{mailingRow.recipientName ? `收件人 ${mailingRow.recipientName}` : mailingRow.note}</Link>}
           </span>
         </label>
-        <Link to={`/households/${detail.id}/edit`} className="btn btn-ghost" style={{ marginLeft: 'auto' }}>改地址電話</Link>
+        <a className="btn btn-ghost" style={{ marginLeft: 'auto' }} href={`/print/cards?householdId=${detail.id}&year=${detail.year}`} target="_blank" rel="noreferrer"
+          title="這戶今年所有的燈，不管印過沒；資料改了或卡片印壞、弄丟時補印">印本戶安燈卡</a>
+        <Link to={`/households/${detail.id}/edit`} className="btn btn-ghost">改地址電話</Link>
       </section>
 
       {saved && (
@@ -245,7 +247,7 @@ export default function HouseholdPage() {
           </div>
           <div className="row" style={{ marginLeft: 'auto' }}>
             {saved.items.some((i) => i.action === 'ADD') && (
-              <a className="btn" href={`/print/cards?orderId=${saved.id}`} target="_blank" rel="noreferrer">列印本戶安燈卡</a>
+              <a className="btn" href={`/print/cards?orderId=${saved.id}`} target="_blank" rel="noreferrer">列印本單安燈卡</a>
             )}
             <Link to="/" className="btn btn-ghost">繼續下一戶</Link>
           </div>

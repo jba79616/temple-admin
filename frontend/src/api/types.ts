@@ -282,6 +282,8 @@ export interface NameList {
 }
 
 export interface Card {
+  recordId: number | null
+  orderItemId: number
   shortName: string
   detail: string | null
   name: string
@@ -289,11 +291,17 @@ export interface Card {
   address: string
 }
 
+export interface PrintedCard {
+  recordId: number
+  orderItemId: number
+}
+
 export interface Cards {
   templeName: string
   year: number
   rocYear: number
   lightTypeName: string | null
+  householdNumber: number | null
   cards: Card[]
 }
 

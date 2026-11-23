@@ -1,9 +1,12 @@
 package tw.temple.admin.order;
 
+import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 
 public interface AnnualLightRecordRepository extends JpaRepository<AnnualLightRecord, Long> {
 
@@ -21,4 +24,16 @@ public interface AnnualLightRecordRepository extends JpaRepository<AnnualLightRe
     List<AnnualLightRecord> findByYearAndMemberIdInAndActiveTrue(int year, Collection<Long> memberIds);
 
     List<AnnualLightRecord> findByYearAndHouseholdIdInAndActiveTrueAndMemberDeletedAtIsNull(int year, Collection<Long> householdIds);
+
+    /**
+     * 批次更新不經過 @Version，標記印卡才不會讓櫃台同時開著的單撞上樂觀鎖。
+     * 要 last_order_item_id 也對得上才標：印卡頁開著時燈被取消又重點，那是新卡，不能被舊頁面標掉。
+     * 用陣列參數而不是 IN 清單，整年幾千張也不會碰到 bind 參數上限。
+     */
+    @Modifying
+    @Query(value = """
+        update annual_light_records r set card_printed_at = :at
+        from unnest(cast(:ids as bigint[]), cast(:itemIds as bigint[])) as t(id, item_id)
+        where r.id = t.id and r.last_order_item_id = t.item_id and r.is_active""", nativeQuery = true)
+    int markCardPrinted(Long[] ids, Long[] itemIds, OffsetDateTime at);
 }

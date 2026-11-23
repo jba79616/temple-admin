@@ -261,6 +261,7 @@ CREATE TABLE annual_light_records (
   unit_price         INT     NOT NULL,
   is_active          BOOLEAN NOT NULL DEFAULT TRUE,
   last_order_item_id BIGINT  REFERENCES light_order_items(id),
+  card_printed_at    TIMESTAMPTZ,              -- 安燈卡標記已印的時間，NULL 是還沒印
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (member_id, light_type_id, year)
@@ -386,6 +387,12 @@ CREATE TRIGGER trg_audit_logs_immutable
 
 - 一頁 3 欄 × 7 列 = 21 張，直印，表格框線。
 - 欄位：燈種縮寫 `short_name`、姓名、`city` + `district`、`address`，分兩行顯示。不印生辰。
+- **只印還沒印過的**：過年後還有人來安燈，批次印卡預設只印 `card_printed_at` 是 NULL 的燈（2026-11-23）。不用登記日篩選，因為補登可以把登記日往前填，同一天也會分好幾批印。
+  - 印好後由人在列印頁按「已印好，標記這批」，只標記頁面上那幾盞燈；每張卡帶著 `last_order_item_id`，對得上才標，所以開頁之後才進來的燈、或頁面開著時被取消又重點的燈都不會被標掉。不在按「列印」時自動記：列印對話框取消、卡紙都分不出來，記錯就會漏印。直接下載 PDF 時，列印首頁先抓這批卡的 id，下載完在橫幅標記。
+  - 燈被取消後又重新點上（換燈種的更正、作廢後恢復），`card_printed_at` 清回 NULL，算新卡再印一次。重建狀態表只修單價時不清。
+  - 標記用一句批次 UPDATE（id 與明細 id 用陣列參數傳），不動 `version` 也不動 `updated_at`，不會讓櫃台同時開著的單撞上樂觀鎖；實體加 `@DynamicUpdate`，存檔時不會把載入時的舊值蓋回去。
+  - V8 migration 把 2026 年以前的燈都標成已印，舊資料匯入建的燈也直接標成已印，免得第一次用就整年重印。
+  - 資料改了不會自動重印；在戶頁按「印本戶安燈卡」補印這戶該年所有有效的燈。存檔後橫幅的「列印本單安燈卡」只印那張單新增的燈。兩者印完都可以標記。
 
 ```
 ┌──────────┐ ┌──────────┐ ┌──────────┐

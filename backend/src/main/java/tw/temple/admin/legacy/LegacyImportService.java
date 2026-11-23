@@ -618,7 +618,9 @@ public class LegacyImportService {
                         }
                         int price = prices.get(lamp);
                         LightOrderItem item = items.save(new LightOrderItem(order, m, type, ItemAction.ADD, price, null));
-                        records.save(new AnnualLightRecord(year, m, type, h, price, item));
+                        AnnualLightRecord record = new AnnualLightRecord(year, m, type, h, price, item);
+                        record.markCardPrinted(clock.now());
+                        records.save(record);
                         due += price;
                         tally.items++;
                         if (p.deleted()) {

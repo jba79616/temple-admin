@@ -4,6 +4,7 @@ import { lightSelectionFrom, print as printApi } from '../../api'
 import type { Cards } from '../../api/types'
 import { printName } from '../../lib/names'
 import { rocYear } from '../../lib/roc'
+import MarkPrintedButton, { printedCardsOf } from './MarkPrintedButton'
 import PdfButton from './PdfButton'
 import './print.css'
 
@@ -13,22 +14,27 @@ export default function CardsPrint() {
   const [params] = useSearchParams()
   const [data, setData] = useState<Cards | null>(null)
   const [error, setError] = useState('')
+  const unprintedOnly = params.get('unprinted') === 'true'
 
   useEffect(() => {
     const orderId = params.get('orderId')
-    const year = params.get('year')
+    const householdId = params.get('householdId')
+    const year = params.get('year') ? Number(params.get('year')) : undefined
     const sel = lightSelectionFrom(params)
-    if (!orderId && !sel) {
+    if (!orderId && !householdId && !sel) {
       setError('網址缺少燈種或分類')
       return
     }
-    const req = orderId ? printApi.cardsByOrder(Number(orderId)) : printApi.cardsByYear(sel!, year ? Number(year) : undefined)
+    const req = orderId ? printApi.cardsByOrder(Number(orderId))
+      : householdId ? printApi.cardsByHousehold(Number(householdId), year)
+        : printApi.cardsByYear(sel!, year, unprintedOnly)
     req.then(setData).catch((e) => setError(e.message))
-  }, [params])
+  }, [params, unprintedOnly])
 
+  const heading = data?.lightTypeName ?? (data ? `第 ${data.householdNumber} 戶${params.get('orderId') ? ' 本單新增' : ''}` : '')
   useEffect(() => {
-    document.title = data ? `安燈卡 ${data.lightTypeName ?? ''} 民國${rocYear(data.year)}年` : '安燈卡'
-  }, [data])
+    document.title = data ? `安燈卡 ${heading}${unprintedOnly ? ' 未印' : ''} 民國${rocYear(data.year)}年` : '安燈卡'
+  }, [data, heading, unprintedOnly])
 
   if (error) return <div className="page error">{error}</div>
   if (!data) return <div className="page muted">載入中…</div>
@@ -39,11 +45,12 @@ export default function CardsPrint() {
     <div className="print-root">
       <style>{'@page { size: A4 portrait; margin: 10mm; }'}</style>
       <div className="print-toolbar">
-        <strong>安燈卡</strong><span>{data.lightTypeName ?? '本單新增'} · 民國 {rocYear(data.year)} 年 · {data.cards.length} 張 · {pages.length} 頁</span>
+        <strong>安燈卡</strong><span>{heading}{unprintedOnly ? ' · 還沒印過的' : ''} · 民國 {rocYear(data.year)} 年 · {data.cards.length} 張 · {pages.length} 頁</span>
         <button type="button" className="btn btn-sm" style={{ marginLeft: 'auto' }} onClick={() => window.print()}>列印</button>
         <PdfButton />
+        <MarkPrintedButton cards={printedCardsOf(data.cards)} onError={(message) => window.alert(message)} />
       </div>
-      {pages.length === 0 && <div className="page muted">沒有可印的卡片</div>}
+      {pages.length === 0 && <div className="page muted">{unprintedOnly ? '沒有還沒印過的卡片' : '沒有可印的卡片'}</div>}
       {pages.map((cards, pi) => (
         <div key={pi} className={`sheet cards-sheet ${pi < pages.length - 1 ? 'sheet-break' : ''}`}>
           <div className="cards-grid">

@@ -21,11 +21,13 @@ import tw.temple.admin.order.OrderDtos.CreateOrderRequest;
 import tw.temple.admin.order.OrderDtos.ItemInput;
 import tw.temple.admin.order.OrderService;
 import tw.temple.admin.print.PrintService.ApplicationForm;
+import tw.temple.admin.print.PrintService.Card;
 import tw.temple.admin.print.PrintService.Cards;
 import tw.temple.admin.print.PrintService.FormHousehold;
 import tw.temple.admin.print.PrintService.FormPerson;
 import tw.temple.admin.print.PrintService.FormScope;
 import tw.temple.admin.print.PrintService.NameList;
+import tw.temple.admin.print.PrintService.PrintedCard;
 import tw.temple.admin.systemconfig.ConfigService;
 import tw.temple.admin.user.User;
 import tw.temple.admin.user.UserRepository;
@@ -94,14 +96,14 @@ class PrintServiceTest {
         assertThat(bagua.baguaTypes().get(21).name()).isEqualTo("制太陰");
         assertThat(find(bagua, lit).people()).extracting(FormPerson::name).containsExactly("王申報");
 
-        Cards cards = print.cardsByYear(year, null, LightCategory.BAGUA);
+        Cards cards = print.cardsByYear(year, null, LightCategory.BAGUA, false);
         assertThat(cards.lightTypeName()).isEqualTo("八卦轉運斗");
         assertThat(cards.cards()).anySatisfy(c -> {
             assertThat(c.name()).isEqualTo("王申報");
             assertThat(c.shortName()).isEqualTo("八卦轉運斗");
             assertThat(c.detail()).isEqualTo("補財庫");
         });
-        assertThat(print.cardsByYear(year, guangming.getId(), null).cards()).anySatisfy(c -> {
+        assertThat(print.cardsByYear(year, guangming.getId(), null, false).cards()).anySatisfy(c -> {
             assertThat(c.name()).isEqualTo("王申報");
             assertThat(c.shortName()).isEqualTo("光明");
             assertThat(c.detail()).isNull();
@@ -132,7 +134,7 @@ class PrintServiceTest {
 
         households.deleteMember(goneId, "重複建檔", null, admin);
 
-        assertThat(print.cardsByYear(year, guangming.getId(), null).cards()).extracting(c -> c.name())
+        assertThat(print.cardsByYear(year, guangming.getId(), null, false).cards()).extracting(c -> c.name())
             .contains("陳在籍").doesNotContain("陳已刪");
         NameList list = print.nameList(year, guangming.getId(), null);
         assertThat(list.groups()).filteredOn(g -> g.householdNumber().equals(h.getHouseholdNumber())).singleElement()
@@ -160,5 +162,52 @@ class PrintServiceTest {
         orders.voidOrder(order.getId(), "開錯", admin);
 
         assertThatThrownBy(() -> print.cardsByOrder(order.getId())).hasMessageContaining("已作廢");
+    }
+
+    @Test
+    void unprintedCardsDropOutOnceMarkedAndComeBackWhenTheLampIsRelit() {
+        User admin = users.findByUsername("admin").orElseThrow();
+        int year = config.currentYear();
+        Household h = households.create(new HouseholdInput("台北市", "大同區", "延平北路1號", null, null, null,
+            member("吳先印", "甲子", 1, false, 1, "子")), admin);
+        households.addMember(h.getId(), member("吳後來", "乙丑", 2, false, 2, "丑"), admin);
+        var views = households.detail(h.getId(), null).members();
+        Long firstId = views.get(0).id();
+        Long laterId = views.get(1).id();
+        var guangming = lightTypes.findByName("光明燈").orElseThrow();
+        LightOrder order = orders.createCounter(new CreateOrderRequest(year, h.getId(), null, null, null,
+            List.of(new ItemInput(firstId, guangming.getId(), ItemAction.ADD, null, null),
+                new ItemInput(laterId, guangming.getId(), ItemAction.ADD, null, null))), admin);
+        Card first = print.cardsByOrder(order.getId()).cards().get(0);
+        assertThat(first.name()).isEqualTo("吳先印");
+        assertThat(first.recordId()).isNotNull();
+
+        assertThat(print.markCardsPrinted(List.of(printed(first)))).isEqualTo(1);
+
+        assertThat(unprintedNames(year, guangming.getId())).contains("吳後來").doesNotContain("吳先印");
+        assertThat(print.cardsByYear(year, guangming.getId(), null, false).cards()).extracting(Card::name).contains("吳先印", "吳後來");
+        Cards ofHousehold = print.cardsByHousehold(h.getId(), year);
+        assertThat(ofHousehold.householdNumber()).isEqualTo(h.getHouseholdNumber());
+        assertThat(ofHousehold.cards()).extracting(Card::name).containsExactly("吳先印", "吳後來");
+
+        orders.createCounter(new CreateOrderRequest(year, h.getId(), null, null, null,
+            List.of(new ItemInput(firstId, guangming.getId(), ItemAction.REMOVE, null, null))), admin);
+        assertThat(print.markCardsPrinted(List.of(printed(first)))).isZero();
+        orders.createCounter(new CreateOrderRequest(year, h.getId(), null, null, null,
+            List.of(new ItemInput(firstId, guangming.getId(), ItemAction.ADD, null, null))), admin);
+        assertThat(unprintedNames(year, guangming.getId())).contains("吳先印", "吳後來");
+        assertThat(print.markCardsPrinted(List.of(printed(first)))).as("開著的舊頁面不能標掉重點後的新卡").isZero();
+        assertThat(unprintedNames(year, guangming.getId())).contains("吳先印");
+        assertThat(print.cardsByOrder(order.getId()).cards().get(0).recordId()).as("原單那盞燈已經被別張單重點").isNull();
+
+        assertThatThrownBy(() -> print.markCardsPrinted(List.of())).hasMessageContaining("沒有要標記的卡片");
+    }
+
+    private static PrintedCard printed(Card card) {
+        return new PrintedCard(card.recordId(), card.orderItemId());
+    }
+
+    private List<String> unprintedNames(int year, Long lightTypeId) {
+        return print.cardsByYear(year, lightTypeId, null, true).cards().stream().map(Card::name).toList();
     }
 }
