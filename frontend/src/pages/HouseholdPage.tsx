@@ -4,6 +4,7 @@ import { closings as closingsApi, households, lightTypes as lightTypesApi, maili
 import type { HouseholdDetail, ItemInput, LightType, MailingView, MemberView, OrderView } from '../api/types'
 import Crumbs from '../components/Crumbs'
 import LanternMatrix, { cellKey, nextStatus, visibleLightTypes, type Cells } from '../components/LanternMatrix'
+import { hasCardsToPrint, orderCardsPath } from '../lib/orders'
 import { useAuth } from '../lib/auth'
 import { money, rocDate, rocDateTime, rocYear, todayIso } from '../lib/roc'
 import { GENDER, ORDER_KIND, ORDER_STATUS, PAYMENT_KIND, genderLabel } from '../lib/labels'
@@ -246,8 +247,8 @@ export default function HouseholdPage() {
             <span className="small">應收 {money(saved.totalDue)}，{saved.payments.map((p) => `${PAYMENT_KIND[p.kind]} ${money(p.amount)}`).join('、') || '無收款'}</span>
           </div>
           <div className="row" style={{ marginLeft: 'auto' }}>
-            {saved.items.some((i) => i.action === 'ADD') && (
-              <a className="btn" href={`/print/cards?orderId=${saved.id}`} target="_blank" rel="noreferrer">列印本單安燈卡</a>
+            {hasCardsToPrint(saved) && (
+              <a className="btn" href={orderCardsPath(saved.id)} target="_blank" rel="noreferrer">列印本單安燈卡</a>
             )}
             <Link to="/" className="btn btn-ghost">繼續下一戶</Link>
           </div>

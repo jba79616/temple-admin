@@ -1,6 +1,7 @@
 package tw.temple.admin.legacy;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import org.junit.jupiter.api.MethodOrderer;
@@ -30,6 +31,7 @@ import tw.temple.admin.order.LightOrderRepository;
 import tw.temple.admin.order.OrderKind;
 import tw.temple.admin.order.PaymentKind;
 import tw.temple.admin.order.PaymentRepository;
+import tw.temple.admin.print.PrintService;
 import tw.temple.admin.user.User;
 import tw.temple.admin.user.UserRepository;
 
@@ -61,6 +63,7 @@ class LegacyImportServiceTest {
     @Autowired AnnualLightRecordRepository records;
     @Autowired UserRepository users;
     @Autowired HouseholdService householdService;
+    @Autowired PrintService print;
 
     private User admin() {
         return users.findByUsername("admin").orElseThrow();
@@ -171,6 +174,7 @@ class LegacyImportServiceTest {
         assertThat(paid).hasSize(1);
         assertThat(paid.get(0).getKind()).isEqualTo(PaymentKind.IMPORT);
         assertThat(paid.get(0).getAmount()).isEqualTo(1400);
+        assertThatThrownBy(() -> print.cardsByOrder(order2023.getId())).hasMessageContaining("匯入單");
 
         Household fresh = householdService.create(new HouseholdInput(null, null, null, null, null, null,
             new MemberInput("後來新增", null, null, null, null, null, null, null, false, null, null, null)), admin());

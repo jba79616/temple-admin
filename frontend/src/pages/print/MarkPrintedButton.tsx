@@ -4,7 +4,7 @@ import type { Card, PrintedCard } from '../../api/types'
 
 /** 印好才由人按，不在按「列印」時自動記：列印對話框取消、卡紙都分不出來，記錯就會漏印。 */
 export function printedCardsOf(cards: Card[]): PrintedCard[] {
-  return cards.flatMap((c) => (c.recordId === null ? [] : [{ recordId: c.recordId, orderItemId: c.orderItemId }]))
+  return cards.map((c) => ({ recordId: c.recordId, orderItemId: c.orderItemId }))
 }
 
 export default function MarkPrintedButton({ cards, onError }: { cards: PrintedCard[]; onError: (message: string) => void }) {

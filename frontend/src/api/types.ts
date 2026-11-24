@@ -282,7 +282,7 @@ export interface NameList {
 }
 
 export interface Card {
-  recordId: number | null
+  recordId: number
   orderItemId: number
   shortName: string
   detail: string | null
@@ -303,6 +303,8 @@ export interface Cards {
   lightTypeName: string | null
   householdNumber: number | null
   cards: Card[]
+  /** 本單點過、但後來被取消或改由其他單處理的燈數，只有依單據列印時才會大於 0。 */
+  excludedCount: number
 }
 
 export interface AuditView {

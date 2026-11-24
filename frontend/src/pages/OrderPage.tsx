@@ -4,6 +4,7 @@ import { households, lightTypes as lightTypesApi, orders as ordersApi } from '..
 import type { HouseholdDetail, HouseholdSummary, ItemInput, LightType, OrderView, Settlement } from '../api/types'
 import Crumbs from '../components/Crumbs'
 import LanternMatrix, { cellKey, nextStatus, visibleLightTypes, type Cells } from '../components/LanternMatrix'
+import { hasCardsToPrint, orderCardsPath } from '../lib/orders'
 import { useAuth } from '../lib/auth'
 import { money, rocDate, rocDateTime, rocYear } from '../lib/roc'
 import { ITEM_ACTION, ORDER_KIND, PAYMENT_KIND } from '../lib/labels'
@@ -162,7 +163,12 @@ export default function OrderPage() {
     <main className="page page-narrow">
       <Crumbs items={[{ to: `/households/${order.householdId}`, label: `戶 ${order.householdNumber} ${order.headName ?? ''}` }, { label: `單據 #${order.id}` }]} />
       {error && <div className="banner banner-bad">{error}</div>}
-      {created && <div className="banner banner-ok">已開更正單 <Link to={`/orders/${created.id}`}>#{created.id}</Link>，應收 {money(created.totalDue)}，{created.balance === 0 ? '已結清' : `差額 ${money(created.balance)} 待處理`}。原單與原日期的日結都不變。</div>}
+      {created && (
+        <div className="banner banner-ok row">
+          <span>已開更正單 <Link to={`/orders/${created.id}`}>#{created.id}</Link>，應收 {money(created.totalDue)}，{created.balance === 0 ? '已結清' : `差額 ${money(created.balance)} 待處理`}。原單與原日期的日結都不變。</span>
+          {hasCardsToPrint(created) && <a className="btn btn-sm" style={{ marginLeft: 'auto' }} href={orderCardsPath(created.id)} target="_blank" rel="noreferrer">列印更正單安燈卡</a>}
+        </div>
+      )}
 
       <section className="card card-pad row" style={{ gap: 24 }}>
         <div className="kv"><span className="k">單號</span><span style={{ fontSize: 22, fontWeight: 700 }}>#{order.id}</span></div>
@@ -174,6 +180,10 @@ export default function OrderPage() {
         <div className="kv"><span className="k">開單人</span><span>{order.createdBy}</span></div>
         {order.correctsOrderId && <div className="kv"><span className="k">更正原單</span><Link to={`/orders/${order.correctsOrderId}`}>#{order.correctsOrderId}</Link></div>}
         {order.note && <div className="kv"><span className="k">備註 / 原因</span><span>{order.note}</span></div>}
+        {hasCardsToPrint(order) && (
+          <a className="btn btn-ghost" style={{ marginLeft: 'auto', alignSelf: 'center' }} href={orderCardsPath(order.id)} target="_blank" rel="noreferrer"
+            title="只印這張單新增、現在還有效的燈；後來取消或改由其他單點的不印，頁面上會提示未列入幾盞">列印本單安燈卡</a>
+        )}
       </section>
 
       <div className="split">

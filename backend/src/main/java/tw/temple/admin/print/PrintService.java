@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Predicate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,7 @@ import tw.temple.admin.order.LightOrder;
 import tw.temple.admin.order.LightOrderItem;
 import tw.temple.admin.order.LightOrderItemRepository;
 import tw.temple.admin.order.LightOrderRepository;
+import tw.temple.admin.order.OrderKind;
 import tw.temple.admin.systemconfig.ConfigService;
 
 @Service
@@ -56,7 +58,9 @@ public class PrintService {
     public record PrintedCard(Long recordId, Long orderItemId) {
     }
 
-    public record Cards(String templeName, int year, int rocYear, String lightTypeName, Integer householdNumber, List<Card> cards) {
+    /** excludedCount：本單點過、但後來被取消、改由其他單處理或成員已刪除的燈，不印也不能標記。跨戶的單 householdNumber 為 null。 */
+    public record Cards(String templeName, int year, int rocYear, String lightTypeName, Integer householdNumber, List<Card> cards,
+                        int excludedCount) {
     }
 
     public record FormPerson(String name, String gender, String ganzhi, boolean leap, Short month, Short day, String hour) {
@@ -131,7 +135,7 @@ public class PrintService {
         List<Card> cards = sortedRecords(year, r -> sel.matches(r) && (!unprintedOnly || r.getCardPrintedAt() == null)).stream()
             .map(this::toCard)
             .toList();
-        return new Cards(config.get(ConfigService.TEMPLE_NAME), year, Ganzhi.roc(year), sel.label(), null, cards);
+        return new Cards(config.get(ConfigService.TEMPLE_NAME), year, Ganzhi.roc(year), sel.label(), null, cards, 0);
     }
 
     /** 資料改了或卡印壞、弄丟時補印用：這戶該年所有有效的燈，不管印過沒。 */
@@ -143,7 +147,7 @@ public class PrintService {
             .sorted(BY_HOUSEHOLD_MEMBER_LIGHT)
             .map(this::toCard)
             .toList();
-        return new Cards(config.get(ConfigService.TEMPLE_NAME), year, Ganzhi.roc(year), null, household.getHouseholdNumber(), cards);
+        return new Cards(config.get(ConfigService.TEMPLE_NAME), year, Ganzhi.roc(year), null, household.getHouseholdNumber(), cards, 0);
     }
 
     public Cards cardsByOrder(Long orderId) {
@@ -151,12 +155,20 @@ public class PrintService {
         if (!order.isActive()) {
             throw ApiException.badRequest("已作廢的單不能印安燈卡");
         }
-        List<Card> cards = items.findByOrderIdOrderByIdAsc(orderId).stream()
+        if (order.getKind() == OrderKind.IMPORT) {
+            throw ApiException.badRequest("匯入單是舊系統的年度，卡片早已印過；要補印請到戶頁印本戶安燈卡");
+        }
+        List<LightOrderItem> added = items.findByOrderIdOrderByIdAsc(orderId).stream()
             .filter(i -> i.getAction() == ItemAction.ADD && !i.isReversal())
-            .map(i -> toCard(recordActivatedBy(i, order.getYear()), i.getId(), i.getLightType(), i.getMember()))
             .toList();
+        List<AnnualLightRecord> printable = added.stream()
+            .flatMap(i -> recordActivatedBy(i, order.getYear()).stream())
+            .filter(r -> !r.getMember().isDeleted())
+            .toList();
+        boolean oneHousehold = printable.stream().map(r -> r.getHousehold().getId()).distinct().count() <= 1;
         return new Cards(config.get(ConfigService.TEMPLE_NAME), order.getYear(), Ganzhi.roc(order.getYear()), null,
-            order.getHousehold().getHouseholdNumber(), cards);
+            oneHousehold ? order.getHousehold().getHouseholdNumber() : null, printable.stream().map(this::toCard).toList(),
+            added.size() - printable.size());
     }
 
     @Transactional
@@ -196,20 +208,16 @@ public class PrintService {
     }
 
     private Card toCard(AnnualLightRecord r) {
-        return toCard(r.getId(), r.getLastOrderItem().getId(), r.getLightType(), r.getMember());
-    }
-
-    private Card toCard(Long recordId, Long orderItemId, LightType type, Member m) {
+        LightType type = r.getLightType();
+        Member m = r.getMember();
         boolean bagua = type.getCategory() == LightCategory.BAGUA;
-        return new Card(recordId, orderItemId, bagua ? BAGUA_LABEL : type.getShortName(), bagua ? type.getName() : null,
-            m.getName(), m.printCityDistrict(), m.printAddress());
+        return new Card(r.getId(), r.getLastOrderItem().getId(), bagua ? BAGUA_LABEL : type.getShortName(),
+            bagua ? type.getName() : null, m.getName(), m.printCityDistrict(), m.printAddress());
     }
 
-    private Long recordActivatedBy(LightOrderItem item, int year) {
+    private Optional<AnnualLightRecord> recordActivatedBy(LightOrderItem item, int year) {
         return records.findByMemberIdAndLightTypeIdAndYear(item.getMember().getId(), item.getLightType().getId(), year)
-            .filter(r -> r.isActive() && r.getLastOrderItem().getId().equals(item.getId()))
-            .map(AnnualLightRecord::getId)
-            .orElse(null);
+            .filter(r -> r.isActive() && r.getLastOrderItem().getId().equals(item.getId()));
     }
 
     private Selection select(Long lightTypeId, LightCategory category) {
