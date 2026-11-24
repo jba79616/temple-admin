@@ -271,6 +271,44 @@ class PrintServiceTest {
         assertThat(ofOriginal.householdNumber()).isEqualTo(mine.getHouseholdNumber());
     }
 
+    @Test
+    void orderCardsAreHeadedWithTheHouseholdTheCardsActuallyBelongTo() {
+        User admin = users.findByUsername("admin").orElseThrow();
+        int year = config.currentYear();
+        Household a = households.create(new HouseholdInput("新竹市", "東區", "光復路5號", null, null, null,
+            member("蔡甲戶", "庚午", 7, false, 7, "午")), admin);
+        households.addMember(a.getId(), member("蔡搬走", "辛未", 8, false, 8, "未"), admin);
+        Household b = households.create(new HouseholdInput("新竹市", "北區", "中正路6號", null, null, null,
+            member("潘乙戶", "壬申", 9, false, 9, "申")), admin);
+        var aMembers = households.detail(a.getId(), null).members();
+        Long aHeadId = aMembers.get(0).id();
+        Long moverId = aMembers.get(1).id();
+        Long bHeadId = households.detail(b.getId(), null).members().get(0).id();
+        var guangming = lightTypes.findByName("光明燈").orElseThrow();
+        var wenchang = lightTypes.findByName("文昌燈").orElseThrow();
+        LightOrder original = orders.createCounter(new CreateOrderRequest(year, a.getId(), null, null, null,
+            List.of(new ItemInput(aHeadId, guangming.getId(), ItemAction.ADD, null, null))), admin);
+
+        LightOrder onlyOther = orders.correctOrder(original.getId(), new CreateCorrectionRequest(null, null, null, "幫乙戶補點",
+            Settlement.CASH, List.of(new ItemInput(bHeadId, wenchang.getId(), ItemAction.ADD, null, null))), admin);
+        Cards ofCorrection = print.cardsByOrder(onlyOther.getId());
+        assertThat(ofCorrection.cards()).extracting(Card::name).containsExactly("潘乙戶");
+        assertThat(ofCorrection.householdNumber()).as("更正單掛在甲戶，卡片全是乙戶的").isEqualTo(b.getHouseholdNumber());
+
+        LightOrder moverOrder = orders.createCounter(new CreateOrderRequest(year, a.getId(), null, null, null,
+            List.of(new ItemInput(moverId, guangming.getId(), ItemAction.ADD, null, null))), admin);
+        households.moveMember(moverId, b.getId(), admin);
+        Cards afterMove = print.cardsByOrder(moverOrder.getId());
+        assertThat(afterMove.cards()).extracting(Card::name).containsExactly("蔡搬走");
+        assertThat(afterMove.householdNumber()).as("成員搬到乙戶，當年的燈跟著搬").isEqualTo(b.getHouseholdNumber());
+
+        orders.createCounter(new CreateOrderRequest(year, b.getId(), null, null, null,
+            List.of(new ItemInput(moverId, guangming.getId(), ItemAction.REMOVE, null, null))), admin);
+        Cards nothingLeft = print.cardsByOrder(moverOrder.getId());
+        assertThat(nothingLeft.cards()).isEmpty();
+        assertThat(nothingLeft.householdNumber()).as("沒有卡可印時用單據的戶").isEqualTo(a.getHouseholdNumber());
+    }
+
     private static PrintedCard printed(Card card) {
         return new PrintedCard(card.recordId(), card.orderItemId());
     }

@@ -53,7 +53,7 @@ export default function CardsPrint() {
         <MarkPrintedButton cards={printedCardsOf(data.cards)} onError={(message) => window.alert(message)} />
       </div>
       {data.excludedCount > 0 && (
-        <div className="print-notice">本單另有 {data.excludedCount} 盞燈未列入：已取消、成員已刪除，或改由其他單點。已取消和已刪除的不用印；改由其他單點的，可到戶頁按「印本戶安燈卡」補印。</div>
+        <div className="print-notice">本單另有 {data.excludedCount} 盞燈未列入：已取消、成員已刪除，或後來被其他單據異動過。仍有效的燈請到該成員目前所在戶的戶頁按「印本戶安燈卡」補印。</div>
       )}
       {pages.length === 0 && <div className="page muted">{unprintedOnly ? '沒有還沒印過的卡片' : '沒有可印的卡片'}</div>}
       {pages.map((cards, pi) => (

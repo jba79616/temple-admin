@@ -165,10 +165,17 @@ public class PrintService {
             .flatMap(i -> recordActivatedBy(i, order.getYear()).stream())
             .filter(r -> !r.getMember().isDeleted())
             .toList();
-        boolean oneHousehold = printable.stream().map(r -> r.getHousehold().getId()).distinct().count() <= 1;
         return new Cards(config.get(ConfigService.TEMPLE_NAME), order.getYear(), Ganzhi.roc(order.getYear()), null,
-            oneHousehold ? order.getHousehold().getHouseholdNumber() : null, printable.stream().map(this::toCard).toList(),
-            added.size() - printable.size());
+            householdNumberOf(printable, order), printable.stream().map(this::toCard).toList(), added.size() - printable.size());
+    }
+
+    /** 跨戶更正或成員搬戶後，卡片所屬的戶可能不是單據的戶，頁首要寫卡片實際的戶。 */
+    private static Integer householdNumberOf(List<AnnualLightRecord> printable, LightOrder order) {
+        List<Integer> numbers = printable.stream().map(r -> r.getHousehold().getHouseholdNumber()).distinct().toList();
+        if (numbers.isEmpty()) {
+            return order.getHousehold().getHouseholdNumber();
+        }
+        return numbers.size() == 1 ? numbers.get(0) : null;
     }
 
     @Transactional
