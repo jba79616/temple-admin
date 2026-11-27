@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tw.temple.admin.closing.DailyClosing;
 import tw.temple.admin.closing.DailyClosingRepository;
+import tw.temple.admin.household.Household;
 import tw.temple.admin.order.AnnualLightRecord;
 import tw.temple.admin.order.AnnualLightRecordRepository;
 import tw.temple.admin.order.ItemAction;
@@ -21,6 +22,7 @@ import tw.temple.admin.order.LightOrderRepository;
 import tw.temple.admin.order.OrderStatus;
 import tw.temple.admin.order.PaymentKind;
 import tw.temple.admin.order.PaymentRepository;
+import tw.temple.admin.systemconfig.ConfigService;
 
 /** 從明細與收款重算狀態表、應收與日結合計，核對三者是否一致；fix 為 true 時修正狀態表。 */
 @Service
@@ -42,14 +44,16 @@ public class RebuildService {
     private final PaymentRepository payments;
     private final AnnualLightRecordRepository records;
     private final DailyClosingRepository closings;
+    private final ConfigService config;
 
     public RebuildService(LightOrderRepository orders, LightOrderItemRepository items, PaymentRepository payments,
-                          AnnualLightRecordRepository records, DailyClosingRepository closings) {
+                          AnnualLightRecordRepository records, DailyClosingRepository closings, ConfigService config) {
         this.orders = orders;
         this.items = items;
         this.payments = payments;
         this.records = records;
         this.closings = closings;
+        this.config = config;
     }
 
     public Report run(boolean fix) {
@@ -135,25 +139,39 @@ public class RebuildService {
     private List<String> checkMissingRecords(List<AnnualLightRecord> allRecords, Map<String, Expected> expected, boolean fix) {
         Set<String> existing = allRecords.stream().map(this::keyOf).collect(Collectors.toSet());
         List<String> mismatches = new ArrayList<>();
+        int currentYear = config.currentYear();
         for (Map.Entry<String, Expected> e : expected.entrySet()) {
             if (!existing.contains(e.getKey())) {
                 mismatches.add("明細 " + e.getKey() + " 在狀態表沒有紀錄");
                 if (fix) {
-                    recreate(e.getValue());
+                    recreate(e.getValue(), currentYear);
                 }
             }
         }
         return mismatches;
     }
 
-    private void recreate(Expected exp) {
+    private void recreate(Expected exp, int currentYear) {
         LightOrderItem item = exp.lastItem();
         AnnualLightRecord created = new AnnualLightRecord(item.getOrder().getYear(), item.getMember(), item.getLightType(),
-            item.getMember().getHousehold(), exp.unitPrice(), item);
+            householdOf(exp, currentYear), exp.unitPrice(), item);
         if (!exp.active()) {
             created.deactivate(item);
         }
         records.save(created);
+    }
+
+    /**
+     * 搬戶只會把今年仍在點的紀錄帶到新戶，其餘紀錄停在最後一張點燈或取消單的戶（櫃台單的成員必屬該戶）。
+     * 明細沒有存當時的戶，有兩種情況算不準：跨戶更正單的紀錄實際掛在成員當時的戶，這裡會算成更正單上的戶；
+     * 往年在當年還在點時搬過戶的紀錄，換年度後會算回原單的戶。
+     */
+    private Household householdOf(Expected exp, int currentYear) {
+        LightOrderItem item = exp.lastItem();
+        if (exp.active() && item.getOrder().getYear() == currentYear) {
+            return item.getMember().getHousehold();
+        }
+        return item.getOrder().getHousehold();
     }
 
     private List<String> checkClosings(List<DailyClosing> allClosings) {

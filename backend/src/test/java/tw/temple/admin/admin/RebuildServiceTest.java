@@ -35,6 +35,7 @@ import tw.temple.admin.order.OrderService;
 import tw.temple.admin.order.Payment;
 import tw.temple.admin.order.PaymentKind;
 import tw.temple.admin.order.PaymentRepository;
+import tw.temple.admin.systemconfig.ConfigService;
 import tw.temple.admin.user.User;
 import tw.temple.admin.user.UserRepository;
 
@@ -54,6 +55,7 @@ class RebuildServiceTest {
     @Autowired DailyClosingRepository closings;
     @Autowired UserRepository users;
     @Autowired TempleClock clock;
+    @Autowired ConfigService config;
 
     User admin;
     LightType guangming;
@@ -86,6 +88,15 @@ class RebuildServiceTest {
     private LightOrder counter(ItemAction action, Member m, LightType t) {
         ItemInput item = new ItemInput(m.getId(), t.getId(), action, null, null);
         return orderService.createCounter(new CreateOrderRequest(null, household.getId(), null, null, null, List.of(item)), admin);
+    }
+
+    private LightOrder counterForYear(int year, ItemAction action, Member m, LightType t) {
+        ItemInput item = new ItemInput(m.getId(), t.getId(), action, null, null);
+        return orderService.createCounter(new CreateOrderRequest(year, household.getId(), null, null, null, List.of(item)), admin);
+    }
+
+    private Household otherHousehold() {
+        return householdService.create(new HouseholdInput("臺北市", "大同區", "新戶路2號", null, null, null, member("林新戶")), admin);
     }
 
     private AnnualLightRecord record(Member m, LightType t, int year) {
@@ -223,6 +234,69 @@ class RebuildServiceTest {
         assertThat(recreated.getUnitPrice()).isEqualTo(300);
         assertThat(recreated.getLastOrderItem().getId()).isEqualTo(removeItemId);
         assertThat(items.findById(removeItemId).orElseThrow().getAction()).isEqualTo(ItemAction.REMOVE);
+    }
+
+    @Test
+    void pastYearRecordIsRecreatedInTheHouseholdOfItsOrderAfterTheMemberMoved() {
+        int lastYear = config.currentYear() - 1;
+        counterForYear(lastYear, ItemAction.ADD, a, guangming);
+        Household moved = otherHousehold();
+        householdService.moveMember(a.getId(), moved.getId(), admin);
+        records.delete(record(a, guangming, lastYear));
+
+        rebuildService.run(true);
+
+        AnnualLightRecord recreated = record(a, guangming, lastYear);
+        assertThat(recreated.isActive()).isTrue();
+        assertThat(recreated.getHousehold().getId()).isEqualTo(household.getId());
+    }
+
+    @Test
+    void currentYearActiveRecordIsRecreatedInTheMembersCurrentHousehold() {
+        int thisYear = config.currentYear();
+        counterForYear(thisYear, ItemAction.ADD, a, guangming);
+        Household moved = otherHousehold();
+        householdService.moveMember(a.getId(), moved.getId(), admin);
+        assertThat(record(a, guangming, thisYear).getHousehold().getId()).isEqualTo(moved.getId());
+        records.delete(record(a, guangming, thisYear));
+
+        rebuildService.run(true);
+
+        assertThat(record(a, guangming, thisYear).getHousehold().getId()).isEqualTo(moved.getId());
+    }
+
+    @Test
+    void recordCancelledBeforeTheMoveIsRecreatedInTheHouseholdOfItsOrders() {
+        int thisYear = config.currentYear();
+        counterForYear(thisYear, ItemAction.ADD, a, guangming);
+        counterForYear(thisYear, ItemAction.REMOVE, a, guangming);
+        Household moved = otherHousehold();
+        householdService.moveMember(a.getId(), moved.getId(), admin);
+        records.delete(record(a, guangming, thisYear));
+
+        rebuildService.run(true);
+
+        AnnualLightRecord recreated = record(a, guangming, thisYear);
+        assertThat(recreated.isActive()).isFalse();
+        assertThat(recreated.getHousehold().getId()).isEqualTo(household.getId());
+    }
+
+    @Test
+    void recordCancelledAfterTheMoveIsRecreatedInTheHouseholdOfTheCancelOrder() {
+        int thisYear = config.currentYear();
+        counterForYear(thisYear, ItemAction.ADD, a, guangming);
+        Household moved = otherHousehold();
+        householdService.moveMember(a.getId(), moved.getId(), admin);
+        ItemInput cancel = new ItemInput(a.getId(), guangming.getId(), ItemAction.REMOVE, null, null);
+        orderService.createCounter(new CreateOrderRequest(thisYear, moved.getId(), null, null, null, List.of(cancel)), admin);
+        assertThat(record(a, guangming, thisYear).getHousehold().getId()).isEqualTo(moved.getId());
+        records.delete(record(a, guangming, thisYear));
+
+        rebuildService.run(true);
+
+        AnnualLightRecord recreated = record(a, guangming, thisYear);
+        assertThat(recreated.isActive()).isFalse();
+        assertThat(recreated.getHousehold().getId()).isEqualTo(moved.getId());
     }
 
     @Test
