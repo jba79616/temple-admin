@@ -40,9 +40,12 @@ describe('registrationChanges', () => {
 })
 
 describe('price overrides', () => {
+  it('still reads a cancelled price prompt as 0, as before the refactor', () => {
+    expect(parseOverride('補', null)).toEqual({ price: 0, reason: '補' })
+  })
+
   it('needs a reason and a whole non-negative price', () => {
     expect(parseOverride(' 補 ', '150')).toEqual({ price: 150, reason: '補' })
-    expect(parseOverride('補', null)).toEqual({ price: 0, reason: '補' })
     expect(parseOverride(null, '150')).toBeNull()
     expect(parseOverride('  ', '150')).toBeNull()
     expect(parseOverride('補', '-1')).toBeNull()

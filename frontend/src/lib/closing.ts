@@ -43,7 +43,6 @@ export function signedMoney(amount: number): string {
   return amount > 0 ? `+${money(amount)}` : money(amount)
 }
 
-/** 修改實點只接受 0 以上的整數；不合法時回傳 null。 */
 export function amendedCash(input: string): number | null {
   const value = Number(input)
   return input.trim() !== '' && Number.isInteger(value) && value >= 0 ? value : null

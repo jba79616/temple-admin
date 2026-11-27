@@ -63,7 +63,6 @@ export function withoutOverride(overrides: Overrides, key: string): Overrides {
   return Object.fromEntries(Object.entries(overrides).filter(([k]) => k !== key))
 }
 
-/** 改價要有原因與 0 以上的整數單價，否則不改。 */
 export function parseOverride(reason: string | null, price: string | null): PriceOverride | null {
   if (!reason || !reason.trim()) return null
   const value = Number(price)
