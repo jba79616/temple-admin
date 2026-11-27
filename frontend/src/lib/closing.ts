@@ -20,8 +20,15 @@ export function closingPeriod(summary: Pick<DaySummary, 'from' | 'date'>): Closi
   return { title: `今日收款（入帳日 ${rocDate(summary.date)}）`, confirmNote: '' }
 }
 
-export function countedAmount(counted: string): number | null {
-  return counted === '' ? null : Number(counted)
+export const INVALID_CASH_MESSAGE = '金額只能輸入數字，不含小數點、正負號或其他符號'
+
+export function parseCash(input: string): number | null {
+  const trimmed = input.trim()
+  return /^\d+$/.test(trimmed) ? Number(trimmed) : null
+}
+
+export function isInvalidCash(input: string): boolean {
+  return input.trim() !== '' && parseCash(input) === null
 }
 
 export function cashDifference(counted: number | null, systemCash: number): number | null {
@@ -41,9 +48,4 @@ export function differenceHint(diff: number | null): string {
 
 export function signedMoney(amount: number): string {
   return amount > 0 ? `+${money(amount)}` : money(amount)
-}
-
-export function amendedCash(input: string): number | null {
-  const value = Number(input)
-  return input.trim() !== '' && Number.isInteger(value) && value >= 0 ? value : null
 }

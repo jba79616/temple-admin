@@ -1,6 +1,6 @@
 import { Fragment } from 'react'
 import type { ClosingView } from '../../api/types'
-import { signedMoney } from '../../lib/closing'
+import { INVALID_CASH_MESSAGE, signedMoney } from '../../lib/closing'
 import { money, rocDate, rocDateTime } from '../../lib/roc'
 import type { ClosingAmend } from './useClosingAmend'
 
@@ -43,7 +43,7 @@ function AmendRow({ closing, amend }: { closing: ClosingView; amend: ClosingAmen
         <strong>修改 {rocDate(closing.closingDate)} 的實點金額</strong>
         <div className="row" style={{ alignItems: 'flex-end' }}>
           <label className="fld small muted">實點現金
-            <input type="number" inputMode="numeric" min={0} step={1} className="inp" value={amend.cash} onChange={(e) => amend.setCash(e.target.value)} />
+            <input inputMode="numeric" className="inp" value={amend.cash} onChange={(e) => amend.setCash(e.target.value)} />
           </label>
           <label className="fld small muted" style={{ flex: 1 }}>原因（必填）
             <input className="inp" maxLength={200} placeholder="例：實點 4300 打成 4600" value={amend.reason} onChange={(e) => amend.setReason(e.target.value)} />
@@ -51,6 +51,7 @@ function AmendRow({ closing, amend }: { closing: ClosingView; amend: ClosingAmen
           <button type="button" className="btn" disabled={!amend.canSubmit} onClick={amend.submit}>{amend.busy ? '修改中…' : '確認修改'}</button>
           <button type="button" className="btn btn-ghost" onClick={amend.cancel}>取消</button>
         </div>
+        {amend.cashInvalid && <span className="error small">{INVALID_CASH_MESSAGE}</span>}
         <span className="small muted">系統合計不變，長短款會重算。修改人與原因會記在這筆日結上。</span>
       </div>
     </td></tr>

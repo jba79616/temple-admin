@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { money } from './roc'
-import { amendedCash, cashDifference, closingPeriod, countedAmount, differenceHint, differenceText, signedMoney } from './closing'
+import { cashDifference, closingPeriod, differenceHint, differenceText, isInvalidCash, parseCash, signedMoney } from './closing'
 
 describe('closingPeriod', () => {
   it('covers everything up to today before the first closing', () => {
@@ -24,8 +24,8 @@ describe('closingPeriod', () => {
 
 describe('cash difference', () => {
   it('stays unknown until something is counted', () => {
-    expect(countedAmount('')).toBeNull()
-    expect(countedAmount('0')).toBe(0)
+    expect(parseCash('')).toBeNull()
+    expect(parseCash('0')).toBe(0)
     expect(cashDifference(null, 500)).toBeNull()
     expect(cashDifference(450, 500)).toBe(-50)
   })
@@ -47,14 +47,27 @@ describe('cash difference', () => {
   })
 })
 
-describe('amendedCash', () => {
-  it('accepts whole non-negative amounts only', () => {
-    expect(amendedCash('4300')).toBe(4300)
-    expect(amendedCash('0')).toBe(0)
-    expect(amendedCash('')).toBeNull()
-    expect(amendedCash('  ')).toBeNull()
-    expect(amendedCash('-1')).toBeNull()
-    expect(amendedCash('12.5')).toBeNull()
-    expect(amendedCash('abc')).toBeNull()
+describe('parseCash', () => {
+  it('accepts plain digits, ignoring surrounding spaces', () => {
+    expect(parseCash('4300')).toBe(4300)
+    expect(parseCash('0')).toBe(0)
+    expect(parseCash('007')).toBe(7)
+    expect(parseCash(' 4300 ')).toBe(4300)
+  })
+
+  it.each(['', '  ', '-1', '+5', '12.5', '12.0', '1e2', '0x10', '0b11', 'abc', '1 000', '1,000', 'Infinity'])('rejects %j', (input) => {
+    expect(parseCash(input)).toBeNull()
+  })
+})
+
+describe('isInvalidCash', () => {
+  it('flags non-empty input that is not plain digits', () => {
+    expect(isInvalidCash('')).toBe(false)
+    expect(isInvalidCash('   ')).toBe(false)
+    expect(isInvalidCash('4300')).toBe(false)
+    expect(isInvalidCash(' 4300 ')).toBe(false)
+    expect(isInvalidCash('1e2')).toBe(true)
+    expect(isInvalidCash('-5')).toBe(true)
+    expect(isInvalidCash('12.5')).toBe(true)
   })
 })

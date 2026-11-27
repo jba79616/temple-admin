@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { closings as closingsApi, orders as ordersApi } from '../api'
 import type { ClosingView, DaySummary, OrderView } from '../api/types'
-import { closingPeriod } from '../lib/closing'
+import { closingPeriod, parseCash } from '../lib/closing'
 import { rocDate } from '../lib/roc'
 import CloseForm from './closing/CloseForm'
 import ClosingHistory from './closing/ClosingHistory'
@@ -30,11 +30,12 @@ export default function ClosingPage() {
   useEffect(() => { load().catch((e) => setError(e.message)) }, [load])
 
   async function close() {
-    if (!summary || closing) return
+    const countedCash = parseCash(counted)
+    if (!summary || closing || countedCash === null) return
     setClosing(true)
     setError('')
     try {
-      await closingsApi.close(Number(counted), note)
+      await closingsApi.close(countedCash, note)
       setConfirming(false)
       setCounted('')
       setNote('')

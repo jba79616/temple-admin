@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { closings as closingsApi } from '../../api'
 import type { ClosingView } from '../../api/types'
-import { amendedCash } from '../../lib/closing'
+import { isInvalidCash, parseCash } from '../../lib/closing'
 
 export type ClosingAmend = ReturnType<typeof useClosingAmend>
 
@@ -11,7 +11,7 @@ export function useClosingAmend(onDone: () => Promise<void>, onError: (message: 
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const cashValue = amendedCash(cash)
+  const cashValue = parseCash(cash)
   const canSubmit = cashValue !== null && reason.trim() !== '' && !busy
 
   function start(h: ClosingView) {
@@ -35,5 +35,5 @@ export function useClosingAmend(onDone: () => Promise<void>, onError: (message: 
     }
   }
 
-  return { date, cash, setCash, reason, setReason, busy, canSubmit, start, submit, cancel: () => setDate(null) }
+  return { date, cash, setCash, cashInvalid: isInvalidCash(cash), reason, setReason, busy, canSubmit, start, submit, cancel: () => setDate(null) }
 }
