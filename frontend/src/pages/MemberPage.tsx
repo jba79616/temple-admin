@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { useParams } from 'react-router'
 import { households, members as membersApi } from '../api'
 import type { HouseholdDetail, MemberInput, MemberView } from '../api/types'
 import Crumbs from '../components/Crumbs'
 import MemberFields from '../components/MemberFields'
 import { useConfig } from '../lib/config'
 import { householdLabel } from '../lib/householdForm'
-import { hasInvalidGanzhi, isMemberDirty, otherMembers, savedMemberMessage, toMemberInput } from '../lib/member'
+import { isMemberDirty, isMemberSavable, otherMembers, savedMemberMessage, toMemberInput } from '../lib/member'
 import { useUnsavedGuard } from '../lib/useUnsavedGuard'
 import DeletePanel from './member/DeletePanel'
 import MemberCheck from './member/MemberCheck'
+import MemberSaveBar from './member/MemberSaveBar'
 import MovePanel from './member/MovePanel'
 import { useMemberMove } from './member/useMemberMove'
 import { useMemberRemoval } from './member/useMemberRemoval'
@@ -77,15 +78,8 @@ export default function MemberPage() {
       <div className="split">
         <section className="card main card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <MemberFields value={form} onChange={setForm} householdCityDistrict={(household.city ?? '') + (household.district ?? '')} householdAddress={household.address ?? ''} />
-          <div className="row" style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-            <button type="button" className="btn" onClick={save} disabled={!dirty || saving || !form.name.trim() || hasInvalidGanzhi(form)}>{saving ? '儲存中…' : '儲存'}</button>
-            <Link to={`/households/${member.householdId}`} className="btn btn-ghost">{dirty ? '取消' : '回戶頁'}</Link>
-            {dirty
-              ? <span className="small" style={{ color: 'var(--warn-text)', fontWeight: 500 }}>有未儲存的修改</span>
-              : savedAt && <span className="small" style={{ color: 'var(--success-text)', fontWeight: 700 }}>✓ 已儲存 {savedAt}</span>}
-            <button type="button" className="btn btn-ghost" style={{ marginLeft: 'auto' }} onClick={openMove}>移到別戶</button>
-            <button type="button" className="btn btn-danger" onClick={openRemoval}>刪除此成員</button>
-          </div>
+          <MemberSaveBar householdId={member.householdId} dirty={dirty} saving={saving} canSave={!saving && isMemberSavable(form, dirty)}
+            savedAt={savedAt} onSave={save} onMove={openMove} onRemove={openRemoval} />
           {message && !dirty && <div className="banner banner-ok">{message} 修改前後已寫入稽核日誌。</div>}
           {error && <div className="banner banner-bad">{error}</div>}
           {move.open && <MovePanel move={move} blockedAsHead={headWithOthers} />}

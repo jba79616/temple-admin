@@ -16,6 +16,10 @@ export function hasInvalidGanzhi(form: MemberInput): boolean {
   return !!form.birthGanzhi && !isValidGanzhi(form.birthGanzhi)
 }
 
+export function isMemberSavable(form: MemberInput, dirty: boolean): boolean {
+  return dirty && !!form.name.trim() && !hasInvalidGanzhi(form)
+}
+
 export function zodiacOf(birthGanzhi: string | null | undefined): string {
   return birthGanzhi && isValidGanzhi(birthGanzhi) ? ZODIAC[birthGanzhi[1]] : '—'
 }

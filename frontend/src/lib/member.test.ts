@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { HouseholdDetail, HouseholdSummary, MemberView } from '../api/types'
-import { birthPreview, hasInvalidGanzhi, isMemberDirty, moveConfirmText, moveTargets, otherMembers, savedMemberMessage, toMemberInput, withBirthMonth, zodiacOf } from './member'
+import { birthPreview, hasInvalidGanzhi, isMemberDirty, isMemberSavable, moveConfirmText, moveTargets, otherMembers, savedMemberMessage, toMemberInput, withBirthMonth, zodiacOf } from './member'
 
 const member = (over: Partial<MemberView> = {}): MemberView => ({
   id: 1, householdId: 10, name: '王小明', gender: 'M', head: false, sortOrder: 1, city: null, district: null, address: null, phone: null,
@@ -31,6 +31,13 @@ describe('member form', () => {
     expect(hasInvalidGanzhi({ name: 'a', birthGanzhi: '' })).toBe(false)
     expect(hasInvalidGanzhi({ name: 'a', birthGanzhi: '甲子' })).toBe(false)
     expect(hasInvalidGanzhi({ name: 'a', birthGanzhi: '甲丑' })).toBe(true)
+  })
+
+  it('saves only a dirty form with a name and a valid ganzhi', () => {
+    expect(isMemberSavable({ name: '王小明', birthGanzhi: '甲子' }, true)).toBe(true)
+    expect(isMemberSavable({ name: '王小明', birthGanzhi: '甲子' }, false)).toBe(false)
+    expect(isMemberSavable({ name: '  ', birthGanzhi: null }, true)).toBe(false)
+    expect(isMemberSavable({ name: '王小明', birthGanzhi: '甲丑' }, true)).toBe(false)
   })
 })
 
