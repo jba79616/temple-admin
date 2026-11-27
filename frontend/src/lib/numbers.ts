@@ -1,5 +1,10 @@
-/** 金額、單價、排序、戶號在資料表都是 INT，超過就會被後端拒絕。 */
+/** 排序、戶號在資料表是 INT，超過就會被後端拒絕。 */
 export const MAX_INT = 2_147_483_647
+
+/** 單筆金額（實點現金、單價、燈種價格）的業務上限，後端 DTO 用同一個數字擋。 */
+export const MAX_AMOUNT = 1_000_000
+
+export const AMOUNT_TOO_LARGE = `金額不能超過 ${MAX_AMOUNT.toLocaleString('en-US')}`
 
 export function toHalfWidthDigits(input: string): string {
   return input.replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xfee0))
@@ -18,10 +23,23 @@ export function parseWholeNumber(input: string | null | undefined, max = MAX_INT
   return value <= max ? value : null
 }
 
+export function parseAmount(input: string | null | undefined): number | null {
+  return parseWholeNumber(input, MAX_AMOUNT)
+}
+
+function malformedError(digits: string, label: string): string | null {
+  return /^\d+$/.test(digits) ? null : `${label}只能輸入數字，不含小數點、正負號或其他符號`
+}
+
 /** 空白不算錯（交給必填檢查）；其他不合格的輸入回傳要顯示的錯誤訊息。 */
 export function wholeNumberError(input: string, label: string, max = MAX_INT): string | null {
   const digits = normalized(input)
   if (digits === '') return null
-  if (!/^\d+$/.test(digits)) return `${label}只能輸入數字，不含小數點、正負號或其他符號`
-  return Number(digits) > max ? `${label}不能超過 ${max.toLocaleString('en-US')}` : null
+  return malformedError(digits, label) ?? (Number(digits) > max ? `${label}不能超過 ${max.toLocaleString('en-US')}` : null)
+}
+
+export function amountError(input: string, label: string): string | null {
+  const digits = normalized(input)
+  if (digits === '') return null
+  return malformedError(digits, label) ?? (Number(digits) > MAX_AMOUNT ? AMOUNT_TOO_LARGE : null)
 }

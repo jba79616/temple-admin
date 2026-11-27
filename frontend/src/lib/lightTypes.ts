@@ -1,5 +1,5 @@
 import type { LightType } from '../api/types'
-import { parseWholeNumber, wholeNumberError } from './numbers'
+import { amountError, parseAmount, parseWholeNumber, wholeNumberError } from './numbers'
 
 export type LightTypeInput = Omit<LightType, 'id'>
 export type LightTypeForm = Omit<LightTypeInput, 'price' | 'sortOrder'> & { price: string; sortOrder: string }
@@ -13,16 +13,16 @@ export function toLightTypeForm(t: LightType): LightTypeForm {
     sortOrder: String(t.sortOrder), active: t.active, legacyCode: t.legacyCode }
 }
 
-function requiredNumberError(input: string, label: string): string | null {
-  return input.trim() === '' ? `${label}必填` : wholeNumberError(input, label)
+function requiredError(input: string, label: string, check: (input: string, label: string) => string | null): string | null {
+  return input.trim() === '' ? `${label}必填` : check(input, label)
 }
 
 export function lightTypeFormErrors(f: LightTypeForm): { price: string | null; sortOrder: string | null } {
-  return { price: requiredNumberError(f.price, '價格'), sortOrder: requiredNumberError(f.sortOrder, '排序') }
+  return { price: requiredError(f.price, '價格', amountError), sortOrder: requiredError(f.sortOrder, '排序', wholeNumberError) }
 }
 
 export function toLightTypeInput(f: LightTypeForm): LightTypeInput | null {
-  const price = parseWholeNumber(f.price)
+  const price = parseAmount(f.price)
   const sortOrder = parseWholeNumber(f.sortOrder)
   if (price === null || sortOrder === null || !f.name.trim() || !f.shortName.trim()) return null
   return { ...f, price, sortOrder }

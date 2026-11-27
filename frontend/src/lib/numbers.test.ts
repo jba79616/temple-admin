@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_INT, parseWholeNumber, toHalfWidthDigits, wholeNumberError } from './numbers'
+import { MAX_AMOUNT, MAX_INT, amountError, parseAmount, parseWholeNumber, toHalfWidthDigits, wholeNumberError } from './numbers'
 
 describe('toHalfWidthDigits', () => {
   it('converts full-width digits and leaves everything else alone', () => {
@@ -46,5 +46,31 @@ describe('wholeNumberError', () => {
     expect(wholeNumberError('-5', '金額')).toBe('金額只能輸入數字，不含小數點、正負號或其他符號')
     expect(wholeNumberError('12.5', '價格')).toBe('價格只能輸入數字，不含小數點、正負號或其他符號')
     expect(wholeNumberError('2147483648', '金額')).toBe('金額不能超過 2,147,483,647')
+  })
+})
+
+describe('parseAmount', () => {
+  it('stops at the business limit of a single amount', () => {
+    expect(MAX_AMOUNT).toBe(1_000_000)
+    expect(parseAmount('1000000')).toBe(MAX_AMOUNT)
+    expect(parseAmount('１００００００')).toBe(MAX_AMOUNT)
+    expect(parseAmount('1000001')).toBeNull()
+    expect(parseAmount('2147483648')).toBeNull()
+    expect(parseAmount('-1')).toBeNull()
+    expect(parseAmount(null)).toBeNull()
+  })
+})
+
+describe('amountError', () => {
+  it('leaves blank and in-range input to the caller', () => {
+    expect(amountError('', '金額')).toBeNull()
+    expect(amountError('0', '金額')).toBeNull()
+    expect(amountError(' 1000000 ', '金額')).toBeNull()
+  })
+
+  it('names the field for malformed input and states the limit for oversized input', () => {
+    expect(amountError('-1', '單價')).toBe('單價只能輸入數字，不含小數點、正負號或其他符號')
+    expect(amountError('1000001', '單價')).toBe('金額不能超過 1,000,000')
+    expect(amountError('99999999999999999999999', '價格')).toBe('金額不能超過 1,000,000')
   })
 })

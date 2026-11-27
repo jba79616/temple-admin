@@ -63,9 +63,10 @@ describe('price overrides', () => {
     expect(parseOverride('補', '+150')).toBeNull()
   })
 
-  it('reads full-width digits and stops at the INT column bound', () => {
+  it('reads full-width digits and stops at the amount limit', () => {
     expect(parseOverride('補', '１５０')).toEqual({ price: 150, reason: '補' })
-    expect(parseOverride('補', '2147483647')).toEqual({ price: 2147483647, reason: '補' })
+    expect(parseOverride('補', '1000000')).toEqual({ price: 1_000_000, reason: '補' })
+    expect(parseOverride('補', '1000001')).toBeNull()
     expect(parseOverride('補', '2147483648')).toBeNull()
   })
 
@@ -84,7 +85,8 @@ describe('price overrides', () => {
     expect(overridePriceError('  ')).toBeNull()
     expect(overridePriceError('１５０')).toBeNull()
     expect(overridePriceError('-1')).toBe('改後單價只能輸入數字，不含小數點、正負號或其他符號')
-    expect(overridePriceError('2147483648')).toBe('改後單價不能超過 2,147,483,647')
+    expect(overridePriceError('1000000')).toBeNull()
+    expect(overridePriceError('1000001')).toBe('金額不能超過 1,000,000')
   })
 
   it('removes one override and keeps the rest', () => {

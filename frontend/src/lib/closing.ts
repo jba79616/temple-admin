@@ -1,5 +1,5 @@
 import type { DaySummary } from '../api/types'
-import { parseWholeNumber, wholeNumberError } from './numbers'
+import { amountError, parseAmount } from './numbers'
 import { money, rocDate } from './roc'
 
 export interface ClosingPeriod {
@@ -22,11 +22,11 @@ export function closingPeriod(summary: Pick<DaySummary, 'from' | 'date'>): Closi
 }
 
 export function parseCash(input: string): number | null {
-  return parseWholeNumber(input)
+  return parseAmount(input)
 }
 
 export function cashError(input: string): string | null {
-  return wholeNumberError(input, '金額')
+  return amountError(input, '金額')
 }
 
 export function cashDifference(counted: number | null, systemCash: number): number | null {

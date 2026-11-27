@@ -54,16 +54,17 @@ describe('parseCash', () => {
     expect(parseCash('007')).toBe(7)
     expect(parseCash(' 4300 ')).toBe(4300)
     expect(parseCash('４３００')).toBe(4300)
-    expect(parseCash('2147483647')).toBe(2147483647)
+    expect(parseCash('1000000')).toBe(1_000_000)
+    expect(parseCash('１００００００')).toBe(1_000_000)
   })
 
-  it.each(['', '  ', '-1', '+5', '12.5', '12.0', '1e2', '0x10', '0b11', 'abc', '1 000', '1,000', 'Infinity', '2147483648', '－5'])('rejects %j', (input) => {
+  it.each(['', '  ', '-1', '+5', '12.5', '12.0', '1e2', '0x10', '0b11', 'abc', '1 000', '1,000', 'Infinity', '1000001', '2147483648', '－5'])('rejects %j', (input) => {
     expect(parseCash(input)).toBeNull()
   })
 })
 
 describe('cashError', () => {
-  it('flags non-empty input that is not plain digits or exceeds the INT column', () => {
+  it('flags non-empty input that is not plain digits or exceeds the amount limit', () => {
     expect(cashError('')).toBeNull()
     expect(cashError('   ')).toBeNull()
     expect(cashError('4300')).toBeNull()
@@ -71,6 +72,8 @@ describe('cashError', () => {
     expect(cashError('1e2')).toBe('金額只能輸入數字，不含小數點、正負號或其他符號')
     expect(cashError('-5')).toBe('金額只能輸入數字，不含小數點、正負號或其他符號')
     expect(cashError('12.5')).toBe('金額只能輸入數字，不含小數點、正負號或其他符號')
-    expect(cashError('2147483648')).toBe('金額不能超過 2,147,483,647')
+    expect(cashError('1000000')).toBeNull()
+    expect(cashError('1000001')).toBe('金額不能超過 1,000,000')
+    expect(cashError('2147483648')).toBe('金額不能超過 1,000,000')
   })
 })

@@ -21,11 +21,19 @@ describe('light type form', () => {
     expect(toLightTypeInput({ ...form, sortOrder: input })).toBeNull()
   })
 
+  it('caps the price at the amount limit but lets sort order reach the INT column bound', () => {
+    expect(toLightTypeInput({ ...form, price: '1000000' })).toMatchObject({ price: 1_000_000 })
+    expect(toLightTypeInput({ ...form, price: '1000001' })).toBeNull()
+    expect(toLightTypeInput({ ...form, sortOrder: '2147483647' })).toMatchObject({ sortOrder: 2147483647 })
+  })
+
   it('explains each invalid number', () => {
     expect(lightTypeFormErrors({ ...form, price: ' ', sortOrder: '-1' }))
       .toEqual({ price: '價格必填', sortOrder: '排序只能輸入數字，不含小數點、正負號或其他符號' })
     expect(lightTypeFormErrors({ ...form, price: '2147483648', sortOrder: '2147483647' }))
-      .toEqual({ price: '價格不能超過 2,147,483,647', sortOrder: null })
+      .toEqual({ price: '金額不能超過 1,000,000', sortOrder: null })
+    expect(lightTypeFormErrors({ ...form, price: '1000001', sortOrder: '2147483648' }))
+      .toEqual({ price: '金額不能超過 1,000,000', sortOrder: '排序不能超過 2,147,483,647' })
   })
 
   it('still needs a name and short name', () => {
