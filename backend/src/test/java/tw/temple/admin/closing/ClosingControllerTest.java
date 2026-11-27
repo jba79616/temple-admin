@@ -1,7 +1,6 @@
 package tw.temple.admin.closing;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -9,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.jayway.jsonpath.JsonPath;
 import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -89,7 +89,7 @@ class ClosingControllerTest {
         closings.deleteAll();
 
         mvc.perform(post("/api/closings").session(session).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"countedCash\":2147483647}"))
+                .content("{\"closingDate\":\"2001-01-01\",\"countedCash\":2147483647}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.countedCash").value(Integer.MAX_VALUE));
     }
@@ -168,11 +168,18 @@ class ClosingControllerTest {
     @Transactional
     void statusAddsTodaysCashBeyondIntegerWithoutOverflow() throws Exception {
         closings.deleteAll();
+        long before = statusSystemCash();
+
         postCash(clock.today(), BILLION, BILLION, BILLION);
 
-        mvc.perform(get("/api/closings/status").session(session))
+        assertThat(statusSystemCash()).isEqualTo(before + 3_000_000_000L);
+    }
+
+    private long statusSystemCash() throws Exception {
+        String body = mvc.perform(get("/api/closings/status").session(session))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.systemCash", greaterThanOrEqualTo(3_000_000_000L)));
+            .andReturn().getResponse().getContentAsString();
+        return JsonPath.<Number>read(body, "$.systemCash").longValue();
     }
 
     @Test
