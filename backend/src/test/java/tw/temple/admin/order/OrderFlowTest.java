@@ -218,7 +218,7 @@ class OrderFlowTest {
         assertThat(summary.systemCash()).isGreaterThanOrEqualTo(300);
         assertThat(summary.payments()).extracting(p -> p.orderId()).contains(view.id());
 
-        var closing = closingService.close(null, summary.systemCash() + 200, "多 200", admin);
+        var closing = closingService.close(null, Math.toIntExact(summary.systemCash()) + 200, "多 200", admin);
         assertThat(closing.getDifference()).isEqualTo(200);
         assertThat(closingService.summary(null).closed()).isTrue();
 
@@ -230,20 +230,20 @@ class OrderFlowTest {
     @Test
     void amendingCountedCashKeepsOriginalAndOnlyTouchesLatestClosing() {
         counter(staff, add(a, guangming));
-        var summary = closingService.summary(null);
+        int systemCash = Math.toIntExact(closingService.summary(null).systemCash());
         LocalDate today = clock.today();
-        var closing = closingService.close(null, summary.systemCash() + 300, "打錯", admin);
+        var closing = closingService.close(null, systemCash + 300, "打錯", admin);
         assertThat(closing.getDifference()).isEqualTo(300);
 
-        var amended = closingService.amend(today, summary.systemCash(), "實點 4300 打成 4600", staff);
+        var amended = closingService.amend(today, systemCash, "實點 4300 打成 4600", staff);
         assertThat(amended.getDifference()).isZero();
-        assertThat(amended.getCountedCash()).isEqualTo(summary.systemCash());
-        assertThat(amended.getOriginalCountedCash()).isEqualTo(summary.systemCash() + 300);
+        assertThat(amended.getCountedCash()).isEqualTo(systemCash);
+        assertThat(amended.getOriginalCountedCash()).isEqualTo(systemCash + 300);
         assertThat(amended.getAmendedBy().getId()).isEqualTo(staff.getId());
         assertThat(amended.getAmendReason()).isEqualTo("實點 4300 打成 4600");
 
-        var again = closingService.amend(today, summary.systemCash() + 50, "再改一次", admin);
-        assertThat(again.getOriginalCountedCash()).isEqualTo(summary.systemCash() + 300);
+        var again = closingService.amend(today, systemCash + 50, "再改一次", admin);
+        assertThat(again.getOriginalCountedCash()).isEqualTo(systemCash + 300);
         assertThat(again.getDifference()).isEqualTo(50);
 
         LocalDate yesterday = today.minusDays(1);
@@ -312,7 +312,7 @@ class OrderFlowTest {
         LightOrder order = orders.findById(view.id()).orElseThrow();
         payments.save(new Payment(order, PaymentKind.CASH, 50, today.minusDays(4), today.minusDays(4), staff, "上次日結已含"));
         closingService.close(today.minusDays(3), 0, null, admin);
-        int before = closingService.summary(null).systemCash();
+        int before = Math.toIntExact(closingService.summary(null).systemCash());
 
         payments.save(new Payment(order, PaymentKind.CASH, 100, today.minusDays(1), today.minusDays(1), staff, "漏結那天的現金"));
 

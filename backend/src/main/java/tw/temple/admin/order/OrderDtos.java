@@ -43,7 +43,7 @@ public final class OrderDtos {
     }
 
     public record OrderView(Long id, OrderKind kind, OrderStatus status, int year, Long householdId, Integer householdNumber,
-                            String headName, LocalDate registeredOn, LocalDate postedOn, int totalDue, int paid, int balance,
+                            String headName, LocalDate registeredOn, LocalDate postedOn, int totalDue, long paid, long balance,
                             Long correctsOrderId, List<Long> correctedByOrderIds, String note, String createdBy,
                             OffsetDateTime createdAt, String voidedBy, OffsetDateTime voidedAt, String voidReason, boolean closed,
                             List<ItemView> items, List<PaymentView> payments) {

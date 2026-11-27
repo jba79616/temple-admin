@@ -10,8 +10,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     List<Payment> findByOrderIdOrderByIdAsc(Long orderId);
 
-    @Query("select coalesce(sum(p.amount), 0) from Payment p where p.order.id = :orderId")
-    int sumByOrder(@Param("orderId") Long orderId);
+    @Query("select coalesce(sum(p.amount), 0L) from Payment p where p.order.id = :orderId")
+    long sumByOrder(@Param("orderId") Long orderId);
 
     @Query("""
         select p from Payment p
@@ -27,7 +27,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     long countPostedBetweenExcludingImport(@Param("after") LocalDate after, @Param("through") LocalDate through);
 
     @Query("""
-        select coalesce(sum(p.amount), 0) from Payment p
+        select coalesce(sum(p.amount), 0L) from Payment p
         where p.kind = :kind and (cast(:after as LocalDate) is null or p.postedOn > :after) and p.postedOn <= :through""")
-    int sumByKindPostedBetween(@Param("kind") PaymentKind kind, @Param("after") LocalDate after, @Param("through") LocalDate through);
+    long sumByKindPostedBetween(@Param("kind") PaymentKind kind, @Param("after") LocalDate after, @Param("through") LocalDate through);
 }

@@ -288,7 +288,7 @@ public class OrderService {
     }
 
     private OrderView toView(LightOrder order) {
-        int paid = payments.sumByOrder(order.getId());
+        long paid = payments.sumByOrder(order.getId());
         List<ItemView> itemViews = items.findByOrderIdOrderByIdAsc(order.getId()).stream()
             .map(i -> new ItemView(i.getId(), i.getMember().getId(), i.getMember().getName(), i.getLightType().getId(),
                 i.getLightType().getName(), i.getAction(), i.getUnitPrice(), i.getOverrideReason(), i.isReversal(), i.getCreatedAt()))

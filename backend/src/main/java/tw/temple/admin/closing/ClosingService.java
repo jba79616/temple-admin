@@ -44,7 +44,7 @@ public class ClosingService implements DayClosingStatus {
         List<Payment> posted = payments.findPostedBetweenExcludingImport(after, date);
         Map<Long, String> headNames = headNames(posted);
         List<PaymentRow> rows = posted.stream().map(p -> toRow(p, headNames)).toList();
-        int systemCash = payments.sumByKindPostedBetween(PaymentKind.CASH, after, date);
+        long systemCash = payments.sumByKindPostedBetween(PaymentKind.CASH, after, date);
         Optional<LocalDate> through = closedThrough();
         return new DaySummary(date, after == null ? null : after.plusDays(1), systemCash, isClosed(date), through.orElse(null), rows);
     }
@@ -55,7 +55,7 @@ public class ClosingService implements DayClosingStatus {
         Optional<LocalDate> through = closedThrough();
         LocalDate after = closings.findTopByClosingDateLessThanOrderByClosingDateDesc(today).map(DailyClosing::getClosingDate).orElse(null);
         int count = (int) payments.countPostedBetweenExcludingImport(after, today);
-        int systemCash = payments.sumByKindPostedBetween(PaymentKind.CASH, after, today);
+        long systemCash = payments.sumByKindPostedBetween(PaymentKind.CASH, after, today);
         boolean closed = through.map(t -> !today.isAfter(t)).orElse(false);
         return new DayStatus(today, closed, through.orElse(null), count, systemCash);
     }
@@ -70,7 +70,7 @@ public class ClosingService implements DayClosingStatus {
         if (through.isPresent() && !date.isAfter(through.get())) {
             throw ApiException.conflict("該日已日結");
         }
-        int systemCash = payments.sumByKindPostedBetween(PaymentKind.CASH, through.orElse(null), date);
+        int systemCash = recordableSystemCash(payments.sumByKindPostedBetween(PaymentKind.CASH, through.orElse(null), date));
         requireRecordableDifference(countedCash, systemCash);
         DailyClosing saved = closings.saveAndFlush(new DailyClosing(date, systemCash, countedCash, actor,
             note == null || note.isBlank() ? null : note.trim()));
@@ -104,6 +104,14 @@ public class ClosingService implements DayClosingStatus {
     @Transactional(readOnly = true)
     public boolean isClosed(LocalDate date) {
         return closedThrough().map(through -> !date.isAfter(through)).orElse(false);
+    }
+
+    /** daily_closings.system_cash 是 INT 欄位；收款跨多天累計可能超出，寫入前先擋下來，不讓它溢位或炸成 500。 */
+    private int recordableSystemCash(long systemCash) {
+        if (systemCash < Integer.MIN_VALUE || systemCash > Integer.MAX_VALUE) {
+            throw ApiException.badRequest("上次日結以來的系統現金合計超出可記錄的範圍，無法日結，請聯絡管理員");
+        }
+        return (int) systemCash;
     }
 
     /** daily_closings.difference 是 INT 產生欄位，超出範圍會在寫入時才炸成 500。 */

@@ -1,7 +1,9 @@
 package tw.temple.admin.closing;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.startsWith;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -19,6 +21,8 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import tw.temple.admin.TestcontainersConfiguration;
+import tw.temple.admin.admin.RebuildService;
+import tw.temple.admin.config.TempleClock;
 import tw.temple.admin.household.Household;
 import tw.temple.admin.household.HouseholdDtos.HouseholdInput;
 import tw.temple.admin.household.HouseholdDtos.MemberInput;
@@ -37,6 +41,7 @@ import tw.temple.admin.user.UserRepository;
 @AutoConfigureMockMvc
 class ClosingControllerTest {
 
+    private static final int BILLION = 1_000_000_000;
     private static final String DIFFERENCE_OUT_OF_RANGE = "實點與系統合計的差額超出可記錄的範圍，請確認實點金額";
 
     @Autowired MockMvc mvc;
@@ -45,6 +50,8 @@ class ClosingControllerTest {
     @Autowired LightOrderRepository orders;
     @Autowired PaymentRepository payments;
     @Autowired UserRepository users;
+    @Autowired RebuildService rebuild;
+    @Autowired TempleClock clock;
 
     private MockHttpSession session;
 
@@ -143,6 +150,55 @@ class ClosingControllerTest {
         mvc.perform(post("/api/closings").session(session).contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("資料格式錯誤"));
+    }
+
+    @Test
+    @Transactional
+    void summaryAddsCashAcrossPaymentsBeyondIntegerWithoutOverflow() throws Exception {
+        closings.deleteAll();
+        LocalDate day = LocalDate.of(2001, 1, 3);
+        postCash(day, BILLION, BILLION, BILLION);
+
+        mvc.perform(get("/api/closings/summary").param("date", day.toString()).session(session))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.systemCash").value(3_000_000_000L));
+    }
+
+    @Test
+    @Transactional
+    void statusAddsTodaysCashBeyondIntegerWithoutOverflow() throws Exception {
+        closings.deleteAll();
+        postCash(clock.today(), BILLION, BILLION, BILLION);
+
+        mvc.perform(get("/api/closings/status").session(session))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.systemCash", greaterThanOrEqualTo(3_000_000_000L)));
+    }
+
+    @Test
+    @Transactional
+    void closingWhoseSystemCashExceedsTheIntColumnIsABadRequest() throws Exception {
+        closings.deleteAll();
+        LocalDate day = LocalDate.of(2001, 1, 3);
+        postCash(day, BILLION, BILLION, BILLION);
+
+        mvc.perform(post("/api/closings").session(session).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"closingDate\":\"" + day + "\",\"countedCash\":0}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("上次日結以來的系統現金合計超出可記錄的範圍，無法日結，請聯絡管理員"));
+
+        assertThat(closings.count()).isZero();
+    }
+
+    @Test
+    @Transactional
+    void rebuildReportsRecomputedCashBeyondIntegerInsteadOfFailing() {
+        closings.deleteAll();
+        LocalDate day = LocalDate.of(2001, 1, 3);
+        postCash(day, BILLION, BILLION, BILLION);
+        closings.saveAndFlush(new DailyClosing(day, 0, 0, admin(), null));
+
+        assertThat(rebuild.run(false).closingMismatches()).containsExactly("日結 " + day + " 系統合計 0，收款重算 3000000000");
     }
 
     private User admin() {

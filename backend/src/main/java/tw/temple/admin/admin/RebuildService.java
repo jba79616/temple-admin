@@ -178,7 +178,7 @@ public class RebuildService {
         List<String> mismatches = new ArrayList<>();
         LocalDate after = null;
         for (DailyClosing closing : allClosings) {
-            int computed = payments.sumByKindPostedBetween(PaymentKind.CASH, after, closing.getClosingDate());
+            long computed = payments.sumByKindPostedBetween(PaymentKind.CASH, after, closing.getClosingDate());
             if (computed != closing.getSystemCash()) {
                 mismatches.add("日結 " + closing.getClosingDate() + " 系統合計 " + closing.getSystemCash() + "，收款重算 " + computed);
             }
