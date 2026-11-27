@@ -340,6 +340,8 @@ class PrintServiceTest {
         assertThat(all.householdNumber()).isEqualTo(h.getHouseholdNumber());
         assertThat(all.ganzhiYear()).isEqualTo(Ganzhi.ofYear(config.currentYear()));
         assertThat(all.prayerMonth()).isEqualTo(config.get(ConfigService.PRAYER_MONTH));
+        assertThat(all.templeName()).isEqualTo(config.get(ConfigService.TEMPLE_NAME));
+        assertThat(all.templeAddress()).isEqualTo(config.get(ConfigService.TEMPLE_ADDRESS));
         assertThat(all.people()).extracting(WenshuPerson::name).containsExactly("林戶長", "林女兒");
         WenshuPerson head = all.people().get(0);
         assertThat(head.cityDistrict()).isEqualTo("雲林縣元長鄉");

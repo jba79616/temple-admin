@@ -505,6 +505,8 @@ export interface WenshuPerson {
 }
 
 export interface Wenshu {
+  templeName: string
+  templeAddress: string
   householdNumber: number | null
   year: number
   ganzhiYear: string

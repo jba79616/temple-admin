@@ -15,6 +15,9 @@ const BLANK = '　　'
 /** 「信士 ○○ 等生居塵世」中間的空檔：11.4 到 18.6 字，15pt 只放得下 6 個字，長名縮字。 */
 const NAME_SLOT = 7.2
 const NAME_PT = 15
+/** 落款廟名與廟址從欄頂排到 33 字，留一字空檔接「全體主任委員敬上」；太長就縮字。 */
+const SIGNATURE_SLOT = 33
+const BODY_PT = 13
 
 type DateParts = { year: string; month: string; day: string }
 
@@ -54,19 +57,27 @@ function BirthCells({ birth }: { birth: BirthText }) {
   )
 }
 
-export function Sheet({ person, ritual, petition }: { person: WenshuPerson; ritual: DateParts; petition: DateParts }) {
+function fitPt(text: string, slot: number, maxPt: number) {
+  return Math.min(maxPt, (slot * BODY_PT) / Math.max(Array.from(text).length, 1))
+}
+
+type Temple = { name: string; address: string }
+
+export function Sheet({ person, temple, ritual, petition }: { person: WenshuPerson; temple: Temple; ritual: DateParts; petition: DateParts }) {
   const believer = believerOf(person.gender)
   const birth = birthTextOf(person)
   const name = printName(person.name)
-  const nameChars = Array.from(name).length
-  const namePt = Math.min(NAME_PT, (NAME_SLOT * 13) / Math.max(nameChars, 1))
+  const namePt = fitPt(name, NAME_SLOT, NAME_PT)
+  const templeAddress = verticalAddress(temple.address)
+  const signatureGap = temple.name && templeAddress ? '　' : ''
+  const signaturePt = fitPt(temple.name + signatureGap + templeAddress, SIGNATURE_SLOT, BODY_PT)
 
   return (
     <div className="ws-body" data-name={person.name}>
       <Flow indent={7.5} className="ws-title">制星補運文疏</Flow>
       <Col><At depth={0}>聖德巍峨　轉運禳星凶即散　神恩浩蕩　延生整斗福長臻</At></Col>
       <Col><At depth={1}>大教遠流示一乘歸元之路</At><At depth={19.4}>今據</At></Col>
-      <Col><At depth={1}>神功巨測開眾生方便之門</At></Col>
+      <Col><At depth={1}>神功叵測開眾生方便之門</At></Col>
       <Flow indent={1}>
         竭蟻悃以皈依冀鴻庥之加被 道制凶轉運植福延生{believer}<b>{inlineName(person.name)}</b>流庚<b>{birth.year}</b>年<b>{birth.month}</b>月<b>{birth.day}</b>日<b>{birth.hour}</b>時生暨閤家人等謹露丹誠跪叩
       </Flow>
@@ -91,14 +102,14 @@ export function Sheet({ person, ritual, petition }: { person: WenshuPerson; ritu
       <Col>{believer === '信士信女' && <At depth={9.4} className="bold">信女</At>}</Col>
       <Col><At depth={0}>上蒼之蔭護叨感</At></Col>
       <Col><At depth={0}>聖真之提拔日在</At></Col>
-      <Col><At depth={0}>三光之下難免褻瀆於聖賢身五濁之中不無招障之過咎以致命運乖蹇恐曜強侵連年</At></Col>
+      <Col><At depth={0}>三光之下難免褻瀆於聖賢身五濁之中不無招障之過咎以致命運乖蹇凶曜強侵連年</At></Col>
       <Col><At depth={1.9}>坎坷累歲迍遭獨犯</At></Col>
       <Flow>
         諸凶星及斗部一切凶神惡煞神君今涓 <b className="ws-ritual">{orBlank(ritual.year)} 年 {orBlank(ritual.month)} 月 {orBlank(ritual.day)} 日</b>虔備香花果品供恭備真經 伏懇聖心保赤慧眼垂青恩准驅凶降吉散禍臻祥元辰振作運限開通民康物阜國泰家寧男添百福女納千祥閤家感德百叩
       </Flow>
       <Col><At depth={3.8}>伏</At><At depth={7.3}>願</At><At depth={8.9}>八卦制星移運轉運行</At></Col>
       <Flow hanging={2}>
-        佛光普照、法力宏施　　　皆願以後、惟願身家康泰、命運亨通吉星高照於命宮、凶曜遠離於運內、元辰光彩、壽命延長、災害不侵、禍患全消、行皆逢吉事盡遂心、天官賜福、地官赦罪、水官　　解厄、南斗火官除毒、北斗水神滅凶災
+        佛光普照、法力宏施　　　皆願以後、惟願身家康泰、命運亨通吉星高照於命宮、凶曜遠離於運內、元辰光彩、壽命延長、災害不侵、禍患全消、行皆逢吉事盡遂心、天官賜福、地官赦罪、水官解厄、南斗火官除毒、北斗水神滅凶災
       </Flow>
       <Col><At depth={2.9}>更</At><At depth={5.2}>祈</At></Col>
       <Col><At depth={1.85}>家門迪吉</At><At depth={6.35}>人口平安</At><At depth={10.85}>男添百福</At><At depth={15.35}>女納千祥</At></Col>
@@ -111,7 +122,10 @@ export function Sheet({ person, ritual, petition }: { person: WenshuPerson; ritu
         <At depth={17}>{orBlank(petition.day)}</At><At depth={21}>日</At>
         <At depth={23}>暨閤家人等稽首頓首叩</At>
       </Col>
-      <Col><At depth={0} className="bold">無極聖殿</At><At depth={5}>雲林縣元長鄉內寮村好收路五之六號</At><At depth={34}>全體主任委員敬上</At></Col>
+      <Col>
+        <At depth={0} style={{ fontSize: `${signaturePt}pt` }}><b>{temple.name}</b>{signatureGap}{templeAddress}</At>
+        <At depth={34}>全體主任委員敬上</At>
+      </Col>
     </div>
   )
 }
@@ -146,6 +160,7 @@ export default function WenshuPrint() {
   const ritual = dateFrom(params, 'ritual', today)
   const petition = dateFrom(params, 'petition', { year: data?.ganzhiYear ?? '', month: data?.prayerMonth ?? '', day: '' })
   const dates = { ritual, petition }
+  const temple = { name: data?.templeName ?? '', address: data?.templeAddress ?? '' }
 
   const heading = !data ? '' : `${data.householdNumber === null ? '' : `第 ${data.householdNumber} 戶`}${memberId && data.people[0] ? ` ${data.people[0].name}` : ''}`
   useEffect(() => {
@@ -199,7 +214,7 @@ export default function WenshuPrint() {
       )}
       {data.people.map((p, i) => (
         <div key={p.memberId} className={`sheet wenshu-sheet${i < data.people.length - 1 ? ' sheet-break' : ''}`}>
-          <Sheet person={p} ritual={ritual} petition={petition} />
+          <Sheet person={p} temple={temple} ritual={ritual} petition={petition} />
         </div>
       ))}
       {data.people.length === 0 && <div className="page muted">這戶沒有在籍成員</div>}

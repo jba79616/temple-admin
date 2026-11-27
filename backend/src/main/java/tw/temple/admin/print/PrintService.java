@@ -81,7 +81,8 @@ public class PrintService {
     }
 
     /** 制星補運文疏一人一張；天運預設用安燈年度干支與祈福文月份。 */
-    public record Wenshu(Integer householdNumber, int year, String ganzhiYear, String prayerMonth, List<WenshuPerson> people) {
+    public record Wenshu(String templeName, String templeAddress, Integer householdNumber, int year, String ganzhiYear,
+                         String prayerMonth, List<WenshuPerson> people) {
     }
 
     private static final String BAGUA_LABEL = "八卦轉運斗";
@@ -231,8 +232,8 @@ public class PrintService {
             throw ApiException.badRequest("請指定戶或成員");
         }
         int year = config.currentYear();
-        return new Wenshu(household.getHouseholdNumber(), year, Ganzhi.ofYear(year), config.get(ConfigService.PRAYER_MONTH),
-            people.stream().map(this::toWenshuPerson).toList());
+        return new Wenshu(config.get(ConfigService.TEMPLE_NAME), config.get(ConfigService.TEMPLE_ADDRESS), household.getHouseholdNumber(),
+            year, Ganzhi.ofYear(year), config.get(ConfigService.PRAYER_MONTH), people.stream().map(this::toWenshuPerson).toList());
     }
 
     private WenshuPerson toWenshuPerson(Member m) {
