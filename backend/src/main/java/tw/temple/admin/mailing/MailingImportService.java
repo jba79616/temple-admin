@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,37 @@ public class MailingImportService {
     }
 
     public record Report(boolean committed, int rows, int linked, int standalone, int skipped, List<Issue> issues) {
+    }
+
+    /** 連到戶的列 recipientName 只取「收件人」欄、address 一律為 null，印的是戶長與戶地址。 */
+    private record Row(int line, String name, String householdNumber, String recipientName, String address, String zip,
+                       String note, String source) {
+
+        boolean linked() {
+            return householdNumber != null;
+        }
+
+        Issue issue(IssueKind kind, String detail) {
+            return new Issue(line, kind, name, detail);
+        }
+    }
+
+    private record Destination(Household household, String address) {
+    }
+
+    private static final class Batch {
+        private final List<Issue> issues = new ArrayList<>();
+        private final Set<Long> linkedHouseholds = new HashSet<>();
+        private final Set<String> standaloneKeys = new HashSet<>();
+        private int rows;
+        private int linked;
+        private int standalone;
+        private int skipped;
+
+        void skip(Issue issue) {
+            issues.add(issue);
+            skipped++;
+        }
     }
 
     private static final Map<String, List<String>> COLUMNS = Map.of(
@@ -60,70 +92,71 @@ public class MailingImportService {
         if (!columns.containsKey("name") && !columns.containsKey("household")) {
             throw ApiException.badRequest("第一列要有欄名，至少要有「姓名」或「戶號」");
         }
-        List<Issue> issues = new ArrayList<>();
-        Set<Long> linkedHouseholds = new HashSet<>();
-        Set<String> standaloneKeys = new HashSet<>();
-        int dataRows = 0;
-        int linked = 0;
-        int standalone = 0;
-        int skipped = 0;
+        Batch batch = new Batch();
         for (int i = 1; i < rows.size(); i++) {
-            List<String> row = rows.get(i);
-            if (row.stream().allMatch(String::isBlank)) {
-                continue;
+            List<String> cells = rows.get(i);
+            if (!cells.stream().allMatch(String::isBlank)) {
+                importRow(readRow(cells, columns, i + 1), batch, actor);
             }
-            dataRows++;
-            int line = i + 1;
-            String name = cell(row, columns, "name");
-            String householdNumber = cell(row, columns, "household");
-            boolean linkedRow = householdNumber != null;
-            String recipientName = linkedRow ? cell(row, columns, "recipient") : name;
-            String address = linkedRow ? null : cell(row, columns, "address");
-            String note = cell(row, columns, "note");
-            String source = cell(row, columns, "source");
-            if (!linkedRow && (name == null || address == null)) {
-                issues.add(new Issue(line, IssueKind.REQUIRED, name, "沒有戶號的列要有姓名與地址"));
-                skipped++;
-                continue;
-            }
-            String tooLong = tooLong(recipientName, address, note, source);
-            if (tooLong != null) {
-                issues.add(new Issue(line, IssueKind.TOO_LONG, name, tooLong));
-                skipped++;
-                continue;
-            }
-            Household household = null;
-            if (linkedRow) {
-                household = household(householdNumber, line, name, issues);
-                if (household == null) {
-                    skipped++;
-                    continue;
-                }
-                if (!linkedHouseholds.add(household.getId()) || recipients.findByHouseholdId(household.getId()).isPresent()) {
-                    issues.add(new Issue(line, IssueKind.DUPLICATE, name, "戶 " + householdNumber + " 已在名單，略過"));
-                    skipped++;
-                    continue;
-                }
-                linked++;
-            } else {
-                address = TaiwanAddress.normalize(address);
-                if (!standaloneKeys.add(name + "|" + address)
-                        || recipients.existsByHouseholdIsNullAndRecipientNameAndAddress(name, address)) {
-                    issues.add(new Issue(line, IssueKind.DUPLICATE, name, "同名同地址已在名單，略過"));
-                    skipped++;
-                    continue;
-                }
-                standalone++;
-            }
-            String zip = zip(cell(row, columns, "zip"), line, name, issues);
-            MailingRecipient saved = recipients.save(
-                new MailingRecipient(household, new MailingRecipientFields(recipientName, zip, address, note, true), source));
-            audit.record(MailingService.TABLE, saved.getId(), "INSERT", null, saved.snapshot(), actor);
         }
         if (!commit) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
         }
-        return new Report(commit, dataRows, linked, standalone, skipped, List.copyOf(issues));
+        return new Report(commit, batch.rows, batch.linked, batch.standalone, batch.skipped, List.copyOf(batch.issues));
+    }
+
+    private Row readRow(List<String> cells, Map<String, Integer> columns, int line) {
+        String name = cell(cells, columns, "name");
+        String householdNumber = cell(cells, columns, "household");
+        boolean linked = householdNumber != null;
+        return new Row(line, name, householdNumber, linked ? cell(cells, columns, "recipient") : name,
+            linked ? null : cell(cells, columns, "address"), cell(cells, columns, "zip"), cell(cells, columns, "note"),
+            cell(cells, columns, "source"));
+    }
+
+    private void importRow(Row row, Batch batch, User actor) {
+        batch.rows++;
+        if (!row.linked() && (row.name() == null || row.address() == null)) {
+            batch.skip(row.issue(IssueKind.REQUIRED, "沒有戶號的列要有姓名與地址"));
+            return;
+        }
+        String tooLong = tooLong(row.recipientName(), row.address(), row.note(), row.source());
+        if (tooLong != null) {
+            batch.skip(row.issue(IssueKind.TOO_LONG, tooLong));
+            return;
+        }
+        Optional<Destination> destination = row.linked() ? linkedDestination(row, batch) : standaloneDestination(row, batch);
+        if (destination.isEmpty()) {
+            return;
+        }
+        String zip = zip(row, batch);
+        MailingRecipient saved = recipients.save(new MailingRecipient(destination.get().household(),
+            new MailingRecipientFields(row.recipientName(), zip, destination.get().address(), row.note(), true), row.source()));
+        audit.record(MailingService.TABLE, saved.getId(), "INSERT", null, saved.snapshot(), actor);
+    }
+
+    private Optional<Destination> linkedDestination(Row row, Batch batch) {
+        Household household = household(row, batch);
+        if (household == null) {
+            return Optional.empty();
+        }
+        if (!batch.linkedHouseholds.add(household.getId()) || recipients.findByHouseholdId(household.getId()).isPresent()) {
+            batch.skip(row.issue(IssueKind.DUPLICATE, "戶 " + row.householdNumber() + " 已在名單，略過"));
+            return Optional.empty();
+        }
+        batch.linked++;
+        return Optional.of(new Destination(household, null));
+    }
+
+    private Optional<Destination> standaloneDestination(Row row, Batch batch) {
+        String address = TaiwanAddress.normalize(row.address());
+        if (!batch.standaloneKeys.add(row.name() + "|" + address)
+                || recipients.existsByHouseholdIsNullAndRecipientNameAndAddress(row.name(), address)) {
+            batch.skip(row.issue(IssueKind.DUPLICATE, "同名同地址已在名單，略過"));
+            return Optional.empty();
+        }
+        batch.standalone++;
+        return Optional.of(new Destination(null, address));
     }
 
     private Map<String, Integer> columns(List<String> header) {
@@ -140,19 +173,20 @@ public class MailingImportService {
         return columns;
     }
 
-    private String cell(List<String> row, Map<String, Integer> columns, String key) {
+    private String cell(List<String> cells, Map<String, Integer> columns, String key) {
         Integer index = columns.get(key);
-        if (index == null || index >= row.size()) {
+        if (index == null || index >= cells.size()) {
             return null;
         }
-        return MailingDtos.blankToNull(row.get(index));
+        return MailingDtos.blankToNull(cells.get(index));
     }
 
-    private String zip(String zip, int line, String name, List<Issue> issues) {
+    private String zip(Row row, Batch batch) {
+        String zip = row.zip();
         if (zip == null || MailingDtos.isZip(zip)) {
             return zip;
         }
-        issues.add(new Issue(line, IssueKind.ZIP, name, "郵遞區號「" + zip + "」不是 3 或 5 碼數字，留空"));
+        batch.issues.add(row.issue(IssueKind.ZIP, "郵遞區號「" + zip + "」不是 3 或 5 碼數字，留空"));
         return null;
     }
 
@@ -173,14 +207,15 @@ public class MailingImportService {
         return null;
     }
 
-    private Household household(String householdNumber, int line, String name, List<Issue> issues) {
+    private Household household(Row row, Batch batch) {
+        String householdNumber = row.householdNumber();
         try {
             return households.findByHouseholdNumber(Integer.parseInt(householdNumber.trim())).orElseGet(() -> {
-                issues.add(new Issue(line, IssueKind.HOUSEHOLD, name, "找不到戶 " + householdNumber));
+                batch.skip(row.issue(IssueKind.HOUSEHOLD, "找不到戶 " + householdNumber));
                 return null;
             });
         } catch (NumberFormatException e) {
-            issues.add(new Issue(line, IssueKind.HOUSEHOLD, name, "戶號「" + householdNumber + "」不是數字"));
+            batch.skip(row.issue(IssueKind.HOUSEHOLD, "戶號「" + householdNumber + "」不是數字"));
             return null;
         }
     }
