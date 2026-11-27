@@ -2,18 +2,16 @@ import { useCallback, useEffect, useState } from 'react'
 import { lightTypes as api } from '../api'
 import type { LightCategory, LightType } from '../api/types'
 import { useAuth } from '../lib/auth'
+import { EMPTY_LIGHT_TYPE_FORM, lightTypeFormErrors, toLightTypeForm, toLightTypeInput, type LightTypeForm } from '../lib/lightTypes'
 import { money } from '../lib/roc'
 import { LIGHT_CATEGORY } from '../lib/labels'
-
-type Form = Omit<LightType, 'id'>
-const empty: Form = { category: 'GENERAL', name: '', shortName: '', price: 300, taisui: false, sortOrder: 0, active: true, legacyCode: null }
 
 export default function LightTypesPage() {
   const { me } = useAuth()
   const isAdmin = me?.role === 'ADMIN'
   const [list, setList] = useState<LightType[]>([])
   const [editing, setEditing] = useState<number | 'new' | null>(null)
-  const [form, setForm] = useState<Form>(empty)
+  const [form, setForm] = useState<LightTypeForm>(EMPTY_LIGHT_TYPE_FORM)
   const [error, setError] = useState('')
 
   const load = useCallback(async () => setList(await api.list(true)), [])
@@ -21,18 +19,21 @@ export default function LightTypesPage() {
 
   function startEdit(t: LightType) {
     setEditing(t.id)
-    setForm({ category: t.category, name: t.name, shortName: t.shortName, price: t.price, taisui: t.taisui, sortOrder: t.sortOrder, active: t.active, legacyCode: t.legacyCode })
+    setForm(toLightTypeForm(t))
   }
 
   const [saving, setSaving] = useState(false)
 
+  const input = toLightTypeInput(form)
+  const fieldErrors = lightTypeFormErrors(form)
+
   async function save() {
-    if (saving) return
+    if (saving || input === null) return
     setSaving(true)
     setError('')
     try {
-      if (editing === 'new') await api.create(form)
-      else if (editing !== null) await api.update(editing, form)
+      if (editing === 'new') await api.create(input)
+      else if (editing !== null) await api.update(editing, input)
       setEditing(null)
       await load()
     } catch (e) {
@@ -42,11 +43,11 @@ export default function LightTypesPage() {
     }
   }
 
-  const set = (patch: Partial<Form>) => setForm({ ...form, ...patch })
+  const set = (patch: Partial<LightTypeForm>) => setForm({ ...form, ...patch })
 
   return (
     <main className="page page-narrow">
-      <div className="row"><h1>燈種</h1>{isAdmin && <button type="button" className="btn" style={{ marginLeft: 'auto' }} onClick={() => { setEditing('new'); setForm({ ...empty, sortOrder: list.length + 1 }) }}>新增燈種</button>}</div>
+      <div className="row"><h1>燈種</h1>{isAdmin && <button type="button" className="btn" style={{ marginLeft: 'auto' }} onClick={() => { setEditing('new'); setForm({ ...EMPTY_LIGHT_TYPE_FORM, sortOrder: String(list.length + 1) }) }}>新增燈種</button>}</div>
       {error && <div className="banner banner-bad">{error}</div>}
       {editing !== null && (
         <section className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -55,8 +56,8 @@ export default function LightTypesPage() {
             <div className="fld"><label className="lbl">分類</label><select className="inp" value={form.category} onChange={(e) => set({ category: e.target.value as LightCategory })}><option value="GENERAL">{LIGHT_CATEGORY.GENERAL}</option><option value="BAGUA">{LIGHT_CATEGORY.BAGUA}</option></select></div>
             <div className="fld"><label className="lbl">名稱</label><input className="inp" value={form.name} onChange={(e) => set({ name: e.target.value })} /></div>
             <div className="fld"><label className="lbl">縮寫（印在安燈卡）</label><input className="inp" value={form.shortName} onChange={(e) => set({ shortName: e.target.value })} /></div>
-            <div className="fld"><label className="lbl">價格</label><input className="inp" type="number" min={0} value={form.price} onChange={(e) => set({ price: Number(e.target.value) })} /></div>
-            <div className="fld"><label className="lbl">排序</label><input className="inp" type="number" value={form.sortOrder} onChange={(e) => set({ sortOrder: Number(e.target.value) })} /></div>
+            <div className="fld"><label className="lbl">價格</label><input className="inp" inputMode="numeric" value={form.price} onChange={(e) => set({ price: e.target.value })} />{fieldErrors.price && <div className="error small">{fieldErrors.price}</div>}</div>
+            <div className="fld"><label className="lbl">排序</label><input className="inp" inputMode="numeric" value={form.sortOrder} onChange={(e) => set({ sortOrder: e.target.value })} />{fieldErrors.sortOrder && <div className="error small">{fieldErrors.sortOrder}</div>}</div>
             <div className="fld"><label className="lbl">舊系統代碼</label><input className="inp" value={form.legacyCode ?? ''} onChange={(e) => set({ legacyCode: e.target.value || null })} /></div>
           </div>
           <div className="row" style={{ gap: 20 }}>
@@ -64,7 +65,7 @@ export default function LightTypesPage() {
             <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={form.active} onChange={(e) => set({ active: e.target.checked })} />啟用</label>
           </div>
           <div className="small muted">改價只影響之後的單，已安的燈保留當時價格。</div>
-          <div className="row"><button type="button" className="btn" onClick={save} disabled={saving || !form.name.trim() || !form.shortName.trim()}>{saving ? '儲存中…' : '儲存'}</button><button type="button" className="btn btn-ghost" onClick={() => setEditing(null)}>取消</button></div>
+          <div className="row"><button type="button" className="btn" onClick={save} disabled={saving || input === null}>{saving ? '儲存中…' : '儲存'}</button><button type="button" className="btn btn-ghost" onClick={() => setEditing(null)}>取消</button></div>
         </section>
       )}
       <section className="card" style={{ overflow: 'hidden' }}>
