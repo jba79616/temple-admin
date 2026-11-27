@@ -46,6 +46,30 @@ export function cashDifference(counted: number | null, systemCash: number): numb
   return counted === null ? null : counted - systemCash
 }
 
+/** 差額超過這個數字，多半是實點多打或少打了位數，送出前要櫃台再確認一次。 */
+export const LARGE_DIFFERENCE_THRESHOLD = 10_000
+
+export function isLargeDifference(diff: number | null): boolean {
+  return diff !== null && Math.abs(diff) > LARGE_DIFFERENCE_THRESHOLD
+}
+
+export function largeDifferenceConfirmText(counted: number, systemCash: number): string {
+  return [
+    `實點與系統現金差額超過 ${money(LARGE_DIFFERENCE_THRESHOLD)}，請再確認一次：`,
+    '',
+    `系統現金：${money(systemCash)}`,
+    `實點現金：${money(counted)}`,
+    `差額：${differenceText(counted - systemCash)}`,
+    '',
+    '是否多打或少打了位數？確認金額無誤再按「確定」送出日結；按「取消」回到輸入。',
+  ].join('\n')
+}
+
+/** 差額不大就直接放行；差額過大時要櫃台按確定才放行。 */
+export function confirmLargeDifference(counted: number, systemCash: number, ask: (message: string) => boolean): boolean {
+  return !isLargeDifference(counted - systemCash) || ask(largeDifferenceConfirmText(counted, systemCash))
+}
+
 export function differenceText(diff: number | null): string {
   if (diff === null) return '—'
   if (diff === 0) return money(0)

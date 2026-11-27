@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { money } from './roc'
-import { DIFFERENCE_OUT_OF_RANGE, SYSTEM_CASH_OUT_OF_RANGE, cashDifference, closingPeriod, differenceHint, differenceText, cashError, parseCash, signedMoney } from './closing'
+import { DIFFERENCE_OUT_OF_RANGE, LARGE_DIFFERENCE_THRESHOLD, SYSTEM_CASH_OUT_OF_RANGE, cashDifference, closingPeriod, differenceHint, differenceText, cashError, confirmLargeDifference, isLargeDifference, largeDifferenceConfirmText, parseCash, signedMoney } from './closing'
 
 describe('closingPeriod', () => {
   it('covers everything up to today before the first closing', () => {
@@ -94,5 +94,58 @@ describe('cashError', () => {
     expect(cashError('2147483647', 0)).toBeNull()
     expect(cashError('2147483648', 0)).toBe('金額不能超過 2,147,483,647')
     expect(cashError('99999999999999999999', 0)).toBe('金額不能超過 2,147,483,647')
+  })
+})
+
+describe('isLargeDifference', () => {
+  it('asks again only when the difference is beyond 10,000', () => {
+    expect(LARGE_DIFFERENCE_THRESHOLD).toBe(10_000)
+    expect(isLargeDifference(9_999)).toBe(false)
+    expect(isLargeDifference(10_000)).toBe(false)
+    expect(isLargeDifference(10_001)).toBe(true)
+  })
+
+  it('treats short drawers the same as over drawers', () => {
+    expect(isLargeDifference(-9_999)).toBe(false)
+    expect(isLargeDifference(-10_000)).toBe(false)
+    expect(isLargeDifference(-10_001)).toBe(true)
+    expect(isLargeDifference(-45_000)).toBe(true)
+  })
+
+  it('does not ask for a balanced or uncounted drawer', () => {
+    expect(isLargeDifference(0)).toBe(false)
+    expect(isLargeDifference(null)).toBe(false)
+  })
+})
+
+describe('largeDifferenceConfirmText', () => {
+  it('shows system cash, counted cash and the difference with thousands separators', () => {
+    const text = largeDifferenceConfirmText(5_000, 50_000)
+    expect(text).toContain('系統現金：NT$ 50,000')
+    expect(text).toContain('實點現金：NT$ 5,000')
+    expect(text).toContain(`差額：短款 ${money(-45_000)}`)
+    expect(text).toContain('是否多打或少打了位數')
+  })
+
+  it('labels an over drawer with a plus sign', () => {
+    expect(largeDifferenceConfirmText(150_000, 15_000)).toContain('差額：長款 +NT$ 135,000')
+  })
+})
+
+describe('confirmLargeDifference', () => {
+  it('lets a small difference through without asking', () => {
+    const ask = vi.fn(() => false)
+    expect(confirmLargeDifference(60_000, 50_000, ask)).toBe(true)
+    expect(ask).not.toHaveBeenCalled()
+  })
+
+  it('asks once with the confirm text when the difference is large', () => {
+    const ask = vi.fn(() => true)
+    expect(confirmLargeDifference(5_000, 50_000, ask)).toBe(true)
+    expect(ask).toHaveBeenCalledExactlyOnceWith(largeDifferenceConfirmText(5_000, 50_000))
+  })
+
+  it('stops the closing when the clerk cancels', () => {
+    expect(confirmLargeDifference(5_000, 50_000, () => false)).toBe(false)
   })
 })
