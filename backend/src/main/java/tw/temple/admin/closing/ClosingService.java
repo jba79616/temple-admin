@@ -71,6 +71,7 @@ public class ClosingService implements DayClosingStatus {
             throw ApiException.conflict("該日已日結");
         }
         int systemCash = payments.sumByKindPostedBetween(PaymentKind.CASH, through.orElse(null), date);
+        requireRecordableDifference(countedCash, systemCash);
         DailyClosing saved = closings.saveAndFlush(new DailyClosing(date, systemCash, countedCash, actor,
             note == null || note.isBlank() ? null : note.trim()));
         return closings.findById(saved.getClosingDate()).orElse(saved);
@@ -83,6 +84,7 @@ public class ClosingService implements DayClosingStatus {
         if (!date.equals(latest)) {
             throw ApiException.badRequest("只能修改最新一次日結（" + latest + "）；更早的差額請用更正單對銷");
         }
+        requireRecordableDifference(countedCash, closing.getSystemCash());
         closing.amend(countedCash, reason.trim(), actor, clock.now());
         closings.saveAndFlush(closing);
         return closings.findById(date).orElse(closing);
@@ -102,6 +104,14 @@ public class ClosingService implements DayClosingStatus {
     @Transactional(readOnly = true)
     public boolean isClosed(LocalDate date) {
         return closedThrough().map(through -> !date.isAfter(through)).orElse(false);
+    }
+
+    /** daily_closings.difference 是 INT 產生欄位，超出範圍會在寫入時才炸成 500。 */
+    private void requireRecordableDifference(int countedCash, long systemCash) {
+        long difference = countedCash - systemCash;
+        if (difference < Integer.MIN_VALUE || difference > Integer.MAX_VALUE) {
+            throw ApiException.badRequest("實點與系統合計的差額超出可記錄的範圍，請確認實點金額");
+        }
     }
 
     private Map<Long, String> headNames(List<Payment> posted) {

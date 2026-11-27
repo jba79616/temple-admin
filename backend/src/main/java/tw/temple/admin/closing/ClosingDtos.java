@@ -1,6 +1,5 @@
 package tw.temple.admin.closing;
 
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -8,7 +7,6 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
-import tw.temple.admin.common.Amounts;
 import tw.temple.admin.order.OrderKind;
 import tw.temple.admin.order.PaymentKind;
 
@@ -28,11 +26,11 @@ public final class ClosingDtos {
     public record DayStatus(LocalDate date, boolean closed, LocalDate closedThrough, int payments, int systemCash) {
     }
 
-    public record CloseRequest(LocalDate closingDate, @NotNull @PositiveOrZero @Max(Amounts.MAX) Integer countedCash,
+    public record CloseRequest(LocalDate closingDate, @NotNull @PositiveOrZero Integer countedCash,
                                @Size(max = 200) String note) {
     }
 
-    public record AmendRequest(@NotNull @PositiveOrZero @Max(Amounts.MAX) Integer countedCash, @NotBlank @Size(max = 200) String reason) {
+    public record AmendRequest(@NotNull @PositiveOrZero Integer countedCash, @NotBlank @Size(max = 200) String reason) {
     }
 
     public record ClosingView(LocalDate closingDate, int systemCash, int countedCash, int difference, String closedBy,
