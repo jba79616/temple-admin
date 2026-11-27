@@ -197,7 +197,7 @@ public class OrderService {
 
     private int applyItems(LightOrder order, List<ItemInput> inputs, User actor, boolean allowCrossHousehold) {
         Set<String> seen = new HashSet<>();
-        int due = 0;
+        long due = 0;
         for (ItemInput input : inputs) {
             if (!seen.add(input.memberId() + ":" + input.lightTypeId())) {
                 throw ApiException.badRequest("同一張單裡同一人同一燈種只能出現一次");
@@ -223,7 +223,15 @@ public class OrderService {
             applyToRecord(item, order, existing);
             due += input.action() == ItemAction.ADD ? unitPrice : -unitPrice;
         }
-        return due;
+        return toIntDue(due);
+    }
+
+    /** 品項數沒有上限，退費又沿用狀態表裡的舊單價，單價上限擋不住合計超出 INT 欄位。 */
+    private int toIntDue(long due) {
+        if (due < Integer.MIN_VALUE || due > Integer.MAX_VALUE) {
+            throw ApiException.badRequest("整張單的應收合計超出可記錄的範圍，請拆成多張單");
+        }
+        return (int) due;
     }
 
     private int resolveUnitPrice(ItemInput input, int defaultPrice, User actor) {

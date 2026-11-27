@@ -255,6 +255,29 @@ class OrderFlowTest {
     }
 
     @Test
+    void itemsAtTheAmountLimitAddUpWithoutOverflow() {
+        OrderView view = counter(admin, new ItemInput(a.getId(), guangming.getId(), ItemAction.ADD, 1_000_000, "上限"),
+            new ItemInput(a.getId(), wenchang.getId(), ItemAction.ADD, 1_000_000, "上限"),
+            new ItemInput(b.getId(), guangming.getId(), ItemAction.ADD, 1_000_000, "上限"));
+
+        assertThat(view.totalDue()).isEqualTo(3_000_000);
+        assertThat(view.paid()).isEqualTo(3_000_000);
+    }
+
+    @Test
+    void dueBeyondTheIntColumnIsRejectedInsteadOfWrappingNegative() {
+        long before = orders.count();
+
+        assertThatThrownBy(() -> counter(admin, new ItemInput(a.getId(), guangming.getId(), ItemAction.ADD, Integer.MAX_VALUE, "舊資料"),
+                new ItemInput(b.getId(), guangming.getId(), ItemAction.ADD, 1, "舊資料")))
+            .isInstanceOf(ApiException.class)
+            .hasMessageContaining("超出可記錄的範圍")
+            .satisfies(ex -> assertThat(((ApiException) ex).status()).isEqualTo(HttpStatus.BAD_REQUEST));
+        assertThat(orders.count()).isEqualTo(before);
+        assertThat(householdService.detail(household.getId(), null).records()).isEmpty();
+    }
+
+    @Test
     void removeRefundsThePricePaidNotTheCurrentPrice() {
         counter(admin, new ItemInput(a.getId(), guangming.getId(), ItemAction.ADD, 200, "優惠價"));
         OrderView cancel = counter(staff, remove(a, guangming));
