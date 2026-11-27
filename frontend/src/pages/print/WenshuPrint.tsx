@@ -136,27 +136,55 @@ function isCut(body: HTMLElement): boolean {
   return !!last && last.getBoundingClientRect().left < body.getBoundingClientRect().left - 1
 }
 
+const DATE_PARTS = ['year', 'month', 'day'] as const
+
+function paramKey(key: string, part: keyof DateParts) {
+  return key + part[0].toUpperCase() + part.slice(1)
+}
+
 function dateFrom(params: URLSearchParams, key: string, fallback: DateParts): DateParts {
-  const pick = (part: keyof DateParts) => params.get(key + part[0].toUpperCase() + part.slice(1)) ?? fallback[part]
+  const pick = (part: keyof DateParts) => params.get(paramKey(key, part)) ?? fallback[part]
   return { year: pick('year'), month: pick('month'), day: pick('day') }
+}
+
+function idFrom(params: URLSearchParams, key: string): number | null {
+  const id = Number(params.get(key))
+  return Number.isInteger(id) && id > 0 ? id : null
 }
 
 export default function WenshuPrint() {
   const [params, setParams] = useSearchParams()
   const [data, setData] = useState<Wenshu | null>(null)
   const [error, setError] = useState('')
-  const memberId = params.get('memberId')
-  const householdId = params.get('householdId')
+  const memberId = idFrom(params, 'memberId')
+  const householdId = idFrom(params, 'householdId')
 
   useEffect(() => {
-    if (!memberId && !householdId) {
+    setError('')
+    setData(null)
+    const target = memberId ? { memberId } : householdId ? { householdId } : null
+    if (!target) {
       setError('網址缺少戶或成員')
       return
     }
-    printApi.wenshu(memberId ? { memberId: Number(memberId) } : { householdId: Number(householdId) }).then(setData).catch((e) => setError(e.message))
+    let cancelled = false
+    printApi.wenshu(target)
+      .then((d) => !cancelled && setData(d))
+      .catch((e) => !cancelled && setError(e.message))
+    return () => {
+      cancelled = true
+    }
   }, [memberId, householdId])
 
   const today: LunarDate = useMemo(() => lunarDateOf(new Date()), [])
+
+  /** 下載 PDF 時伺服器的瀏覽器會自己重算今天，跨午夜或沒有農曆資料時和預覽不同，所以把畫面上的預設今涓寫進網址。 */
+  useEffect(() => {
+    if (DATE_PARTS.some((part) => params.has(paramKey('ritual', part)))) return
+    const next = new URLSearchParams(params)
+    DATE_PARTS.forEach((part) => next.set(paramKey('ritual', part), today[part]))
+    setParams(next, { replace: true })
+  }, [params, setParams, today])
   const ritual = dateFrom(params, 'ritual', today)
   const petition = dateFrom(params, 'petition', { year: data?.ganzhiYear ?? '', month: data?.prayerMonth ?? '', day: '' })
   const dates = { ritual, petition }
@@ -170,7 +198,7 @@ export default function WenshuPrint() {
   /** PDF 轉檔的路徑只收英數與 %-encoded；URLSearchParams 不編碼的符號（空白、*）會被擋，所以只留文字與數字。 */
   function setDate(key: string, part: keyof DateParts, value: string) {
     const next = new URLSearchParams(params)
-    next.set(key + part[0].toUpperCase() + part.slice(1), value.replace(/[^\p{L}\p{N}]/gu, ''))
+    next.set(paramKey(key, part), value.replace(/[^\p{L}\p{N}]/gu, ''))
     setParams(next, { replace: true })
   }
 
@@ -198,7 +226,7 @@ export default function WenshuPrint() {
         {DATE_FIELDS.map((f) => (
           <span key={f.key} className="wenshu-date">
             {f.label}
-            {(['year', 'month', 'day'] as const).map((part) => (
+            {DATE_PARTS.map((part) => (
               <label key={part}>
                 <input className="input" value={dates[f.key][part]} onChange={(e) => setDate(f.key, part, e.target.value)} aria-label={`${f.label}${{ year: '年', month: '月', day: '日' }[part]}`} />
                 {{ year: '年', month: '月', day: '日' }[part]}
