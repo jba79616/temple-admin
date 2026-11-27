@@ -2,6 +2,7 @@ package tw.temple.admin.closing;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -25,10 +26,10 @@ public final class ClosingDtos {
     public record DayStatus(LocalDate date, boolean closed, LocalDate closedThrough, int payments, int systemCash) {
     }
 
-    public record CloseRequest(LocalDate closingDate, @NotNull Integer countedCash, @Size(max = 200) String note) {
+    public record CloseRequest(LocalDate closingDate, @NotNull @PositiveOrZero Integer countedCash, @Size(max = 200) String note) {
     }
 
-    public record AmendRequest(@NotNull Integer countedCash, @NotBlank @Size(max = 200) String reason) {
+    public record AmendRequest(@NotNull @PositiveOrZero Integer countedCash, @NotBlank @Size(max = 200) String reason) {
     }
 
     public record ClosingView(LocalDate closingDate, int systemCash, int countedCash, int difference, String closedBy,
