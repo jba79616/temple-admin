@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { closings as closingsApi } from '../../api'
 import type { ClosingView } from '../../api/types'
 import { cashError, confirmLargeDifference, parseCash } from '../../lib/closing'
@@ -26,6 +26,7 @@ export function useClosingAmend(onDone: () => Promise<void>, onError: (message: 
   const [systemCash, setSystemCash] = useState(0)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
+  const cashInput = useRef<HTMLInputElement>(null)
 
   const cashValue = parseCash(cash)
   const error = cashError(cash, systemCash)
@@ -41,10 +42,16 @@ export function useClosingAmend(onDone: () => Promise<void>, onError: (message: 
   async function submit() {
     if (!date || !canSubmit || cashValue === null) return
     setBusy(true)
-    onError('')
     try {
       const change = { date, countedCash: cashValue, systemCash, reason: reason.trim() }
-      if (!(await amendIfConfirmed(change, (message) => window.confirm(message), closingsApi.amend))) return
+      const amended = await amendIfConfirmed(change, (message) => window.confirm(message), (...args) => {
+        onError('')
+        return closingsApi.amend(...args)
+      })
+      if (!amended) {
+        cashInput.current?.focus()
+        return
+      }
       setDate(null)
       await onDone()
     } catch (e) {
@@ -54,5 +61,5 @@ export function useClosingAmend(onDone: () => Promise<void>, onError: (message: 
     }
   }
 
-  return { date, cash, setCash, cashError: error, reason, setReason, busy, canSubmit, start, submit, cancel: () => setDate(null) }
+  return { date, cash, setCash, cashInput, cashError: error, reason, setReason, busy, canSubmit, start, submit, cancel: () => setDate(null) }
 }

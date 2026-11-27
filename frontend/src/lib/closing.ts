@@ -65,7 +65,6 @@ export function largeDifferenceConfirmText(counted: number, systemCash: number):
   ].join('\n')
 }
 
-/** 差額不大就直接放行；差額過大時要櫃台按確定才放行。 */
 export function confirmLargeDifference(counted: number, systemCash: number, ask: (message: string) => boolean): boolean {
   return !isLargeDifference(counted - systemCash) || ask(largeDifferenceConfirmText(counted, systemCash))
 }

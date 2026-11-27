@@ -43,7 +43,7 @@ function AmendRow({ closing, amend }: { closing: ClosingView; amend: ClosingAmen
         <strong>修改 {rocDate(closing.closingDate)} 的實點金額</strong>
         <div className="row" style={{ alignItems: 'flex-end' }}>
           <label className="fld small muted">實點現金
-            <input inputMode="numeric" className="inp" value={amend.cash} onChange={(e) => amend.setCash(e.target.value)} />
+            <input ref={amend.cashInput} inputMode="numeric" className="inp" value={amend.cash} onChange={(e) => amend.setCash(e.target.value)} />
           </label>
           <label className="fld small muted" style={{ flex: 1 }}>原因（必填）
             <input className="inp" maxLength={200} placeholder="例：實點 4300 打成 4600" value={amend.reason} onChange={(e) => amend.setReason(e.target.value)} />
