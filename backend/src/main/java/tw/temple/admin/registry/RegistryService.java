@@ -46,7 +46,7 @@ public class RegistryService {
     public PageView<MemberRow> members(int page, int size, boolean litOnly, Integer yearParam) {
         int year = yearOf(yearParam);
         Pageable pageable = pageable(page, size);
-        Page<Member> found = litOnly ? members.pageLit(year, pageable) : members.pageActive(pageable);
+        Page<Member> found = litOnly ? records.pageLitMembers(year, pageable) : members.pageActive(pageable);
         Map<Character, String> taisui = householdService.taisuiMap(year);
         List<Long> ids = found.getContent().stream().map(Member::getId).toList();
         Map<Long, List<String>> lanterns = lanternNames(ids.isEmpty() ? List.of() : records.findByYearAndMemberIdInAndActiveTrue(year, ids));
@@ -59,7 +59,7 @@ public class RegistryService {
     public PageView<HouseholdRow> households(int page, int size, boolean litOnly, Integer yearParam) {
         int year = yearOf(yearParam);
         Pageable pageable = pageable(page, size);
-        Page<Household> found = litOnly ? households.pageLit(year, pageable) : households.pageAll(pageable);
+        Page<Household> found = litOnly ? records.pageLitHouseholds(year, pageable) : households.pageAll(pageable);
         List<Long> ids = found.getContent().stream().map(Household::getId).toList();
         Map<Long, List<Member>> membersByHousehold = ids.isEmpty() ? Map.of()
             : members.findByHouseholdIdInAndDeletedAtIsNullOrderBySortOrderAscIdAsc(ids).stream()

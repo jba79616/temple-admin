@@ -36,18 +36,6 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
            countQuery = "select count(m) from Member m where m.deletedAt is null")
     Page<Member> pageActive(Pageable pageable);
 
-    @Query(value = """
-        select m from Member m join fetch m.household
-        where m.deletedAt is null
-          and exists (select r.id from AnnualLightRecord r where r.member = m and r.year = :year and r.active = true)
-        order by m.id
-        """, countQuery = """
-        select count(m) from Member m
-        where m.deletedAt is null
-          and exists (select r.id from AnnualLightRecord r where r.member = m and r.year = :year and r.active = true)
-        """)
-    Page<Member> pageLit(@Param("year") int year, Pageable pageable);
-
     @Query("select coalesce(max(m.sortOrder), 0) from Member m where m.household.id = :householdId")
     int maxSortOrder(@Param("householdId") Long householdId);
 }

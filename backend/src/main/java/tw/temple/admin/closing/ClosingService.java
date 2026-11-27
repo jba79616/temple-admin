@@ -15,6 +15,7 @@ import tw.temple.admin.common.ApiException;
 import tw.temple.admin.config.TempleClock;
 import tw.temple.admin.household.Member;
 import tw.temple.admin.household.MemberRepository;
+import tw.temple.admin.order.DayClosingStatus;
 import tw.temple.admin.order.Payment;
 import tw.temple.admin.order.PaymentKind;
 import tw.temple.admin.order.PaymentRepository;
@@ -22,7 +23,7 @@ import tw.temple.admin.user.User;
 
 @Service
 @Transactional
-public class ClosingService {
+public class ClosingService implements DayClosingStatus {
 
     private final DailyClosingRepository closings;
     private final PaymentRepository payments;
@@ -97,6 +98,7 @@ public class ClosingService {
         return closings.findTopByOrderByClosingDateDesc().map(DailyClosing::getClosingDate);
     }
 
+    @Override
     @Transactional(readOnly = true)
     public boolean isClosed(LocalDate date) {
         return closedThrough().map(through -> !date.isAfter(through)).orElse(false);

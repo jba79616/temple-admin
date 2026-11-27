@@ -18,8 +18,6 @@ import tw.temple.admin.household.HouseholdDtos.HouseholdSummary;
 import tw.temple.admin.household.HouseholdDtos.MemberInput;
 import tw.temple.admin.household.HouseholdDtos.MemberView;
 import tw.temple.admin.household.HouseholdDtos.RecordView;
-import tw.temple.admin.order.AnnualLightRecord;
-import tw.temple.admin.order.AnnualLightRecordRepository;
 import tw.temple.admin.systemconfig.ConfigService;
 import tw.temple.admin.user.User;
 
@@ -32,12 +30,12 @@ public class HouseholdService {
 
     private final HouseholdRepository households;
     private final MemberRepository members;
-    private final AnnualLightRecordRepository records;
+    private final HouseholdLightRecords records;
     private final ConfigService config;
     private final AuditService audit;
     private final TempleClock clock;
 
-    public HouseholdService(HouseholdRepository households, MemberRepository members, AnnualLightRecordRepository records,
+    public HouseholdService(HouseholdRepository households, MemberRepository members, HouseholdLightRecords records,
                             ConfigService config, AuditService audit, TempleClock clock) {
         this.households = households;
         this.members = members;
@@ -62,7 +60,7 @@ public class HouseholdService {
         String phone = h.getPhone() != null ? h.getPhone() : (head != null ? head.getPhone() : null);
         return new HouseholdSummary(h.getId(), h.getHouseholdNumber(), head == null ? null : head.getName(), h.cityDistrict(),
             members.countByHouseholdIdAndDeletedAtIsNull(h.getId()),
-            records.countByHouseholdIdAndYearAndActiveTrueAndMemberDeletedAtIsNull(h.getId(), year),
+            records.countActive(h.getId(), year),
             phone);
     }
 
@@ -74,9 +72,7 @@ public class HouseholdService {
         List<MemberView> views = members.findByHouseholdIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(id).stream()
             .map(m -> toView(m, taisui))
             .toList();
-        List<RecordView> recordViews = records.findByHouseholdIdAndYearAndActiveTrue(id, year).stream()
-            .map(r -> new RecordView(r.getMember().getId(), r.getLightType().getId(), r.getUnitPrice()))
-            .toList();
+        List<RecordView> recordViews = records.activeRecords(id, year);
         List<DeletedMemberView> deleted = members.findByHouseholdIdAndDeletedAtIsNotNullOrderByDeletedAtDescIdAsc(id).stream()
             .map(m -> new DeletedMemberView(m.getId(), m.getName(), m.getGender(), m.birthText(), m.getDeletedAt(), m.getDeleteReason()))
             .toList();
@@ -226,11 +222,7 @@ public class HouseholdService {
         m.moveTo(target);
         m.setSortOrder(members.maxSortOrder(targetHouseholdId) + 1);
         Member saved = members.save(m);
-        int year = config.currentYear();
-        for (AnnualLightRecord record : records.findByMemberIdAndYearAndActiveTrue(memberId, year)) {
-            record.moveTo(target);
-            records.save(record);
-        }
+        records.moveActiveRecordsOfMember(memberId, config.currentYear(), target);
         audit.record("members", saved.getId(), "UPDATE", before, saved.snapshot(), actor);
         return saved;
     }

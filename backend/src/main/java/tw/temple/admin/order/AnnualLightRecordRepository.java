@@ -4,9 +4,14 @@ import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import tw.temple.admin.household.Household;
+import tw.temple.admin.household.Member;
 
 public interface AnnualLightRecordRepository extends JpaRepository<AnnualLightRecord, Long> {
 
@@ -36,4 +41,28 @@ public interface AnnualLightRecordRepository extends JpaRepository<AnnualLightRe
         from unnest(cast(:ids as bigint[]), cast(:itemIds as bigint[])) as t(id, item_id)
         where r.id = t.id and r.last_order_item_id = t.item_id and r.is_active""", nativeQuery = true)
     int markCardPrinted(Long[] ids, Long[] itemIds, OffsetDateTime at);
+
+    @Query(value = """
+        select m from Member m join fetch m.household
+        where m.deletedAt is null
+          and exists (select r.id from AnnualLightRecord r where r.member = m and r.year = :year and r.active = true)
+        order by m.id
+        """, countQuery = """
+        select count(m) from Member m
+        where m.deletedAt is null
+          and exists (select r.id from AnnualLightRecord r where r.member = m and r.year = :year and r.active = true)
+        """)
+    Page<Member> pageLitMembers(@Param("year") int year, Pageable pageable);
+
+    @Query(value = """
+        select h from Household h
+        where exists (select r.id from AnnualLightRecord r
+                      where r.household = h and r.year = :year and r.active = true and r.member.deletedAt is null)
+        order by h.householdNumber
+        """, countQuery = """
+        select count(h) from Household h
+        where exists (select r.id from AnnualLightRecord r
+                      where r.household = h and r.year = :year and r.active = true and r.member.deletedAt is null)
+        """)
+    Page<Household> pageLitHouseholds(@Param("year") int year, Pageable pageable);
 }

@@ -28,16 +28,4 @@ public interface HouseholdRepository extends JpaRepository<Household, Long> {
 
     @Query(value = "select h from Household h order by h.householdNumber", countQuery = "select count(h) from Household h")
     Page<Household> pageAll(Pageable pageable);
-
-    @Query(value = """
-        select h from Household h
-        where exists (select r.id from AnnualLightRecord r
-                      where r.household = h and r.year = :year and r.active = true and r.member.deletedAt is null)
-        order by h.householdNumber
-        """, countQuery = """
-        select count(h) from Household h
-        where exists (select r.id from AnnualLightRecord r
-                      where r.household = h and r.year = :year and r.active = true and r.member.deletedAt is null)
-        """)
-    Page<Household> pageLit(@Param("year") int year, Pageable pageable);
 }

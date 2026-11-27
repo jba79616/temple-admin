@@ -7,7 +7,6 @@ import java.util.Optional;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tw.temple.admin.closing.ClosingService;
 import tw.temple.admin.common.ApiException;
 import tw.temple.admin.config.TempleClock;
 import tw.temple.admin.household.Household;
@@ -36,13 +35,13 @@ public class OrderService {
     private final HouseholdRepository households;
     private final MemberRepository members;
     private final LightTypeRepository lightTypes;
-    private final ClosingService closingService;
+    private final DayClosingStatus closingStatus;
     private final ConfigService config;
     private final TempleClock clock;
 
     public OrderService(LightOrderRepository orders, LightOrderItemRepository items, PaymentRepository payments,
                         AnnualLightRecordRepository records, HouseholdRepository households, MemberRepository members,
-                        LightTypeRepository lightTypes, ClosingService closingService, ConfigService config, TempleClock clock) {
+                        LightTypeRepository lightTypes, DayClosingStatus closingStatus, ConfigService config, TempleClock clock) {
         this.orders = orders;
         this.items = items;
         this.payments = payments;
@@ -50,7 +49,7 @@ public class OrderService {
         this.households = households;
         this.members = members;
         this.lightTypes = lightTypes;
-        this.closingService = closingService;
+        this.closingStatus = closingStatus;
         this.config = config;
         this.clock = clock;
     }
@@ -169,7 +168,7 @@ public class OrderService {
     }
 
     private boolean isClosed(LocalDate date) {
-        return closingService.isClosed(date);
+        return closingStatus.isClosed(date);
     }
 
     private void ensureOpenForPosting(LocalDate today) {
