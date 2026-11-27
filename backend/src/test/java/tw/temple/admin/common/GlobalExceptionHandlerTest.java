@@ -6,8 +6,12 @@ import java.sql.SQLException;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.jdbc.UncategorizedSQLException;
 import org.springframework.transaction.TransactionSystemException;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.exc.InvalidFormatException;
 
 class GlobalExceptionHandlerTest {
 
@@ -50,5 +54,19 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(response.getBody()).containsEntry("message", "已有相同的資料，不能重複建立");
+    }
+
+    @Test
+    void unreadableBodyNamesTheFieldPathAndSkipsReferencesWithoutNameOrIndex() {
+        JacksonException cause = InvalidFormatException.from(null, "out of range", "2147483648", Integer.class);
+        cause.prependPath(new JacksonException.Reference(null, "unitPrice"));
+        cause.prependPath(new JacksonException.Reference(new Object()));
+        cause.prependPath(new JacksonException.Reference(null, 0));
+        cause.prependPath(new JacksonException.Reference(null, "items"));
+
+        var response = sut.unreadable(new HttpMessageNotReadableException("bad", cause, new MockHttpInputMessage(new byte[0])));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).containsEntry("message", "items[0].unitPrice 格式錯誤或超出範圍");
     }
 }

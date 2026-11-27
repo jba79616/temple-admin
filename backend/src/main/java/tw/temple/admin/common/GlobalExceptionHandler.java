@@ -95,6 +95,7 @@ public class GlobalExceptionHandler {
         for (Throwable t = ex; t != null; t = t.getCause()) {
             if (t instanceof JacksonException jackson && !jackson.getPath().isEmpty()) {
                 return jackson.getPath().stream()
+                    .filter(ref -> ref.getPropertyName() != null || ref.getIndex() >= 0)
                     .map(ref -> ref.getPropertyName() != null ? "." + ref.getPropertyName() : "[" + ref.getIndex() + "]")
                     .collect(Collectors.joining())
                     .replaceFirst("^\\.", "");
