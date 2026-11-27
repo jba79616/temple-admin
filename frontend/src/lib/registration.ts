@@ -2,6 +2,7 @@ import type { ItemInput, LightType, MemberView, OrderView } from '../api/types'
 import { cellIds, type Cells } from './cells'
 import { money } from './roc'
 import { PAYMENT_KIND } from './labels'
+import { parseWholeNumber, wholeNumberError } from './numbers'
 
 export interface PriceOverride {
   price: number
@@ -64,8 +65,14 @@ export function withoutOverride(overrides: Overrides, key: string): Overrides {
 }
 
 export function parseOverride(reason: string | null, price: string | null): PriceOverride | null {
-  if (!reason || !reason.trim() || !price || !/^\d+$/.test(price.trim())) return null
-  return { price: Number(price.trim()), reason: reason.trim() }
+  if (!reason || !reason.trim()) return null
+  const value = parseWholeNumber(price)
+  return value === null ? null : { price: value, reason: reason.trim() }
+}
+
+/** 取消或留空表示放棄改價，不算錯。 */
+export function overridePriceError(price: string | null): string | null {
+  return price === null ? null : wholeNumberError(price, '改後單價')
 }
 
 export function orderContentText(order: Pick<OrderView, 'items'>): string {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ItemView, LightType, MemberView, PaymentView } from '../api/types'
 import { money } from './roc'
-import { orderContentText, parseOverride, paymentsText, registrationChanges, registrationItems, withoutOverride } from './registration'
+import { orderContentText, overridePriceError, parseOverride, paymentsText, registrationChanges, registrationItems, withoutOverride } from './registration'
 
 const alice = { id: 10, name: '甲' } as MemberView
 const bob = { id: 11, name: '乙' } as MemberView
@@ -60,6 +60,22 @@ describe('price overrides', () => {
     expect(parseOverride('補', 'abc')).toBeNull()
     expect(parseOverride('補', '1e2')).toBeNull()
     expect(parseOverride('補', '0x10')).toBeNull()
+    expect(parseOverride('補', '+150')).toBeNull()
+  })
+
+  it('reads full-width digits and stops at the INT column bound', () => {
+    expect(parseOverride('補', '１５０')).toEqual({ price: 150, reason: '補' })
+    expect(parseOverride('補', '2147483647')).toEqual({ price: 2147483647, reason: '補' })
+    expect(parseOverride('補', '2147483648')).toBeNull()
+  })
+
+  it('explains a malformed or out-of-range price but not a cancelled or blank one', () => {
+    expect(overridePriceError(null)).toBeNull()
+    expect(overridePriceError('')).toBeNull()
+    expect(overridePriceError('  ')).toBeNull()
+    expect(overridePriceError('１５０')).toBeNull()
+    expect(overridePriceError('-1')).toBe('改後單價只能輸入數字，不含小數點、正負號或其他符號')
+    expect(overridePriceError('2147483648')).toBe('改後單價不能超過 2,147,483,647')
   })
 
   it('removes one override and keeps the rest', () => {
