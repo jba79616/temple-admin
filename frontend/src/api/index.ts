@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { ApplicationForm, AuditView, Cards, ClosingView, ConfigView, CreateCorrectionRequest, CreateOrderRequest, DayStatus, DaySummary, FormScope, HouseholdDetail, HouseholdInput, HouseholdRow, HouseholdSummary, LegacyImportReport, LightCategory, LightType, MailingImportReport, MailingInput, MailingView, Me, MemberInput, MemberRow, MemberView, NameList, OrderView, PageView, PrintedCard, RebuildReport, Role, TaisuiView, UserView } from './types'
+import type { ApplicationForm, AuditView, Cards, ClosingView, ConfigView, CreateCorrectionRequest, CreateOrderRequest, DayStatus, DaySummary, FormScope, HouseholdDetail, HouseholdInput, HouseholdRow, HouseholdSummary, LegacyImportReport, LightCategory, LightType, MailingImportReport, MailingInput, MailingView, Me, MemberInput, MemberRow, MemberView, NameList, OrderView, PageView, PrintedCard, RebuildReport, Role, TaisuiView, UserView, Wenshu } from './types'
 
 export const auth = {
   login: (username: string, password: string) => api<Me>('/api/auth/login', { method: 'POST', json: { username, password } }),
@@ -81,6 +81,8 @@ export const print = {
     api<Cards>(`/api/print/cards?householdId=${householdId}${year ? `&year=${year}` : ''}`),
   markCardsPrinted: (cards: PrintedCard[]) =>
     api<{ marked: number }>('/api/print/cards/printed', { method: 'POST', json: { cards } }),
+  wenshu: (target: { householdId: number } | { memberId: number }) =>
+    api<Wenshu>(`/api/print/wenshu?${'memberId' in target ? `memberId=${target.memberId}` : `householdId=${target.householdId}`}`),
   applicationForm: (scope: FormScope, year?: number) =>
     api<ApplicationForm>(`/api/print/application-form?scope=${scope}${year ? `&year=${year}` : ''}`),
 }

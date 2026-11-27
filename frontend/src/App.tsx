@@ -22,6 +22,7 @@ import CardsPrint from './pages/print/CardsPrint'
 import NameListPrint from './pages/print/NameListPrint'
 import ApplicationFormPrint from './pages/print/ApplicationFormPrint'
 import LabelsPrint from './pages/print/LabelsPrint'
+import WenshuPrint from './pages/print/WenshuPrint'
 
 export default function App() {
   const { me, loading } = useAuth()
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/print/cards" element={<CardsPrint />} />
         <Route path="/print/application-form" element={<ApplicationFormPrint />} />
         <Route path="/print/labels" element={<LabelsPrint />} />
+        <Route path="/print/wenshu" element={<WenshuPrint />} />
         <Route element={<Layout />}>
           <Route path="/" element={<SearchPage />} />
           <Route path="/registry" element={<RegistryPage />} />

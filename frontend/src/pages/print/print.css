@@ -33,6 +33,27 @@
 .label-cell .zip-addr .zip { display: inline-block; min-width: 14.87mm; padding-right: 1.5mm; text-indent: 0; letter-spacing: 0; }
 .label-cell .name { margin-top: 10pt; font-size: 22pt; line-height: 1.3; text-align: center; white-space: nowrap; }
 
+/* 照廟方 Word 範本（制星補運文疏 A4.doc）：A4 橫印直書、上下邊界 5mm 左右 8mm，一人一張；每欄的字距位置在 WenshuPrint 以 --u（一個本文字寬）定位 */
+.wenshu-sheet { width: 297mm; height: 210mm; padding: 5mm 8mm; overflow: hidden; }
+.ws-body { --u: 13pt; writing-mode: vertical-rl; text-orientation: upright; width: 100%; height: 100%; font-size: 13pt; line-height: 1.45; }
+.ws-body b, .ws-body .bold { font-weight: 700; }
+.ws-col { position: relative; width: 1.45em; height: 100%; flex: none; }
+.ws-at { position: absolute; right: 0; white-space: nowrap; }
+.ws-flow { margin: 0; white-space: pre-wrap; }
+.ws-title { font-size: 22pt; font-weight: 700; line-height: 1.3; }
+.ws-name { text-align: center; }
+.ws-ritual { font-size: 18pt; }
+.ws-petition-year { font-size: 16pt; }
+.ws-petition-month { font-size: 15pt; }
+/* 範本中間五格（淺灰框）：生辰的年、月、日、時、生肖由上往下疊 */
+.ws-birth { width: 13mm; margin: 0 1.5mm; padding-top: calc(var(--u) * 0.8); writing-mode: horizontal-tb; display: flex; flex-direction: column; }
+.ws-cell { writing-mode: vertical-rl; text-orientation: upright; height: calc(var(--u) * 4.2); border: 1px solid #bfbfbf; margin-top: -1px; display: flex; align-items: center; justify-content: center; font-size: 14pt; font-weight: 700; line-height: 1; }
+.ws-cell-long { font-size: 12pt; }
+.wenshu-toolbar { flex-wrap: wrap; }
+.wenshu-date { display: inline-flex; align-items: center; gap: 4px; }
+.wenshu-date label { display: inline-flex; align-items: center; gap: 2px; }
+.wenshu-date .input { width: 4.5em; padding: 2px 6px; }
+
 @media print {
   html, body { background: #fff; }
   .print-toolbar, .print-notice { display: none; }
@@ -40,5 +61,6 @@
   .sheet-break { break-after: page; page-break-after: always; }
   .cards-sheet { width: auto; min-height: auto; padding: 0; }
   .labels-sheet { width: auto; min-height: auto; padding: 0; }
+  .wenshu-sheet { width: 297mm; height: 210mm; }
   .label-cell { border-color: transparent; }
 }

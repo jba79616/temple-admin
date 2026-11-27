@@ -21,6 +21,8 @@ export default function HouseholdHeader({ detail, head, mailing }: { detail: Hou
       </label>
       <a className="btn btn-ghost" style={{ marginLeft: 'auto' }} href={`/print/cards?householdId=${detail.id}&year=${detail.year}`} target="_blank" rel="noreferrer"
         title="這戶今年所有的燈，不管印過沒；資料改了或卡片印壞、弄丟時補印">印本戶安燈卡</a>
+      <a className="btn btn-ghost" href={`/print/wenshu?householdId=${detail.id}`} target="_blank" rel="noreferrer"
+        title="制星補運文疏，這戶在籍成員一人一張">印本戶文疏</a>
       <Link to={`/households/${detail.id}/edit`} className="btn btn-ghost">改地址電話</Link>
     </section>
   )

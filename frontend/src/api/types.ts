@@ -490,3 +490,24 @@ export interface ApplicationForm {
   baguaTypes: BaguaType[]
   households: FormHousehold[]
 }
+
+export interface WenshuPerson {
+  memberId: number
+  name: string
+  gender: string | null
+  ganzhi: string | null
+  leap: boolean
+  month: number | null
+  day: number | null
+  hour: string | null
+  cityDistrict: string
+  address: string
+}
+
+export interface Wenshu {
+  householdNumber: number | null
+  year: number
+  ganzhiYear: string
+  prayerMonth: string
+  people: WenshuPerson[]
+}

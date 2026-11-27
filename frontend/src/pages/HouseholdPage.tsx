@@ -161,6 +161,7 @@ export default function HouseholdPage() {
             renderActions={(m) => (
               <>
                 <Link to={`/members/${m.id}`} className="btn btn-sm">改生辰資料</Link>
+                <a href={`/print/wenshu?memberId=${m.id}`} target="_blank" rel="noreferrer" className="btn btn-sm" title="只印這個人的制星補運文疏">印文疏</a>
                 {m.head
                   ? <span className="btn btn-sm" style={{ visibility: 'hidden' }} aria-hidden="true">設為戶長</span>
                   : <button type="button" className="btn btn-sm" onClick={() => setHead(m.id)}>設為戶長</button>}
