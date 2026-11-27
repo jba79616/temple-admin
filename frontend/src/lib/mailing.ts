@@ -1,4 +1,5 @@
 import type { MailingInput, MailingView } from '../api/types'
+import { parseWholeNumber, wholeNumberError } from './numbers'
 import { postalCode, postalCodeOfAddress } from './taiwan'
 
 /** 連到戶的列以戶的縣市鄉鎮查郵遞區號（戶搬家就跟著變），查不到才用名單上的；獨立列相反，名單上的最準。 */
@@ -30,7 +31,7 @@ export const EMPTY_MAILING_FORM: MailingForm = { householdNumber: '', recipientN
 
 export function toMailingInput(f: MailingForm): MailingInput {
   return {
-    householdNumber: f.householdNumber.trim() === '' ? null : Number(f.householdNumber),
+    householdNumber: parseWholeNumber(f.householdNumber),
     recipientName: f.recipientName.trim() || null,
     zip: f.zip.trim() || null,
     address: f.address.trim() || null,
@@ -54,10 +55,11 @@ export function toMailingForm(r: MailingView): MailingForm {
 
 export function recipientFormState(form: MailingForm) {
   const linked = form.householdNumber.trim() !== ''
-  const canSave = linked || (form.recipientName.trim() !== '' && form.address.trim() !== '')
+  const householdError = wholeNumberError(form.householdNumber, '戶號')
+  const canSave = linked ? householdError === null : form.recipientName.trim() !== '' && form.address.trim() !== ''
   const autoZip = linked ? undefined : postalCodeOfAddress(form.address)
   const zipHint = linked ? '依戶地址自動查' : autoZip ? `自動 ${autoZip}` : form.address.trim() ? '地址查不到，請手動填' : ''
-  return { linked, canSave, zipHint }
+  return { linked, canSave, zipHint, householdError }
 }
 
 export function mailingStats(list: MailingView[]) {

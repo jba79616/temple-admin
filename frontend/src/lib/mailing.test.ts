@@ -12,6 +12,16 @@ describe('recipient form', () => {
     expect(toMailingInput({ ...EMPTY_MAILING_FORM, householdNumber: ' ', recipientName: '  ', note: ' 備 ' }))
       .toEqual({ householdNumber: null, recipientName: null, zip: null, address: null, note: '備', active: true, version: null })
     expect(toMailingInput({ ...EMPTY_MAILING_FORM, householdNumber: '12' }).householdNumber).toBe(12)
+    expect(toMailingInput({ ...EMPTY_MAILING_FORM, householdNumber: ' １２ ' }).householdNumber).toBe(12)
+  })
+
+  it('blocks a household number that is not plain digits or exceeds INT', () => {
+    expect(recipientFormState({ ...EMPTY_MAILING_FORM, householdNumber: '１２' })).toMatchObject({ linked: true, canSave: true, householdError: null })
+    for (const input of ['+12', '-12', '12.0', '1e2', '2147483648']) {
+      expect(recipientFormState({ ...EMPTY_MAILING_FORM, householdNumber: input })).toMatchObject({ linked: true, canSave: false })
+    }
+    expect(recipientFormState({ ...EMPTY_MAILING_FORM, householdNumber: '-12' }).householdError).toBe('戶號只能輸入數字，不含小數點、正負號或其他符號')
+    expect(recipientFormState({ ...EMPTY_MAILING_FORM, householdNumber: '2147483648' }).householdError).toBe('戶號不能超過 2,147,483,647')
   })
 
   it('drops the stored address for a linked row so the household address is used', () => {
@@ -21,9 +31,9 @@ describe('recipient form', () => {
   })
 
   it('needs name and address unless linked, and hints the zip lookup', () => {
-    expect(recipientFormState({ ...EMPTY_MAILING_FORM, householdNumber: '12' })).toEqual({ linked: true, canSave: true, zipHint: '依戶地址自動查' })
-    expect(recipientFormState({ ...EMPTY_MAILING_FORM, recipientName: '王' })).toEqual({ linked: false, canSave: false, zipHint: '' })
-    expect(recipientFormState({ ...EMPTY_MAILING_FORM, recipientName: '王', address: '某處' })).toEqual({ linked: false, canSave: true, zipHint: '地址查不到，請手動填' })
+    expect(recipientFormState({ ...EMPTY_MAILING_FORM, householdNumber: '12' })).toEqual({ linked: true, canSave: true, zipHint: '依戶地址自動查', householdError: null })
+    expect(recipientFormState({ ...EMPTY_MAILING_FORM, recipientName: '王' })).toEqual({ linked: false, canSave: false, zipHint: '', householdError: null })
+    expect(recipientFormState({ ...EMPTY_MAILING_FORM, recipientName: '王', address: '某處' })).toEqual({ linked: false, canSave: true, zipHint: '地址查不到，請手動填', householdError: null })
     expect(recipientFormState({ ...EMPTY_MAILING_FORM, address: '臺北市大同區重慶北路1號' }).zipHint).toBe('自動 103')
   })
 })

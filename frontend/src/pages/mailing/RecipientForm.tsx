@@ -3,12 +3,12 @@ import { recipientFormState, type MailingForm } from '../../lib/mailing'
 export default function RecipientForm({ title, form, onChange, onSave, onCancel, saving }: {
   title: string; form: MailingForm; onChange: (patch: Partial<MailingForm>) => void; onSave: () => void; onCancel: () => void; saving: boolean
 }) {
-  const { linked, canSave, zipHint } = recipientFormState(form)
+  const { linked, canSave, zipHint, householdError } = recipientFormState(form)
   return (
     <div className="panel">
       <strong>{title}</strong>
       <div className="grid-3">
-        <div className="fld"><label className="lbl">戶號（連到戶，寄給戶長、用戶地址）</label><input className="inp" inputMode="numeric" value={form.householdNumber} onChange={(e) => onChange({ householdNumber: e.target.value.replace(/\D/g, '') })} /></div>
+        <div className="fld"><label className="lbl">戶號（連到戶，寄給戶長、用戶地址）</label><input className="inp" inputMode="numeric" value={form.householdNumber} onChange={(e) => onChange({ householdNumber: e.target.value })} />{householdError && <div className="error small">{householdError}</div>}</div>
         <div className="fld"><label className="lbl">{linked ? '收件人（空白＝戶長）' : '收件人'}</label><input className="inp" value={form.recipientName} onChange={(e) => onChange({ recipientName: e.target.value })} /></div>
         <div className="fld"><label className="lbl">郵遞區號（留空會依地址自動查）</label><input className="inp" inputMode="numeric" placeholder={zipHint} value={form.zip} onChange={(e) => onChange({ zip: e.target.value })} /></div>
       </div>
