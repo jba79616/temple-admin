@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
@@ -71,6 +73,8 @@ public class MailingImportService {
         "recipient", List.of("收件人"),
         "note", List.of("備註"),
         "source", List.of("來源"));
+
+    private static final Pattern ZERO_FRACTION = Pattern.compile("(\\d+)\\.0+");
 
     private final MailingRecipientRepository recipients;
     private final HouseholdRepository households;
@@ -141,7 +145,7 @@ public class MailingImportService {
             return Optional.empty();
         }
         if (!batch.linkedHouseholds.add(household.getId()) || recipients.findByHouseholdId(household.getId()).isPresent()) {
-            batch.skip(row.issue(IssueKind.DUPLICATE, "戶 " + row.householdNumber() + " 已在名單，略過"));
+            batch.skip(row.issue(IssueKind.DUPLICATE, "戶 " + household.getHouseholdNumber() + " 已在名單，略過"));
             return Optional.empty();
         }
         batch.linked++;
@@ -209,14 +213,22 @@ public class MailingImportService {
 
     private Household household(Row row, Batch batch) {
         String householdNumber = row.householdNumber();
+        int number;
         try {
-            return households.findByHouseholdNumber(Integer.parseInt(householdNumber.trim())).orElseGet(() -> {
-                batch.skip(row.issue(IssueKind.HOUSEHOLD, "找不到戶 " + householdNumber));
-                return null;
-            });
+            number = parseHouseholdNumber(householdNumber);
         } catch (NumberFormatException e) {
             batch.skip(row.issue(IssueKind.HOUSEHOLD, "戶號「" + householdNumber + "」不是數字"));
             return null;
         }
+        return households.findByHouseholdNumber(number).orElseGet(() -> {
+            batch.skip(row.issue(IssueKind.HOUSEHOLD, "找不到戶 " + number));
+            return null;
+        });
+    }
+
+    /** Excel 把戶號欄當數值存檔時會寫成「12.0」，小數部分全是 0 才當整數接受。 */
+    private int parseHouseholdNumber(String householdNumber) {
+        Matcher zeroFraction = ZERO_FRACTION.matcher(householdNumber.trim());
+        return Integer.parseInt(zeroFraction.matches() ? zeroFraction.group(1) : householdNumber.trim());
     }
 }

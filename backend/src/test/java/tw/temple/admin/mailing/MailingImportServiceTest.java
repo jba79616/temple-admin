@@ -83,6 +83,32 @@ class MailingImportServiceTest {
     }
 
     @Test
+    void householdNumberSavedByExcelWithZeroFractionIsAccepted() {
+        Household one = household("吳整數一");
+        Household two = household("吳整數二");
+        int n1 = one.getHouseholdNumber();
+        int n2 = two.getHouseholdNumber();
+        String csv = "戶號,姓名\n"
+            + n1 + ".0,吳一\n"
+            + " " + n2 + ".00 ,吳二\n"
+            + n1 + ".5,吳三\n"
+            + n2 + ".,吳四\n"
+            + "1e2,吳五\n"
+            + n1 + ".000,吳六\n"
+            + "999998.0,吳七\n";
+
+        Report report = importer.run(csv, admin(), false);
+
+        assertThat(report.linked()).isEqualTo(2);
+        assertThat(report.issues()).containsExactly(
+            new Issue(4, IssueKind.HOUSEHOLD, "吳三", "戶號「" + n1 + ".5」不是數字"),
+            new Issue(5, IssueKind.HOUSEHOLD, "吳四", "戶號「" + n2 + ".」不是數字"),
+            new Issue(6, IssueKind.HOUSEHOLD, "吳五", "戶號「1e2」不是數字"),
+            new Issue(7, IssueKind.DUPLICATE, "吳六", "戶 " + n1 + " 已在名單，略過"),
+            new Issue(8, IssueKind.HOUSEHOLD, "吳七", "找不到戶 999998"));
+    }
+
+    @Test
     void linkedRowUsesRecipientColumnAndIgnoresAddressAndShortRowsReadAsBlank() {
         Household h = household("吳連結");
         String csv = "姓名,地址,戶號,收件人,郵遞區號,備註,來源\r\n"
