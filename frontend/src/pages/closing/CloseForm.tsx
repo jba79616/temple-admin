@@ -18,7 +18,8 @@ interface Props {
 export default function CloseForm({ summary, confirmNote, counted, onCounted, note, onNote, confirming, onConfirming, closing, onClose }: Props) {
   const countedNum = parseCash(counted)
   const diff = cashDifference(countedNum, summary.systemCash)
-  const countedError = cashError(counted)
+  const countedError = cashError(counted, summary.systemCash)
+  const canClose = countedNum !== null && countedError === null
   return (
     <aside className="card side card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <h2>日結</h2>
@@ -33,10 +34,10 @@ export default function CloseForm({ summary, confirmNote, counted, onCounted, no
         <div className="panel">
           <strong>確認日結 {rocDate(summary.date)}？</strong>
           <span className="small muted">{confirmNote}日結後今天的單不能再作廢，補登也只能入帳在明天以後。</span>
-          <div className="row"><button type="button" className="btn" onClick={onClose} disabled={closing || countedNum === null}>{closing ? '處理中…' : '確認日結'}</button><button type="button" className="btn btn-ghost" onClick={() => onConfirming(false)}>返回</button></div>
+          <div className="row"><button type="button" className="btn" onClick={onClose} disabled={closing || !canClose}>{closing ? '處理中…' : '確認日結'}</button><button type="button" className="btn btn-ghost" onClick={() => onConfirming(false)}>返回</button></div>
         </div>
       ) : (
-        <button type="button" className="btn btn-lg" disabled={countedNum === null || summary.closed} onClick={() => onConfirming(true)}>完成日結</button>
+        <button type="button" className="btn btn-lg" disabled={!canClose || summary.closed} onClick={() => onConfirming(true)}>完成日結</button>
       )}
     </aside>
   )

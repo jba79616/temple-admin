@@ -8,14 +8,17 @@ export type ClosingAmend = ReturnType<typeof useClosingAmend>
 export function useClosingAmend(onDone: () => Promise<void>, onError: (message: string) => void) {
   const [date, setDate] = useState<string | null>(null)
   const [cash, setCash] = useState('')
+  const [systemCash, setSystemCash] = useState(0)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
 
   const cashValue = parseCash(cash)
-  const canSubmit = cashValue !== null && reason.trim() !== '' && !busy
+  const error = cashError(cash, systemCash)
+  const canSubmit = cashValue !== null && error === null && reason.trim() !== '' && !busy
 
   function start(h: ClosingView) {
     setCash(String(h.countedCash))
+    setSystemCash(h.systemCash)
     setReason('')
     setDate(h.closingDate)
   }
@@ -35,5 +38,5 @@ export function useClosingAmend(onDone: () => Promise<void>, onError: (message: 
     }
   }
 
-  return { date, cash, setCash, cashError: cashError(cash), reason, setReason, busy, canSubmit, start, submit, cancel: () => setDate(null) }
+  return { date, cash, setCash, cashError: error, reason, setReason, busy, canSubmit, start, submit, cancel: () => setDate(null) }
 }

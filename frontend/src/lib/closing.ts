@@ -1,5 +1,5 @@
 import type { DaySummary } from '../api/types'
-import { parseWholeNumber, wholeNumberError } from './numbers'
+import { MAX_INT, parseWholeNumber, wholeNumberError } from './numbers'
 import { money, rocDate } from './roc'
 
 export interface ClosingPeriod {
@@ -26,8 +26,20 @@ export function parseCash(input: string): number | null {
   return parseWholeNumber(input)
 }
 
-export function cashError(input: string): string | null {
-  return wholeNumberError(input, '金額')
+export const SYSTEM_CASH_OUT_OF_RANGE = '上次日結以來的系統現金合計超出可記錄的範圍，無法日結，請聯絡管理員'
+export const DIFFERENCE_OUT_OF_RANGE = '實點與系統合計的差額超出可記錄的範圍，請確認實點金額'
+
+/** 日結的系統合計、差額在資料表都是 INT，超出就會被後端拒絕。 */
+function outsideInt(value: number): boolean {
+  return value < -MAX_INT - 1 || value > MAX_INT
+}
+
+export function cashError(input: string, systemCash: number): string | null {
+  const malformed = wholeNumberError(input, '金額')
+  if (malformed) return malformed
+  if (outsideInt(systemCash)) return SYSTEM_CASH_OUT_OF_RANGE
+  const diff = cashDifference(parseCash(input), systemCash)
+  return diff !== null && outsideInt(diff) ? DIFFERENCE_OUT_OF_RANGE : null
 }
 
 export function cashDifference(counted: number | null, systemCash: number): number | null {

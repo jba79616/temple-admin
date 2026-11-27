@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { money } from './roc'
-import { cashDifference, closingPeriod, differenceHint, differenceText, cashError, parseCash, signedMoney } from './closing'
+import { DIFFERENCE_OUT_OF_RANGE, SYSTEM_CASH_OUT_OF_RANGE, cashDifference, closingPeriod, differenceHint, differenceText, cashError, parseCash, signedMoney } from './closing'
 
 describe('closingPeriod', () => {
   it('covers everything up to today before the first closing', () => {
@@ -69,17 +69,30 @@ describe('parseCash', () => {
 })
 
 describe('cashError', () => {
+  it('flags a difference the INT column cannot hold', () => {
+    expect(cashError('2147483647', -1)).toBe(DIFFERENCE_OUT_OF_RANGE)
+    expect(cashError('2147483647', 0)).toBeNull()
+    expect(cashError('0', 2_147_483_647)).toBeNull()
+  })
+
+  it('flags system cash beyond INT even before cash is entered', () => {
+    expect(cashError('', 2_147_483_648)).toBe(SYSTEM_CASH_OUT_OF_RANGE)
+    expect(cashError('0', 3_000_000_000)).toBe(SYSTEM_CASH_OUT_OF_RANGE)
+    expect(cashError('0', -2_147_483_649)).toBe(SYSTEM_CASH_OUT_OF_RANGE)
+    expect(cashError('', -2_147_483_648)).toBeNull()
+  })
+
   it('flags non-empty input that is not plain digits or exceeds INT', () => {
-    expect(cashError('')).toBeNull()
-    expect(cashError('   ')).toBeNull()
-    expect(cashError('4300')).toBeNull()
-    expect(cashError(' ４３００ ')).toBeNull()
-    expect(cashError('1e2')).toBe('金額只能輸入數字，不含小數點、正負號或其他符號')
-    expect(cashError('-5')).toBe('金額只能輸入數字，不含小數點、正負號或其他符號')
-    expect(cashError('12.5')).toBe('金額只能輸入數字，不含小數點、正負號或其他符號')
-    expect(cashError('1000001')).toBeNull()
-    expect(cashError('2147483647')).toBeNull()
-    expect(cashError('2147483648')).toBe('金額不能超過 2,147,483,647')
-    expect(cashError('99999999999999999999')).toBe('金額不能超過 2,147,483,647')
+    expect(cashError('', 0)).toBeNull()
+    expect(cashError('   ', 0)).toBeNull()
+    expect(cashError('4300', 0)).toBeNull()
+    expect(cashError(' ４３００ ', 0)).toBeNull()
+    expect(cashError('1e2', 0)).toBe('金額只能輸入數字，不含小數點、正負號或其他符號')
+    expect(cashError('-5', 0)).toBe('金額只能輸入數字，不含小數點、正負號或其他符號')
+    expect(cashError('12.5', 0)).toBe('金額只能輸入數字，不含小數點、正負號或其他符號')
+    expect(cashError('1000001', 0)).toBeNull()
+    expect(cashError('2147483647', 0)).toBeNull()
+    expect(cashError('2147483648', 0)).toBe('金額不能超過 2,147,483,647')
+    expect(cashError('99999999999999999999', 0)).toBe('金額不能超過 2,147,483,647')
   })
 })
