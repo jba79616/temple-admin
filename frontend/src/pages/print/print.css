@@ -45,7 +45,7 @@
 .ws-ritual { font-size: 18pt; }
 .ws-petition-year { font-size: 16pt; }
 .ws-petition-month { font-size: 15pt; }
-/* 範本中間五格（淺灰框）：生辰的年、月、日、時、生肖由上往下疊 */
+/* 範本中間五格的框寬 13mm、淺灰框色照 Word 範本；格子由上往下疊才放得進版心 */
 .ws-birth { width: 13mm; margin: 0 1.5mm; padding-top: calc(var(--u) * 0.8); writing-mode: horizontal-tb; display: flex; flex-direction: column; }
 .ws-cell { writing-mode: vertical-rl; text-orientation: upright; height: calc(var(--u) * 4.2); border: 1px solid #bfbfbf; margin-top: -1px; display: flex; align-items: center; justify-content: center; font-size: 14pt; font-weight: 700; line-height: 1; }
 .ws-cell-long { font-size: 12pt; }

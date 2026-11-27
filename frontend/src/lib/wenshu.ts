@@ -63,15 +63,18 @@ export interface LunarDate {
   day: string
 }
 
-/** 用瀏覽器內建的農曆（ICU chinese calendar）換算；廟裡的日期以臺北時間為準。 */
+/** 用瀏覽器內建的農曆（ICU chinese calendar）換算，廟裡的日期以臺北時間為準；沒有農曆資料的環境回空白，讓人手填而不是印錯。 */
 export function lunarDateOf(date: Date): LunarDate {
   const parts = new Intl.DateTimeFormat('en-US-u-ca-chinese', { timeZone: 'Asia/Taipei', year: 'numeric', month: 'numeric', day: 'numeric' })
     .formatToParts(date)
   const part = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
-  const month = part('month')
+  const year = Number(part('relatedYear'))
+  const month = parseInt(part('month'), 10)
+  const day = Number(part('day'))
+  if (!year || !month || !day) return { year: '', month: '', day: '' }
   return {
-    year: ganzhiOfYear(Number(part('relatedYear'))),
-    month: lunarMonthText(parseInt(month, 10), month.endsWith('bis')),
-    day: lunarDayText(Number(part('day'))),
+    year: ganzhiOfYear(year),
+    month: lunarMonthText(month, part('month').endsWith('bis')),
+    day: lunarDayText(day),
   }
 }

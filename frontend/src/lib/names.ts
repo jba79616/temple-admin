@@ -9,3 +9,10 @@ export function printName(name: string | null): string {
   const chars = Array.from(trimmed.replace(/\s/g, ''))
   return chars.length === 2 ? chars.join(FULLWIDTH_SPACE) : trimmed
 }
+
+/** 嵌在句子裡的姓名不補空白，但和 printName 一樣先去掉兩字姓名原有的排版空白。 */
+export function inlineName(name: string | null): string {
+  const trimmed = (name ?? '').trim()
+  const compact = trimmed.replace(/\s/g, '')
+  return Array.from(compact).length === 2 ? compact : trimmed
+}

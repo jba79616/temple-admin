@@ -212,7 +212,6 @@ public class PrintService {
         return new ApplicationForm(config.get(ConfigService.TEMPLE_NAME), year, Ganzhi.roc(year), scope, title, baguaTypes, households);
     }
 
-    /** 給 memberId 只印那一人；只給 householdId 印這戶所有在籍成員，戶長排第一張。 */
     public Wenshu wenshu(Long householdId, Long memberId) {
         List<Member> people;
         Household household;
@@ -233,10 +232,10 @@ public class PrintService {
         }
         int year = config.currentYear();
         return new Wenshu(household.getHouseholdNumber(), year, Ganzhi.ofYear(year), config.get(ConfigService.PRAYER_MONTH),
-            people.stream().map(PrintService::toWenshuPerson).toList());
+            people.stream().map(this::toWenshuPerson).toList());
     }
 
-    private static WenshuPerson toWenshuPerson(Member m) {
+    private WenshuPerson toWenshuPerson(Member m) {
         return new WenshuPerson(m.getId(), m.getName(), m.getGender(), m.getBirthGanzhi(), m.isBirthMonthIsLeap(), m.getBirthMonth(),
             m.getBirthDay(), m.getBirthHourBranch(), m.printCityDistrict(), m.printAddress());
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { printName } from './names'
+import { inlineName, printName } from './names'
 
 describe('printName', () => {
   it('pads two-character names to the width of three', () => {
@@ -20,5 +20,13 @@ describe('printName', () => {
     expect(printName('Mary Lee')).toBe('Mary Lee')
     expect(printName('王大明 闔家')).toBe('王大明 闔家')
     expect(printName(null)).toBe('')
+  })
+})
+
+describe('inlineName', () => {
+  it('drops layout spaces of two-character names and keeps other names as typed', () => {
+    expect(inlineName('郭  妙')).toBe('郭妙')
+    expect(inlineName(' 林戶長 ')).toBe('林戶長')
+    expect(inlineName('Maria Chen')).toBe('Maria Chen')
   })
 })

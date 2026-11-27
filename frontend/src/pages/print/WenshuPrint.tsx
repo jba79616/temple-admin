@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { useSearchParams } from 'react-router'
 import { print as printApi } from '../../api'
 import type { Wenshu, WenshuPerson } from '../../api/types'
-import { printName } from '../../lib/names'
+import { inlineName, printName } from '../../lib/names'
 import { believerOf, birthTextOf, lunarDateOf, verticalAddress, type BirthText, type LunarDate } from '../../lib/wenshu'
 import PdfButton from './PdfButton'
 import './print.css'
@@ -29,7 +29,6 @@ function At({ depth, className, style, children }: { depth: number; className?: 
   return <span className={`ws-at ${className ?? ''}`} style={{ top: u(depth), ...style }}>{children}</span>
 }
 
-/** 字尾停在 depth：年月日時標籤上方的值。 */
 function EndAt({ depth, children }: { depth: number; children: ReactNode }) {
   return <span className="ws-at bold" style={{ bottom: `calc(100% - var(--u) * ${depth})` }}>{children}</span>
 }
@@ -59,18 +58,17 @@ function Sheet({ person, ritual, petition }: { person: WenshuPerson; ritual: Dat
   const believer = believerOf(person.gender)
   const birth = birthTextOf(person)
   const name = printName(person.name)
-  const plainName = person.name.replace(/\s/g, '')
   const nameChars = Array.from(name).length
   const namePt = Math.min(NAME_PT, (NAME_SLOT * 13) / Math.max(nameChars, 1))
 
   return (
-    <div className="ws-body">
+    <div className="ws-body" data-name={person.name}>
       <Flow indent={7.5} className="ws-title">制星補運文疏</Flow>
       <Col><At depth={0}>聖德巍峨峩　轉運禳星凶即散　神恩浩蕩　廷生整斗福長臻</At></Col>
       <Col><At depth={1}>大教遠流示一乘歸元之路</At><At depth={19.4}>今據</At></Col>
       <Col><At depth={1}>神功巨測開眾生方便之門</At></Col>
       <Flow indent={1}>
-        竭蟻悃以皈依冀鴻庥之加被 道制凶轉運植福廷生{believer}<b>{plainName}</b>流庚<b>{birth.year}</b>年<b>{birth.month}</b>月<b>{birth.day}</b>日<b>{birth.hour}</b>時生暨閤家人等謹露丹誠跪叩
+        竭蟻悃以皈依冀鴻庥之加被 道制凶轉運植福廷生{believer}<b>{inlineName(person.name)}</b>流庚<b>{birth.year}</b>年<b>{birth.month}</b>月<b>{birth.day}</b>日<b>{birth.hour}</b>時生暨閤家人等謹露丹誠跪叩
       </Flow>
       <Col><At depth={1.85}>一泗天下</At><At depth={6.35}>南贍部洲</At></Col>
       <Flow>中華民國臺灣省<b>{person.cityDistrict}{verticalAddress(person.address)}</b></Flow>
@@ -118,6 +116,12 @@ function Sheet({ person, ritual, petition }: { person: WenshuPerson; ritual: Dat
   )
 }
 
+/** 直書由右往左排，地址、姓名或日期太長多佔一欄時，最左邊那欄會被紙張裁掉。 */
+function isCut(body: HTMLElement): boolean {
+  const last = body.lastElementChild
+  return !!last && last.getBoundingClientRect().left < body.getBoundingClientRect().left - 1
+}
+
 function dateFrom(params: URLSearchParams, key: string, fallback: DateParts): DateParts {
   const pick = (part: keyof DateParts) => params.get(key + part[0].toUpperCase() + part.slice(1)) ?? fallback[part]
   return { year: pick('year'), month: pick('month'), day: pick('day') }
@@ -148,12 +152,25 @@ export default function WenshuPrint() {
     document.title = data ? `制星補運文疏 ${heading.trim()}` : '制星補運文疏'
   }, [data, heading])
 
-  /** PDF 轉檔的路徑只收英數與 %-encoded，空白一律去掉。 */
+  /** PDF 轉檔的路徑只收英數與 %-encoded；URLSearchParams 不編碼的符號（空白、*）會被擋，所以只留文字與數字。 */
   function setDate(key: string, part: keyof DateParts, value: string) {
     const next = new URLSearchParams(params)
-    next.set(key + part[0].toUpperCase() + part.slice(1), value.replace(/\s/g, ''))
+    next.set(key + part[0].toUpperCase() + part.slice(1), value.replace(/[^\p{L}\p{N}]/gu, ''))
     setParams(next, { replace: true })
   }
+
+  const [overflowed, setOverflowed] = useState<string[]>([])
+  const datesKey = params.toString()
+  useEffect(() => {
+    if (!data) return
+    let cancelled = false
+    document.fonts.ready.then(() => {
+      if (!cancelled) setOverflowed([...document.querySelectorAll<HTMLElement>('.ws-body')].filter(isCut).map((b) => b.dataset.name ?? ''))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [data, datesKey])
 
   if (error) return <div className="page error">{error}</div>
   if (!data) return <div className="page muted">載入中…</div>
@@ -177,6 +194,9 @@ export default function WenshuPrint() {
         <button type="button" className="btn btn-sm" style={{ marginLeft: 'auto' }} onClick={() => window.print()}>列印</button>
         <PdfButton />
       </div>
+      {overflowed.length > 0 && (
+        <div className="print-notice">{overflowed.join('、')} 的文疏太長，最左邊的欄位會被裁掉。請縮短今涓、天運的文字，或檢查地址、姓名後再印。</div>
+      )}
       {data.people.map((p, i) => (
         <div key={p.memberId} className={`sheet wenshu-sheet${i < data.people.length - 1 ? ' sheet-break' : ''}`}>
           <Sheet person={p} ritual={ritual} petition={petition} />
