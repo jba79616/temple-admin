@@ -2,26 +2,7 @@ import type { KeyboardEvent, ReactNode } from 'react'
 import type { LightType, MemberView } from '../api/types'
 import { money } from '../lib/roc'
 import { genderLabel } from '../lib/labels'
-
-export type CellStatus = 'none' | 'existing' | 'add' | 'remove'
-export type Cells = Record<string, CellStatus>
-
-export const cellKey = (memberId: number, lightTypeId: number) => `${memberId}:${lightTypeId}`
-
-export const statusOf = (cells: Cells, memberId: number, lightTypeId: number): CellStatus => cells[cellKey(memberId, lightTypeId)] ?? 'none'
-
-export function visibleLightTypes(lightTypes: LightType[], members: MemberView[], cells: Cells): LightType[] {
-  return lightTypes.filter((t) => t.active || members.some((m) => statusOf(cells, m.id, t.id) !== 'none'))
-}
-
-export function nextStatus(current: CellStatus): CellStatus {
-  switch (current) {
-    case 'none': return 'add'
-    case 'add': return 'none'
-    case 'existing': return 'remove'
-    case 'remove': return 'existing'
-  }
-}
+import { statusOf, type CellStatus, type Cells } from '../lib/cells'
 
 interface Props {
   members: MemberView[]
