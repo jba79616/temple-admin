@@ -229,25 +229,49 @@ public class HouseholdService {
     }
 
     private MemberFields validated(MemberFields f) {
-        if (f.gender() != null && !GENDERS.contains(f.gender())) {
+        checkGender(f.gender());
+        checkGanzhi(f.birthGanzhi());
+        checkMonth(f.birthMonth());
+        checkDay(f.birthDay());
+        checkLeap(f.birthMonthIsLeap(), f.birthMonth());
+        checkHourBranch(f.birthHourBranch());
+        return f;
+    }
+
+    private void checkGender(String gender) {
+        if (gender != null && !GENDERS.contains(gender)) {
             throw ApiException.badRequest("性別只能是 M 或 F");
         }
-        if (f.birthGanzhi() != null && !Ganzhi.isValid(f.birthGanzhi())) {
+    }
+
+    private void checkGanzhi(String ganzhi) {
+        if (ganzhi != null && !Ganzhi.isValid(ganzhi)) {
             throw ApiException.badRequest("干支年不是六十甲子裡的組合");
         }
-        if (f.birthMonth() != null && (f.birthMonth() < 1 || f.birthMonth() > 12)) {
+    }
+
+    private void checkMonth(Integer month) {
+        if (month != null && (month < 1 || month > 12)) {
             throw ApiException.badRequest("月份必須是 1 到 12");
         }
-        if (f.birthDay() != null && (f.birthDay() < 1 || f.birthDay() > 30)) {
+    }
+
+    private void checkDay(Integer day) {
+        if (day != null && (day < 1 || day > 30)) {
             throw ApiException.badRequest("日期必須是 1 到 30");
         }
-        if (f.birthMonthIsLeap() && f.birthMonth() == null) {
+    }
+
+    private void checkLeap(boolean leap, Integer month) {
+        if (leap && month == null) {
             throw ApiException.badRequest("月份為空時不能標閏月");
         }
-        if (f.birthHourBranch() != null && (f.birthHourBranch().length() != 1 || Ganzhi.BRANCHES.indexOf(f.birthHourBranch()) < 0)) {
+    }
+
+    private void checkHourBranch(String branch) {
+        if (branch != null && (branch.length() != 1 || Ganzhi.BRANCHES.indexOf(branch) < 0)) {
             throw ApiException.badRequest("時辰必須是十二地支之一");
         }
-        return f;
     }
 
     private MemberFields withSortOrder(MemberFields f, int sortOrder) {

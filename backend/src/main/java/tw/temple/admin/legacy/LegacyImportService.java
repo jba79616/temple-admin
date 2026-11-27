@@ -141,6 +141,25 @@ public class LegacyImportService {
         }
     }
 
+    private record LampTargets(Map<Integer, Member> members, Map<Lamp, LightType> types, Map<Lamp, Integer> prices,
+                               Set<String> existing) {
+    }
+
+    /** 一戶一年一張匯入單；只有真的寫入明細時才建單。 */
+    private static final class ImportOrder {
+        final Household household;
+        final int year;
+        final LocalDate date;
+        LightOrder saved;
+        int due;
+
+        ImportOrder(Household household, int year) {
+            this.household = household;
+            this.year = year;
+            this.date = LocalDate.of(year, 1, 1);
+        }
+    }
+
     private static final Pattern FLAG_COLUMN = Pattern.compile("^(guangming|wenchang|taisui|bagua)(\\d{3})$");
     private static final String BAGUA_LEGACY_CODE = "bagua";
     private static final String UNKNOWN = "吉";
@@ -594,48 +613,65 @@ public class LegacyImportService {
     private void writeRecords(List<HouseholdPlan> plans, List<Integer> years, Map<Integer, Household> householdsByNumber,
                               Map<Integer, Member> membersByLegacyId, Map<Lamp, LightType> types, Map<Lamp, Integer> prices, User actor,
                               Tally tally) {
-        Set<String> existing = records.findAll().stream()
-            .map(r -> recordKey(r.getMember().getId(), r.getLightType().getId(), r.getYear()))
-            .collect(Collectors.toCollection(java.util.HashSet::new));
+        LampTargets targets = new LampTargets(membersByLegacyId, types, prices, existingRecordKeys());
         for (HouseholdPlan plan : plans) {
             Household h = householdsByNumber.get(plan.number());
             for (int year : years) {
-                LocalDate date = LocalDate.of(year, 1, 1);
-                LightOrder order = null;
-                int due = 0;
-                for (Person p : plan.people()) {
-                    Member m = membersByLegacyId.get(p.id());
-                    for (Lamp lamp : p.lamps().getOrDefault(year, EnumSet.noneOf(Lamp.class))) {
-                        LightType type = types.get(lamp);
-                        if (!existing.add(recordKey(m.getId(), type.getId(), year))) {
-                            tally.recordsExisting++;
-                            continue;
-                        }
-                        if (order == null) {
-                            order = orders.save(new LightOrder(OrderKind.IMPORT, year, h, date, date, null,
-                                IMPORT_NOTE + "　民國 " + Ganzhi.roc(year) + " 年", actor));
-                            tally.orders++;
-                        }
-                        int price = prices.get(lamp);
-                        LightOrderItem item = items.save(new LightOrderItem(order, m, type, ItemAction.ADD, price, null));
-                        AnnualLightRecord record = new AnnualLightRecord(year, m, type, h, price, item);
-                        record.markCardPrinted(clock.now());
-                        records.save(record);
-                        due += price;
-                        tally.items++;
-                        if (p.deleted()) {
-                            tally.deletedItems++;
-                        }
-                    }
+                writeHouseholdYear(new ImportOrder(h, year), plan.people(), targets, actor, tally);
+            }
+        }
+    }
+
+    private Set<String> existingRecordKeys() {
+        return records.findAll().stream()
+            .map(r -> recordKey(r.getMember().getId(), r.getLightType().getId(), r.getYear()))
+            .collect(Collectors.toCollection(java.util.HashSet::new));
+    }
+
+    private void writeHouseholdYear(ImportOrder order, List<Person> people, LampTargets targets, User actor, Tally tally) {
+        for (Person p : people) {
+            Member m = targets.members().get(p.id());
+            for (Lamp lamp : p.lamps().getOrDefault(order.year, EnumSet.noneOf(Lamp.class))) {
+                LightType type = targets.types().get(lamp);
+                if (!targets.existing().add(recordKey(m.getId(), type.getId(), order.year))) {
+                    tally.recordsExisting++;
+                    continue;
                 }
-                if (order != null) {
-                    order.settleTotalDue(due);
-                    if (due > 0) {
-                        payments.save(new Payment(order, PaymentKind.IMPORT, due, date, date, null, IMPORT_NOTE));
-                        tally.payments++;
-                    }
+                writeLamp(order, m, type, targets.prices().get(lamp), actor, tally);
+                if (p.deleted()) {
+                    tally.deletedItems++;
                 }
             }
+        }
+        settle(order, tally);
+    }
+
+    private void writeLamp(ImportOrder order, Member m, LightType type, int price, User actor, Tally tally) {
+        LightOrderItem item = items.save(new LightOrderItem(orderOf(order, actor, tally), m, type, ItemAction.ADD, price, null));
+        AnnualLightRecord record = new AnnualLightRecord(order.year, m, type, order.household, price, item);
+        record.markCardPrinted(clock.now());
+        records.save(record);
+        order.due += price;
+        tally.items++;
+    }
+
+    private LightOrder orderOf(ImportOrder order, User actor, Tally tally) {
+        if (order.saved == null) {
+            order.saved = orders.save(new LightOrder(OrderKind.IMPORT, order.year, order.household, order.date, order.date, null,
+                IMPORT_NOTE + "　民國 " + Ganzhi.roc(order.year) + " 年", actor));
+            tally.orders++;
+        }
+        return order.saved;
+    }
+
+    private void settle(ImportOrder order, Tally tally) {
+        if (order.saved == null) {
+            return;
+        }
+        order.saved.settleTotalDue(order.due);
+        if (order.due > 0) {
+            payments.save(new Payment(order.saved, PaymentKind.IMPORT, order.due, order.date, order.date, null, IMPORT_NOTE));
+            tally.payments++;
         }
     }
 

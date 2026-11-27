@@ -154,4 +154,37 @@ class HouseholdServiceTest {
         assertThat(logs.get(0).getAction()).isEqualTo("UPDATE");
         assertThat(logs.get(0).getAfterData()).startsWith("{").contains("\"birthGanzhi\"");
     }
+
+    @Test
+    void everyMemberFieldRuleIsCheckedOnCreateAddAndUpdate() {
+        Household h = service.create(new HouseholdInput(null, null, null, null, null, null, member("王驗證", null)), admin);
+        Long id = service.detail(h.getId(), null).members().get(0).id();
+        assertRejected(h.getId(), id, birth("X", null, null, null, null, null), "性別只能是 M 或 F");
+        assertRejected(h.getId(), id, birth("X", "甲丑", 0, null, null, null), "性別只能是 M 或 F");
+        assertRejected(h.getId(), id, birth("F", "甲丑", null, null, null, null), "干支年不是六十甲子裡的組合");
+        assertRejected(h.getId(), id, birth("F", null, 0, null, null, null), "月份必須是 1 到 12");
+        assertRejected(h.getId(), id, birth("F", null, 13, null, null, null), "月份必須是 1 到 12");
+        assertRejected(h.getId(), id, birth("F", null, 1, null, 0, null), "日期必須是 1 到 30");
+        assertRejected(h.getId(), id, birth("F", null, 1, null, 31, null), "日期必須是 1 到 30");
+        assertRejected(h.getId(), id, birth("F", null, null, true, null, null), "月份為空時不能標閏月");
+        assertRejected(h.getId(), id, birth("F", null, null, true, 31, null), "日期必須是 1 到 30");
+        assertRejected(h.getId(), id, birth("F", null, null, true, null, "甲"), "月份為空時不能標閏月");
+        assertRejected(h.getId(), id, birth("F", null, null, null, null, "子丑"), "時辰必須是十二地支之一");
+        assertRejected(h.getId(), id, birth("F", null, null, null, null, "甲"), "時辰必須是十二地支之一");
+        assertThat(service.detail(h.getId(), null).members()).extracting("name").containsExactly("王驗證");
+
+        service.updateMember(id, birth("M", "甲子", 12, true, 30, "亥"), admin);
+        service.updateMember(id, birth(null, null, 1, false, 1, null), admin);
+        assertThat(service.memberView(id).birthText()).isEqualTo("吉年 1月 1日 吉時 生");
+    }
+
+    private void assertRejected(Long householdId, Long memberId, MemberInput input, String message) {
+        assertThatThrownBy(() -> service.create(new HouseholdInput(null, null, null, null, null, null, input), admin)).hasMessage(message);
+        assertThatThrownBy(() -> service.addMember(householdId, input, admin)).hasMessage(message);
+        assertThatThrownBy(() -> service.updateMember(memberId, input, admin)).hasMessage(message);
+    }
+
+    private static MemberInput birth(String gender, String ganzhi, Integer month, Boolean leap, Integer day, String hour) {
+        return new MemberInput("王驗證", gender, null, null, null, null, ganzhi, month, leap, day, hour, null);
+    }
 }

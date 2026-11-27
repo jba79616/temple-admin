@@ -169,11 +169,19 @@ class LegacyImportServiceTest {
         assertThat(h1Orders).hasSize(2).allMatch(o -> o.getKind() == OrderKind.IMPORT);
         var order2023 = h1Orders.stream().filter(o -> o.getYear() == 2023).findFirst().orElseThrow();
         assertThat(order2023.getTotalDue()).isEqualTo(1400);
-        assertThat(order2023.getRegisteredOn()).hasYear(2023);
+        assertThat(order2023.getRegisteredOn()).isEqualTo(java.time.LocalDate.of(2023, 1, 1));
+        assertThat(order2023.getNote()).isEqualTo("舊系統匯入　民國 112 年");
+        var h2Orders = orders.findByHouseholdIdOrderByIdDesc(h2.getId());
+        assertThat(h2Orders).singleElement().satisfies(o -> {
+            assertThat(o.getYear()).isEqualTo(2024);
+            assertThat(o.getTotalDue()).isEqualTo(650);
+        });
         var paid = payments.findByOrderIdOrderByIdAsc(order2023.getId());
         assertThat(paid).hasSize(1);
         assertThat(paid.get(0).getKind()).isEqualTo(PaymentKind.IMPORT);
         assertThat(paid.get(0).getAmount()).isEqualTo(1400);
+        assertThat(paid.get(0).getNote()).isEqualTo("舊系統匯入");
+        assertThat(paid.get(0).getReceivedOn()).isEqualTo(java.time.LocalDate.of(2023, 1, 1));
         assertThatThrownBy(() -> print.cardsByOrder(order2023.getId())).hasMessageContaining("匯入單");
 
         Household fresh = householdService.create(new HouseholdInput(null, null, null, null, null, null,
