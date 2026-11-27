@@ -61,6 +61,11 @@ function fitPt(text: string, slot: number, maxPt: number) {
   return Math.min(maxPt, (slot * BODY_PT) / Math.max(Array.from(text).length, 1))
 }
 
+/** 天運的年月日各自定位在固定的「年」「月」「日」之間，不佔欄寬、溢出偵測抓不到，所以長字縮到放得進空檔。 */
+function SlotAt({ depth, end, maxPt, children }: { depth: number; end: number; maxPt: number; children: string }) {
+  return <At depth={depth} style={{ fontSize: `${fitPt(children, end - depth, maxPt)}pt` }}>{children}</At>
+}
+
 type Temple = { name: string; address: string }
 
 export function Sheet({ person, temple, ritual, petition }: { person: WenshuPerson; temple: Temple; ritual: DateParts; petition: DateParts }) {
@@ -117,9 +122,9 @@ export function Sheet({ person, temple, ritual, petition }: { person: WenshuPers
       <Col><At depth={3.7} className="bold">上　申</At></Col>
       <Col className="bold">
         <At depth={1}>天</At><At depth={3}>運</At>
-        <At depth={5.5} className="ws-petition-year">{orBlank(petition.year)}</At><At depth={9}>年</At>
-        <At depth={11} className="ws-petition-month">{orBlank(petition.month)}</At><At depth={14.5}>月</At>
-        <At depth={17}>{orBlank(petition.day)}</At><At depth={21}>日</At>
+        <SlotAt depth={5.5} end={9} maxPt={16}>{orBlank(petition.year)}</SlotAt><At depth={9}>年</At>
+        <SlotAt depth={11} end={14.5} maxPt={15}>{orBlank(petition.month)}</SlotAt><At depth={14.5}>月</At>
+        <SlotAt depth={17} end={21} maxPt={BODY_PT}>{orBlank(petition.day)}</SlotAt><At depth={21}>日</At>
         <At depth={23}>暨閤家人等稽首頓首叩</At>
       </Col>
       <Col>

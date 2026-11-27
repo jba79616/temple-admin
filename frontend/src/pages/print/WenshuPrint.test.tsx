@@ -39,4 +39,11 @@ describe('Sheet', () => {
     }
     expect(text).not.toMatch(/廷|峩|巨測|一泗|筳|恐曜|坎柯|重青|恩準|水官　|比斗|合家/)
   })
+
+  it('shrinks a long 天運 part so it ends before the fixed 年', () => {
+    const markup = renderToStaticMarkup(<Sheet person={person} temple={temple} ritual={date} petition={{ ...date, year: '中華民國一百一十五' }} />)
+    const pt = Number(markup.match(/font-size:([\d.]+)pt[^>]*>中華民國一百一十五</)?.[1])
+    expect(pt * 9).toBeLessThanOrEqual(3.5 * 13)
+    expect(markup).toMatch(/font-size:15pt[^>]*>十</)
+  })
 })

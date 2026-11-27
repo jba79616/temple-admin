@@ -24,6 +24,10 @@ describe('birthTextOf', () => {
     expect(birthTextOf({ ganzhi: null, leap: true, month: 4, day: null, hour: null }))
       .toEqual({ year: '吉', month: '閏四', day: '吉', hour: '吉', zodiac: '' })
   })
+
+  it('leaves the zodiac blank when the stored ganzhi is not a real stem-branch pair', () => {
+    expect(birthTextOf({ ganzhi: '甲丑', leap: false, month: 1, day: 1, hour: null }).zodiac).toBe('')
+  })
 })
 
 describe('verticalAddress', () => {

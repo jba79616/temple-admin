@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import tw.temple.admin.TestcontainersConfiguration;
-import tw.temple.admin.calendar.Ganzhi;
 import tw.temple.admin.common.ApiException;
 import tw.temple.admin.household.Household;
 import tw.temple.admin.household.HouseholdDtos.HouseholdInput;
@@ -336,9 +335,17 @@ class PrintServiceTest {
         households.updateMember(daughterId, new MemberInput("林女兒", "F", "臺北市", "大安區", "復興南路一段1號", null, "乙亥", 6, true, 30,
             null, 0), admin);
 
-        Wenshu all = print.wenshu(h.getId(), null);
+        String lanternYear = config.get(ConfigService.CURRENT_YEAR);
+        config.update(ConfigService.CURRENT_YEAR, "2026", admin);
+        Wenshu all;
+        try {
+            all = print.wenshu(h.getId(), null);
+        } finally {
+            config.update(ConfigService.CURRENT_YEAR, lanternYear, admin);
+        }
         assertThat(all.householdNumber()).isEqualTo(h.getHouseholdNumber());
-        assertThat(all.ganzhiYear()).isEqualTo(Ganzhi.ofYear(config.currentYear()));
+        assertThat(all.year()).isEqualTo(2026);
+        assertThat(all.ganzhiYear()).isEqualTo("丙午");
         assertThat(all.prayerMonth()).isEqualTo(config.get(ConfigService.PRAYER_MONTH));
         assertThat(all.templeName()).isEqualTo(config.get(ConfigService.TEMPLE_NAME));
         assertThat(all.templeAddress()).isEqualTo(config.get(ConfigService.TEMPLE_ADDRESS));

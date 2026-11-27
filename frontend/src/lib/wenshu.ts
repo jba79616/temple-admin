@@ -1,5 +1,5 @@
 import type { WenshuPerson } from '../api/types'
-import { BRANCHES, ganzhiOfYear } from './roc'
+import { BRANCHES, ganzhiOfYear, isValidGanzhi } from './roc'
 
 const DIGITS = '〇一二三四五六七八九'
 const ZODIAC = '鼠牛虎兔龍蛇馬羊猴雞狗豬'
@@ -32,7 +32,7 @@ export interface BirthText {
 }
 
 export function birthTextOf(p: Pick<WenshuPerson, 'ganzhi' | 'leap' | 'month' | 'day' | 'hour'>): BirthText {
-  const branch = p.ganzhi ? BRANCHES.indexOf(p.ganzhi[1]) : -1
+  const branch = p.ganzhi && isValidGanzhi(p.ganzhi) ? BRANCHES.indexOf(p.ganzhi[1]) : -1
   return {
     year: p.ganzhi ?? UNKNOWN,
     month: p.month ? lunarMonthText(p.month, p.leap) : UNKNOWN,
