@@ -12,9 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 import tw.temple.admin.household.Household;
 import tw.temple.admin.household.HouseholdDtos.MemberView;
 import tw.temple.admin.household.HouseholdRepository;
-import tw.temple.admin.household.HouseholdService;
 import tw.temple.admin.household.Member;
 import tw.temple.admin.household.MemberRepository;
+import tw.temple.admin.household.MemberViews;
 import tw.temple.admin.order.AnnualLightRecord;
 import tw.temple.admin.order.AnnualLightRecordRepository;
 import tw.temple.admin.registry.RegistryDtos.HouseholdRow;
@@ -31,15 +31,15 @@ public class RegistryService {
     private final MemberRepository members;
     private final HouseholdRepository households;
     private final AnnualLightRecordRepository records;
-    private final HouseholdService householdService;
+    private final MemberViews memberViews;
     private final ConfigService config;
 
     public RegistryService(MemberRepository members, HouseholdRepository households, AnnualLightRecordRepository records,
-                           HouseholdService householdService, ConfigService config) {
+                           MemberViews memberViews, ConfigService config) {
         this.members = members;
         this.households = households;
         this.records = records;
-        this.householdService = householdService;
+        this.memberViews = memberViews;
         this.config = config;
     }
 
@@ -47,7 +47,7 @@ public class RegistryService {
         int year = yearOf(yearParam);
         Pageable pageable = pageable(page, size);
         Page<Member> found = litOnly ? records.pageLitMembers(year, pageable) : members.pageActive(pageable);
-        Map<Character, String> taisui = householdService.taisuiMap(year);
+        Map<Character, String> taisui = memberViews.taisuiMap(year);
         List<Long> ids = found.getContent().stream().map(Member::getId).toList();
         Map<Long, List<String>> lanterns = lanternNames(ids.isEmpty() ? List.of() : records.findByYearAndMemberIdInAndActiveTrue(year, ids));
         List<MemberRow> rows = found.getContent().stream()
@@ -67,7 +67,7 @@ public class RegistryService {
         List<AnnualLightRecord> lit = ids.isEmpty() ? List.of() : records.findByYearAndHouseholdIdInAndActiveTrueAndMemberDeletedAtIsNull(year, ids);
         Map<Long, Long> lanternCounts = lit.stream().collect(Collectors.groupingBy(r -> r.getHousehold().getId(), Collectors.counting()));
         Map<Long, List<String>> lanterns = lanternNames(lit);
-        Map<Character, String> taisui = householdService.taisuiMap(year);
+        Map<Character, String> taisui = memberViews.taisuiMap(year);
         List<HouseholdRow> rows = found.getContent().stream()
             .map(h -> toRow(h, membersByHousehold.getOrDefault(h.getId(), List.of()), lanternCounts.getOrDefault(h.getId(), 0L), taisui, lanterns))
             .toList();
@@ -90,7 +90,7 @@ public class RegistryService {
     }
 
     private MemberRow toRow(Member m, Map<Character, String> taisui, List<String> lanterns) {
-        MemberView view = householdService.toView(m, taisui);
+        MemberView view = memberViews.toView(m, taisui);
         Household h = m.getHousehold();
         String phone = m.getPhone() != null ? m.getPhone() : h.getPhone();
         return new MemberRow(m.getId(), h.getId(), h.getHouseholdNumber(), m.getName(), m.getGender(), m.isHead(),
@@ -100,7 +100,7 @@ public class RegistryService {
     private HouseholdRow toRow(Household h, List<Member> activeMembers, long lanternCount, Map<Character, String> taisui,
                                Map<Long, List<String>> lanterns) {
         Member head = activeMembers.stream().filter(Member::isHead).findFirst().orElse(null);
-        MemberView headView = head == null ? null : householdService.toView(head, taisui);
+        MemberView headView = head == null ? null : memberViews.toView(head, taisui);
         String phone = h.getPhone() != null ? h.getPhone() : head == null ? null : head.getPhone();
         List<MemberRow> memberRows = activeMembers.stream()
             .map(m -> toRow(m, taisui, lanterns.getOrDefault(m.getId(), List.of())))

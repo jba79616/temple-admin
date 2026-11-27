@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tw.temple.admin.audit.AuditService;
 import tw.temple.admin.calendar.Ganzhi;
-import tw.temple.admin.calendar.Taisui;
 import tw.temple.admin.common.ApiException;
 import tw.temple.admin.config.TempleClock;
 import tw.temple.admin.household.HouseholdDtos.DeletedMemberView;
@@ -32,15 +31,17 @@ public class HouseholdService {
     private final MemberRepository members;
     private final HouseholdLightRecords records;
     private final ConfigService config;
+    private final MemberViews memberViews;
     private final AuditService audit;
     private final TempleClock clock;
 
     public HouseholdService(HouseholdRepository households, MemberRepository members, HouseholdLightRecords records,
-                            ConfigService config, AuditService audit, TempleClock clock) {
+                            ConfigService config, MemberViews memberViews, AuditService audit, TempleClock clock) {
         this.households = households;
         this.members = members;
         this.records = records;
         this.config = config;
+        this.memberViews = memberViews;
         this.audit = audit;
         this.clock = clock;
     }
@@ -68,9 +69,9 @@ public class HouseholdService {
     public HouseholdDetail detail(Long id, Integer yearParam) {
         Household h = get(id);
         int year = yearParam == null ? config.currentYear() : yearParam;
-        Map<Character, String> taisui = taisuiMap(year);
+        Map<Character, String> taisui = memberViews.taisuiMap(year);
         List<MemberView> views = members.findByHouseholdIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(id).stream()
-            .map(m -> toView(m, taisui))
+            .map(m -> memberViews.toView(m, taisui))
             .toList();
         List<RecordView> recordViews = records.activeRecords(id, year);
         List<DeletedMemberView> deleted = members.findByHouseholdIdAndDeletedAtIsNotNullOrderByDeletedAtDescIdAsc(id).stream()
@@ -92,7 +93,7 @@ public class HouseholdService {
 
     @Transactional(readOnly = true)
     public MemberView memberView(Long id) {
-        return toView(getMember(id), taisuiMap(config.currentYear()));
+        return memberViews.toView(getMember(id), memberViews.taisuiMap(config.currentYear()));
     }
 
     public Household create(HouseholdInput input, User actor) {
@@ -225,25 +226,6 @@ public class HouseholdService {
         records.moveActiveRecordsOfMember(memberId, config.currentYear(), target);
         audit.record("members", saved.getId(), "UPDATE", before, saved.snapshot(), actor);
         return saved;
-    }
-
-    @Transactional(readOnly = true)
-    public Map<Character, String> taisuiMap(int year) {
-        return Taisui.relationsFor(Ganzhi.branchOfYear(year), config.taisuiRelations());
-    }
-
-    public MemberView toView(Member m, Map<Character, String> taisui) {
-        String branch = m.getBirthBranch();
-        if (branch == null && Ganzhi.isValid(m.getBirthGanzhi())) {
-            branch = String.valueOf(m.getBirthGanzhi().charAt(1));
-        }
-        String zodiac = branch == null ? null : Ganzhi.zodiac(branch.charAt(0));
-        String relation = branch == null ? null : taisui.get(branch.charAt(0));
-        return new MemberView(m.getId(), m.getHousehold().getId(), m.getName(), m.getGender(), m.isHead(), m.getSortOrder(),
-            m.getCity(), m.getDistrict(), m.getAddress(), m.getPhone(), m.getBirthGanzhi(), branch,
-            m.getBirthMonth() == null ? null : m.getBirthMonth().intValue(), m.isBirthMonthIsLeap(),
-            m.getBirthDay() == null ? null : m.getBirthDay().intValue(), m.getBirthHourBranch(), zodiac, relation,
-            m.birthText(), m.isDeleted());
     }
 
     private MemberFields validated(MemberFields f) {
