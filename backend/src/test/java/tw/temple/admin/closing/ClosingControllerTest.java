@@ -55,4 +55,32 @@ class ClosingControllerTest {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message", startsWith("countedCash ")));
     }
+
+    @Test
+    void countedCashAboveTheAmountLimitIsRejectedLikeOtherValidationErrors() throws Exception {
+        long before = closings.count();
+
+        mvc.perform(post("/api/closings").session(session).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"countedCash\":1000001}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message", startsWith("countedCash ")));
+
+        assertThat(closings.count()).isEqualTo(before);
+    }
+
+    @Test
+    void amendedCashAboveTheAmountLimitIsRejectedLikeOtherValidationErrors() throws Exception {
+        mvc.perform(put("/api/closings/2026-11-27").session(session).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"countedCash\":1000001,\"reason\":\"打錯\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message", startsWith("countedCash ")));
+    }
+
+    @Test
+    void amendedCashAtTheAmountLimitPassesValidation() throws Exception {
+        mvc.perform(put("/api/closings/1999-01-01").session(session).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"countedCash\":1000000,\"reason\":\"打錯\"}"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.message").value("找不到這一天的日結"));
+    }
 }

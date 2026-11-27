@@ -1,20 +1,24 @@
 package tw.temple.admin.order;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import tw.temple.admin.common.Amounts;
 
 public final class OrderDtos {
 
     private OrderDtos() {
     }
 
-    public record ItemInput(@NotNull Long memberId, @NotNull Long lightTypeId, @NotNull ItemAction action, Integer unitPrice,
+    public record ItemInput(@NotNull Long memberId, @NotNull Long lightTypeId, @NotNull ItemAction action,
+                            @PositiveOrZero @Max(Amounts.MAX) Integer unitPrice,
                             @Size(max = 100) String overrideReason) {
     }
 

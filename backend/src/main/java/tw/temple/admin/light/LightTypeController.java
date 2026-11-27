@@ -1,9 +1,10 @@
 package tw.temple.admin.light;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import tw.temple.admin.common.Amounts;
 import tw.temple.admin.user.CurrentUser;
 
 @RestController
@@ -30,7 +32,7 @@ public class LightTypeController {
     }
 
     public record LightTypeInput(@NotNull LightCategory category, @NotBlank @Size(max = 50) String name,
-                                 @NotBlank @Size(max = 20) String shortName, @NotNull @Min(0) Integer price,
+                                 @NotBlank @Size(max = 20) String shortName, @NotNull @PositiveOrZero @Max(Amounts.MAX) Integer price,
                                  boolean taisui, int sortOrder, Boolean active, @Size(max = 20) String legacyCode) {
         LightTypeFields toFields() {
             return new LightTypeFields(category, name.trim(), shortName.trim(), price, taisui, sortOrder,
