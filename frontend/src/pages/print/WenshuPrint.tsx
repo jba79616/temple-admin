@@ -64,24 +64,24 @@ function Sheet({ person, ritual, petition }: { person: WenshuPerson; ritual: Dat
   return (
     <div className="ws-body" data-name={person.name}>
       <Flow indent={7.5} className="ws-title">制星補運文疏</Flow>
-      <Col><At depth={0}>聖德巍峨峩　轉運禳星凶即散　神恩浩蕩　廷生整斗福長臻</At></Col>
+      <Col><At depth={0}>聖德巍峨　轉運禳星凶即散　神恩浩蕩　延生整斗福長臻</At></Col>
       <Col><At depth={1}>大教遠流示一乘歸元之路</At><At depth={19.4}>今據</At></Col>
       <Col><At depth={1}>神功巨測開眾生方便之門</At></Col>
       <Flow indent={1}>
-        竭蟻悃以皈依冀鴻庥之加被 道制凶轉運植福廷生{believer}<b>{inlineName(person.name)}</b>流庚<b>{birth.year}</b>年<b>{birth.month}</b>月<b>{birth.day}</b>日<b>{birth.hour}</b>時生暨閤家人等謹露丹誠跪叩
+        竭蟻悃以皈依冀鴻庥之加被 道制凶轉運植福延生{believer}<b>{inlineName(person.name)}</b>流庚<b>{birth.year}</b>年<b>{birth.month}</b>月<b>{birth.day}</b>日<b>{birth.hour}</b>時生暨閤家人等謹露丹誠跪叩
       </Flow>
-      <Col><At depth={1.85}>一泗天下</At><At depth={6.35}>南贍部洲</At></Col>
+      <Col><At depth={1.85}>一四天下</At><At depth={6.35}>南贍部洲</At></Col>
       <Flow>中華民國臺灣省<b>{person.cityDistrict}{verticalAddress(person.address)}</b></Flow>
       <BirthCells birth={birth} />
-      <Col><At depth={0}>地方人民奉佛植福廷禧誦經消災厄</At></Col>
+      <Col><At depth={0}>地方人民奉佛植福延禧誦經消災厄</At></Col>
       <Col><At depth={18.9}>虔誠焚香禮拜</At><EndAt depth={33}>{birth.year}</EndAt><At depth={33}>年</At></Col>
       <Col><At depth={0}>南無本師釋迦牟尼文佛</At><At depth={17.7}><b>{believer}</b>八卦制星移運轉運行</At></Col>
-      <Col><At depth={0}>南無消災廷壽藥師如來</At><EndAt depth={33}>{birth.month}</EndAt><At depth={33}>月</At></Col>
+      <Col><At depth={0}>南無消災延壽藥師如來</At><EndAt depth={33}>{birth.month}</EndAt><At depth={33}>月</At></Col>
       <Col><At depth={0}>南無極樂世界無量壽佛</At></Col>
       <Col><At depth={0}>南無無極老祖　祖太　南北斗星君</At><EndAt depth={33}>{birth.day}</EndAt><At depth={33}>日</At></Col>
       <Col><At depth={0}>玄穹高上帝玉皇大天尊</At></Col>
       <Col><At depth={0}>玄天上帝真武大天尊</At><EndAt depth={33}>{birth.hour}</EndAt><At depth={33}>時</At></Col>
-      <Col><At depth={0}>南無經筳會上諸佛菩薩列位尊神</At><At depth={16.5}>各寶金蓮座下</At></Col>
+      <Col><At depth={0}>南無經筵會上諸佛菩薩列位尊神</At><At depth={16.5}>各寶金蓮座下</At></Col>
       <Col><At depth={26}>制運</At><At depth={29.2}>全消</At></Col>
       <Col>
         <At depth={9.4} className="bold">{believer === '信女' ? '信女' : '信士'}</At>
@@ -92,13 +92,13 @@ function Sheet({ person, ritual, petition }: { person: WenshuPerson; ritual: Dat
       <Col><At depth={0}>上蒼之蔭護叨感</At></Col>
       <Col><At depth={0}>聖真之提拔日在</At></Col>
       <Col><At depth={0}>三光之下難免褻瀆於聖賢身五濁之中不無招障之過咎以致命運乖蹇恐曜強侵連年</At></Col>
-      <Col><At depth={1.9}>坎柯累歲迍遭獨犯</At></Col>
+      <Col><At depth={1.9}>坎坷累歲迍遭獨犯</At></Col>
       <Flow>
-        諸凶星及斗部一切凶神惡煞神君今涓 <b className="ws-ritual">{orBlank(ritual.year)} 年 {orBlank(ritual.month)} 月 {orBlank(ritual.day)} 日</b>虔備香花果品供恭備真經 伏懇聖心保赤慧眼重青恩準驅凶降吉散禍臻祥元辰振作運限開通民康物阜國泰家寧男添百福女納千祥閤家感德百叩
+        諸凶星及斗部一切凶神惡煞神君今涓 <b className="ws-ritual">{orBlank(ritual.year)} 年 {orBlank(ritual.month)} 月 {orBlank(ritual.day)} 日</b>虔備香花果品供恭備真經 伏懇聖心保赤慧眼垂青恩准驅凶降吉散禍臻祥元辰振作運限開通民康物阜國泰家寧男添百福女納千祥閤家感德百叩
       </Flow>
       <Col><At depth={3.8}>伏</At><At depth={7.3}>願</At><At depth={8.9}>八卦制星移運轉運行</At></Col>
       <Flow hanging={2}>
-        佛光普照、法力宏施　　　皆願以後、惟願身家康泰、命運亨通吉星高照於命宮、凶曜遠離於運內、元辰光彩、壽命廷長、災害不侵、禍患全消、行皆逢吉事盡遂心、天官賜福、地官赦罪、水官　　解厄、南斗火官除毒、比斗水神滅凶災
+        佛光普照、法力宏施　　　皆願以後、惟願身家康泰、命運亨通吉星高照於命宮、凶曜遠離於運內、元辰光彩、壽命延長、災害不侵、禍患全消、行皆逢吉事盡遂心、天官賜福、地官赦罪、水官　　解厄、南斗火官除毒、北斗水神滅凶災
       </Flow>
       <Col><At depth={2.9}>更</At><At depth={5.2}>祈</At></Col>
       <Col><At depth={1.85}>家門迪吉</At><At depth={6.35}>人口平安</At><At depth={10.85}>男添百福</At><At depth={15.35}>女納千祥</At></Col>
@@ -109,7 +109,7 @@ function Sheet({ person, ritual, petition }: { person: WenshuPerson; ritual: Dat
         <At depth={5.5} className="ws-petition-year">{orBlank(petition.year)}</At><At depth={9}>年</At>
         <At depth={11} className="ws-petition-month">{orBlank(petition.month)}</At><At depth={14.5}>月</At>
         <At depth={17}>{orBlank(petition.day)}</At><At depth={21}>日</At>
-        <At depth={23}>暨合家人等稽首頓首叩</At>
+        <At depth={23}>暨閤家人等稽首頓首叩</At>
       </Col>
       <Col><At depth={0} className="bold">無極聖殿</At><At depth={5}>雲林縣元長鄉內寮村好收路五之六號</At><At depth={34}>全體主任委員敬上</At></Col>
     </div>
