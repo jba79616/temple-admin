@@ -64,8 +64,15 @@ export function withoutOverride(overrides: Overrides, key: string): Overrides {
   return Object.fromEntries(Object.entries(overrides).filter(([k]) => k !== key))
 }
 
+/** 對應 light_order_items.override_reason VARCHAR(100) 與 ItemInput 的 @Size(max = 100)。 */
+export const OVERRIDE_REASON_MAX = 100
+
+export function overrideReasonError(reason: string): string | null {
+  return reason.trim().length > OVERRIDE_REASON_MAX ? `改價原因不能超過 ${OVERRIDE_REASON_MAX} 字` : null
+}
+
 export function parseOverride(reason: string | null, price: string | null): PriceOverride | null {
-  if (!reason || !reason.trim()) return null
+  if (!reason || !reason.trim() || overrideReasonError(reason)) return null
   const value = parseWholeNumber(price)
   return value === null ? null : { price: value, reason: reason.trim() }
 }

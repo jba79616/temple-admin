@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ItemView, LightType, MemberView, PaymentView } from '../api/types'
 import { money } from './roc'
-import { orderContentText, overridePriceError, parseOverride, paymentsText, registrationChanges, registrationItems, withoutOverride } from './registration'
+import { orderContentText, overridePriceError, overrideReasonError, parseOverride, paymentsText, registrationChanges, registrationItems, withoutOverride } from './registration'
 
 const alice = { id: 10, name: '甲' } as MemberView
 const bob = { id: 11, name: '乙' } as MemberView
@@ -67,6 +67,15 @@ describe('price overrides', () => {
     expect(parseOverride('補', '１５０')).toEqual({ price: 150, reason: '補' })
     expect(parseOverride('補', '2147483647')).toEqual({ price: 2147483647, reason: '補' })
     expect(parseOverride('補', '2147483648')).toBeNull()
+  })
+
+  it('limits the reason to the 100 characters the column holds, after trimming', () => {
+    const longest = '補'.repeat(100)
+    expect(overrideReasonError(longest)).toBeNull()
+    expect(overrideReasonError(` ${longest} `)).toBeNull()
+    expect(overrideReasonError(`${longest}補`)).toBe('改價原因不能超過 100 字')
+    expect(parseOverride(longest, '150')).toEqual({ price: 150, reason: longest })
+    expect(parseOverride(`${longest}補`, '150')).toBeNull()
   })
 
   it('explains a malformed or out-of-range price but not a cancelled or blank one', () => {

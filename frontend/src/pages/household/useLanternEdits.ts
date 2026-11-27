@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import type { HouseholdDetail, LightType, RecordView } from '../../api/types'
 import { cellsFromRecords, markNewRecordsExisting, paidPrices, toggleCell, visibleLightTypes, type Cells } from '../../lib/cells'
-import { overridePriceError, parseOverride, registrationChanges, withoutOverride, type Overrides } from '../../lib/registration'
+import { overridePriceError, overrideReasonError, parseOverride, registrationChanges, withoutOverride, type Overrides } from '../../lib/registration'
 
 export function useLanternEdits(detail: HouseholdDetail | null, types: LightType[]) {
   const [cells, setCells] = useState<Cells>({})
@@ -34,6 +34,11 @@ export function useLanternEdits(detail: HouseholdDetail | null, types: LightType
     }
     const reason = window.prompt('改價原因（必填）', '同年取消後再加回')
     if (!reason || !reason.trim()) return
+    const reasonError = overrideReasonError(reason)
+    if (reasonError) {
+      window.alert(reasonError)
+      return
+    }
     const price = window.prompt('改後單價', '0')
     const priceError = overridePriceError(price)
     if (priceError) {
