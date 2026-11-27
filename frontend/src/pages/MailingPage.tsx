@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { mailing as api } from '../api'
 import type { MailingView } from '../api/types'
 import { useAuth } from '../lib/auth'
-import { compareForMail, EMPTY_MAILING_FORM, filterMailing, mailingStats, mailingStatsText, pageOf, toMailingForm, toMailingInput, type MailingFilter, type MailingForm } from '../lib/mailing'
+import { compareForMail, EMPTY_MAILING_FORM, filterMailing, mailingStats, mailingStatsText, pageOf, recipientFormState, toMailingForm, toMailingInput, type MailingFilter, type MailingForm } from '../lib/mailing'
 import { usePdfDownload } from '../lib/pdf'
 import MailingRow from './mailing/MailingRow'
 import Pager from './mailing/Pager'
@@ -45,7 +45,7 @@ export default function MailingPage() {
   const set = (patch: Partial<MailingForm>) => setForm((f) => ({ ...f, ...patch }))
 
   async function save() {
-    if (saving) return
+    if (saving || !recipientFormState(form).canSave) return
     setSaving(true)
     setError('')
     try {
