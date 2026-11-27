@@ -40,17 +40,26 @@ describe('registrationChanges', () => {
 })
 
 describe('price overrides', () => {
-  it('still reads a cancelled price prompt as 0, as before the refactor', () => {
-    expect(parseOverride('補', null)).toEqual({ price: 0, reason: '補' })
+  it('gives up the override when the price prompt is cancelled or left blank', () => {
+    expect(parseOverride('補', null)).toBeNull()
+    expect(parseOverride('補', '')).toBeNull()
+    expect(parseOverride('補', '   ')).toBeNull()
+  })
+
+  it('keeps an explicit 0 as a free override', () => {
+    expect(parseOverride('補', '0')).toEqual({ price: 0, reason: '補' })
   })
 
   it('needs a reason and a whole non-negative price', () => {
     expect(parseOverride(' 補 ', '150')).toEqual({ price: 150, reason: '補' })
+    expect(parseOverride('補', ' 150 ')).toEqual({ price: 150, reason: '補' })
     expect(parseOverride(null, '150')).toBeNull()
     expect(parseOverride('  ', '150')).toBeNull()
     expect(parseOverride('補', '-1')).toBeNull()
     expect(parseOverride('補', '1.5')).toBeNull()
     expect(parseOverride('補', 'abc')).toBeNull()
+    expect(parseOverride('補', '1e2')).toBeNull()
+    expect(parseOverride('補', '0x10')).toBeNull()
   })
 
   it('removes one override and keeps the rest', () => {

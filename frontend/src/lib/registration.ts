@@ -64,10 +64,8 @@ export function withoutOverride(overrides: Overrides, key: string): Overrides {
 }
 
 export function parseOverride(reason: string | null, price: string | null): PriceOverride | null {
-  if (!reason || !reason.trim()) return null
-  const value = Number(price)
-  if (!Number.isInteger(value) || value < 0) return null
-  return { price: value, reason: reason.trim() }
+  if (!reason || !reason.trim() || !price || !/^\d+$/.test(price.trim())) return null
+  return { price: Number(price.trim()), reason: reason.trim() }
 }
 
 export function orderContentText(order: Pick<OrderView, 'items'>): string {
