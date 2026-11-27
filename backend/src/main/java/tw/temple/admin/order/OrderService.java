@@ -226,9 +226,12 @@ public class OrderService {
         return toIntDue(due);
     }
 
-    /** 品項數沒有上限，退費又沿用狀態表裡的舊單價，單價上限擋不住合計超出 INT 欄位。 */
-    private int toIntDue(long due) {
-        if (due < Integer.MIN_VALUE || due > Integer.MAX_VALUE) {
+    /**
+     * 品項數沒有上限，退費又沿用狀態表裡的舊單價，單價上限擋不住合計超出 INT 欄位。
+     * 下界也排除 Integer.MIN_VALUE，作廢時對收款取負號才不會再溢位。
+     */
+    static int toIntDue(long due) {
+        if (due < -Integer.MAX_VALUE || due > Integer.MAX_VALUE) {
             throw ApiException.badRequest("整張單的應收合計超出可記錄的範圍，請拆成多張單");
         }
         return (int) due;
