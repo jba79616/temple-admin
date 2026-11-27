@@ -64,4 +64,12 @@ class LightTypeControllerTest {
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.message").value("找不到燈種"));
     }
+
+    @Test
+    void sortOrderBeyondIntegerIsAValidationStyleBadRequest() throws Exception {
+        mvc.perform(post("/api/light-types").session(session).contentType(MediaType.APPLICATION_JSON)
+                .content(lightTypeWithPrice(300).replace("2147483647", "2147483648")))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("sortOrder 格式錯誤或超出範圍"));
+    }
 }

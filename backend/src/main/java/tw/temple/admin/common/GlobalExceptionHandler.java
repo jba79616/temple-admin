@@ -2,6 +2,7 @@ package tw.temple.admin.common;
 
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -9,12 +10,14 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.dao.UncategorizedDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.TransactionSystemException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import tools.jackson.core.JacksonException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -26,6 +29,7 @@ public class GlobalExceptionHandler {
     private static final String CHECK_VIOLATION = "23514";
     /** forbid_change() trigger 的 RAISE EXCEPTION；Hibernate 不把它當 constraint violation，所以走 uncategorized 那條。 */
     private static final String RAISED_BY_TRIGGER = "P0001";
+    private static final String MALFORMED = "資料格式錯誤";
 
     @ExceptionHandler(ApiException.class)
     ResponseEntity<Map<String, String>> apiException(ApiException ex) {
@@ -35,7 +39,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<Map<String, String>> invalid(MethodArgumentNotValidException ex) {
         FieldError error = ex.getBindingResult().getFieldError();
-        String message = error == null ? "資料格式錯誤" : error.getField() + " " + error.getDefaultMessage();
+        String message = error == null ? MALFORMED : error.getField() + " " + error.getDefaultMessage();
+        return ResponseEntity.badRequest().body(Map.of("message", message));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ResponseEntity<Map<String, String>> unreadable(HttpMessageNotReadableException ex) {
+        String field = fieldPath(ex);
+        String message = field.isEmpty() ? MALFORMED : field + " 格式錯誤或超出範圍";
         return ResponseEntity.badRequest().body(Map.of("message", message));
     }
 
@@ -77,6 +88,19 @@ public class GlobalExceptionHandler {
             case CHECK_VIOLATION -> "資料不符合欄位限制，沒有寫入";
             default -> "資料違反限制，沒有寫入";
         };
+    }
+
+    /** 組成跟 Bean Validation 一樣的欄位路徑（items[0].unitPrice），讓前端看到的訊息格式一致。 */
+    private String fieldPath(Throwable ex) {
+        for (Throwable t = ex; t != null; t = t.getCause()) {
+            if (t instanceof JacksonException jackson && !jackson.getPath().isEmpty()) {
+                return jackson.getPath().stream()
+                    .map(ref -> ref.getPropertyName() != null ? "." + ref.getPropertyName() : "[" + ref.getIndex() + "]")
+                    .collect(Collectors.joining())
+                    .replaceFirst("^\\.", "");
+            }
+        }
+        return "";
     }
 
     private String sqlState(Throwable ex) {

@@ -63,4 +63,12 @@ class OrderControllerTest {
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.message").value("找不到戶"));
     }
+
+    @Test
+    void unitPriceBeyondIntegerNamesTheItemField() throws Exception {
+        mvc.perform(post("/api/orders").session(session).contentType(MediaType.APPLICATION_JSON)
+                .content(orderWithUnitPrice(2_147_483_648L)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("items[0].unitPrice 格式錯誤或超出範圍"));
+    }
 }

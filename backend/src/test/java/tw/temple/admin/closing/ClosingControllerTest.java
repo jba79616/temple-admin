@@ -83,4 +83,23 @@ class ClosingControllerTest {
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.message").value("找不到這一天的日結"));
     }
+
+    @Test
+    void countedCashBeyondIntegerIsAValidationStyleBadRequest() throws Exception {
+        mvc.perform(post("/api/closings").session(session).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"countedCash\":2147483648}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("countedCash 格式錯誤或超出範圍"));
+    }
+
+    @Test
+    void malformedJsonIsAValidationStyleBadRequest() throws Exception {
+        mvc.perform(put("/api/closings/2026-11-27").session(session).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"countedCash\":"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("資料格式錯誤"));
+        mvc.perform(post("/api/closings").session(session).contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("資料格式錯誤"));
+    }
 }
