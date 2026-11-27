@@ -54,7 +54,7 @@ function BirthCells({ birth }: { birth: BirthText }) {
   )
 }
 
-function Sheet({ person, ritual, petition }: { person: WenshuPerson; ritual: DateParts; petition: DateParts }) {
+export function Sheet({ person, ritual, petition }: { person: WenshuPerson; ritual: DateParts; petition: DateParts }) {
   const believer = believerOf(person.gender)
   const birth = birthTextOf(person)
   const name = printName(person.name)
@@ -71,7 +71,7 @@ function Sheet({ person, ritual, petition }: { person: WenshuPerson; ritual: Dat
         竭蟻悃以皈依冀鴻庥之加被 道制凶轉運植福延生{believer}<b>{inlineName(person.name)}</b>流庚<b>{birth.year}</b>年<b>{birth.month}</b>月<b>{birth.day}</b>日<b>{birth.hour}</b>時生暨閤家人等謹露丹誠跪叩
       </Flow>
       <Col><At depth={1.85}>一四天下</At><At depth={6.35}>南贍部洲</At></Col>
-      <Flow>中華民國臺灣省<b>{person.cityDistrict}{verticalAddress(person.address)}</b></Flow>
+      <Flow>中華民國<b>{person.cityDistrict}{verticalAddress(person.address)}</b></Flow>
       <BirthCells birth={birth} />
       <Col><At depth={0}>地方人民奉佛植福延禧誦經消災厄</At></Col>
       <Col><At depth={18.9}>虔誠焚香禮拜</At><EndAt depth={33}>{birth.year}</EndAt><At depth={33}>年</At></Col>
