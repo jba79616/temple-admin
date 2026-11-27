@@ -76,6 +76,14 @@ public class PrintService {
                                   List<BaguaType> baguaTypes, List<FormHousehold> households) {
     }
 
+    public record WenshuPerson(Long memberId, String name, String gender, String ganzhi, boolean leap, Short month, Short day,
+                               String hour, String cityDistrict, String address) {
+    }
+
+    /** 制星補運文疏一人一張；天運預設用安燈年度干支與祈福文月份。 */
+    public record Wenshu(Integer householdNumber, int year, String ganzhiYear, String prayerMonth, List<WenshuPerson> people) {
+    }
+
     private static final String BAGUA_LABEL = "八卦轉運斗";
     private static final Comparator<AnnualLightRecord> BY_HOUSEHOLD_MEMBER_LIGHT =
         Comparator.comparing((AnnualLightRecord r) -> r.getHousehold().getHouseholdNumber())
@@ -202,6 +210,35 @@ public class PrintService {
             : List.of();
         String title = scope == FormScope.BAGUA ? "八卦轉運斗" : "參加安斗申報單";
         return new ApplicationForm(config.get(ConfigService.TEMPLE_NAME), year, Ganzhi.roc(year), scope, title, baguaTypes, households);
+    }
+
+    /** 給 memberId 只印那一人；只給 householdId 印這戶所有在籍成員，戶長排第一張。 */
+    public Wenshu wenshu(Long householdId, Long memberId) {
+        List<Member> people;
+        Household household;
+        if (memberId != null) {
+            Member member = members.findById(memberId).orElseThrow(() -> ApiException.notFound("找不到成員"));
+            if (member.isDeleted()) {
+                throw ApiException.badRequest("成員已刪除，不能印文疏");
+            }
+            household = member.getHousehold();
+            people = List.of(member);
+        } else if (householdId != null) {
+            household = households.findById(householdId).orElseThrow(() -> ApiException.notFound("找不到戶"));
+            people = members.findByHouseholdIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(householdId).stream()
+                .sorted(Comparator.comparing((Member m) -> !m.isHead()))
+                .toList();
+        } else {
+            throw ApiException.badRequest("請指定戶或成員");
+        }
+        int year = config.currentYear();
+        return new Wenshu(household.getHouseholdNumber(), year, Ganzhi.ofYear(year), config.get(ConfigService.PRAYER_MONTH),
+            people.stream().map(PrintService::toWenshuPerson).toList());
+    }
+
+    private static WenshuPerson toWenshuPerson(Member m) {
+        return new WenshuPerson(m.getId(), m.getName(), m.getGender(), m.getBirthGanzhi(), m.isBirthMonthIsLeap(), m.getBirthMonth(),
+            m.getBirthDay(), m.getBirthHourBranch(), m.printCityDistrict(), m.printAddress());
     }
 
     private PersonRow toRow(Member m) {

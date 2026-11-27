@@ -22,6 +22,7 @@ import tw.temple.admin.print.PrintService.Cards;
 import tw.temple.admin.print.PrintService.FormScope;
 import tw.temple.admin.print.PrintService.NameList;
 import tw.temple.admin.print.PrintService.PrintedCard;
+import tw.temple.admin.print.PrintService.Wenshu;
 
 @RestController
 @RequestMapping("/api/print")
@@ -66,6 +67,11 @@ public class PrintController {
     public ApplicationForm applicationForm(@RequestParam(defaultValue = "LIT") FormScope scope,
                                            @RequestParam(required = false) Integer year) {
         return service.applicationForm(scope, year);
+    }
+
+    @GetMapping("/wenshu")
+    public Wenshu wenshu(@RequestParam(required = false) Long householdId, @RequestParam(required = false) Long memberId) {
+        return service.wenshu(householdId, memberId);
     }
 
     /** 把前端的列印頁（/print/...）在伺服器上轉成 PDF；帶著呼叫者的 session cookie 去開，所以同樣要登入。 */

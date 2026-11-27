@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import tw.temple.admin.TestcontainersConfiguration;
+import tw.temple.admin.calendar.Ganzhi;
+import tw.temple.admin.common.ApiException;
 import tw.temple.admin.household.Household;
 import tw.temple.admin.household.HouseholdDtos.HouseholdInput;
 import tw.temple.admin.household.HouseholdDtos.MemberInput;
@@ -30,6 +32,8 @@ import tw.temple.admin.print.PrintService.FormPerson;
 import tw.temple.admin.print.PrintService.FormScope;
 import tw.temple.admin.print.PrintService.NameList;
 import tw.temple.admin.print.PrintService.PrintedCard;
+import tw.temple.admin.print.PrintService.Wenshu;
+import tw.temple.admin.print.PrintService.WenshuPerson;
 import tw.temple.admin.systemconfig.ConfigService;
 import tw.temple.admin.user.User;
 import tw.temple.admin.user.UserRepository;
@@ -315,5 +319,45 @@ class PrintServiceTest {
 
     private List<String> unprintedNames(int year, Long lightTypeId) {
         return print.cardsByYear(year, lightTypeId, null, true).cards().stream().map(Card::name).toList();
+    }
+
+    @Test
+    void wenshuPrintsEveryActiveMemberOfAHouseholdWithTheHeadFirst() {
+        User admin = users.findByUsername("admin").orElseThrow();
+        Household h = households.create(new HouseholdInput("雲林縣", "元長鄉", "內寮村好收路5-6號", null, null, null,
+            member("林戶長", "壬辰", 12, false, 9, "子")), admin);
+        households.addMember(h.getId(), new MemberInput("林女兒", "F", "臺北市", "大安區", "復興南路一段1號", null, "乙亥", 6, true, 30,
+            null, null), admin);
+        households.addMember(h.getId(), member("林已刪", null, null, false, null, null), admin);
+        var views = households.detail(h.getId(), null).members();
+        Long daughterId = views.stream().filter(m -> m.name().equals("林女兒")).findFirst().orElseThrow().id();
+        Long goneId = views.stream().filter(m -> m.name().equals("林已刪")).findFirst().orElseThrow().id();
+        households.deleteMember(goneId, "重複建檔", null, admin);
+        households.updateMember(daughterId, new MemberInput("林女兒", "F", "臺北市", "大安區", "復興南路一段1號", null, "乙亥", 6, true, 30,
+            null, 0), admin);
+
+        Wenshu all = print.wenshu(h.getId(), null);
+        assertThat(all.householdNumber()).isEqualTo(h.getHouseholdNumber());
+        assertThat(all.ganzhiYear()).isEqualTo(Ganzhi.ofYear(config.currentYear()));
+        assertThat(all.prayerMonth()).isEqualTo(config.get(ConfigService.PRAYER_MONTH));
+        assertThat(all.people()).extracting(WenshuPerson::name).containsExactly("林戶長", "林女兒");
+        WenshuPerson head = all.people().get(0);
+        assertThat(head.cityDistrict()).isEqualTo("雲林縣元長鄉");
+        assertThat(head.address()).isEqualTo("內寮村好收路5-6號");
+        assertThat(head.ganzhi()).isEqualTo("壬辰");
+        assertThat(head.month()).isEqualTo((short) 12);
+        assertThat(head.day()).isEqualTo((short) 9);
+        assertThat(head.hour()).isEqualTo("子");
+
+        Wenshu one = print.wenshu(null, daughterId);
+        assertThat(one.people()).singleElement().satisfies(p -> {
+            assertThat(p.memberId()).isEqualTo(daughterId);
+            assertThat(p.gender()).isEqualTo("F");
+            assertThat(p.cityDistrict()).isEqualTo("臺北市大安區");
+            assertThat(p.leap()).isTrue();
+            assertThat(p.hour()).isNull();
+        });
+        assertThatThrownBy(() -> print.wenshu(null, goneId)).isInstanceOf(ApiException.class).hasMessageContaining("已刪除");
+        assertThatThrownBy(() -> print.wenshu(null, null)).isInstanceOf(ApiException.class);
     }
 }

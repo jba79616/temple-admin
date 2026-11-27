@@ -31,7 +31,8 @@ public class PdfService implements DisposableBean {
 
     private static final Logger log = LoggerFactory.getLogger(PdfService.class);
     private static final double PAGE_TIMEOUT_MS = 30_000;
-    private static final Set<String> PRINT_ROUTES = Set.of("/print/cards", "/print/name-list", "/print/application-form", "/print/labels");
+    private static final Set<String> PRINT_ROUTES = Set.of("/print/cards", "/print/name-list", "/print/application-form", "/print/labels",
+        "/print/wenshu");
     private static final Pattern QUERY = Pattern.compile("[\\w&=%.-]*");
 
     public record Pdf(byte[] bytes, String title) {
