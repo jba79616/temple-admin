@@ -1,9 +1,24 @@
 import { useState } from 'react'
 import { closings as closingsApi } from '../../api'
 import type { ClosingView } from '../../api/types'
-import { cashError, parseCash } from '../../lib/closing'
+import { cashError, confirmLargeDifference, parseCash } from '../../lib/closing'
 
 export type ClosingAmend = ReturnType<typeof useClosingAmend>
+
+export interface AmendChange {
+  date: string
+  countedCash: number
+  systemCash: number
+  reason: string
+}
+
+type AmendRequest = (date: string, countedCash: number, reason: string) => Promise<unknown>
+
+export async function amendIfConfirmed(change: AmendChange, ask: (message: string) => boolean, amend: AmendRequest): Promise<boolean> {
+  if (!confirmLargeDifference(change.countedCash, change.systemCash, ask)) return false
+  await amend(change.date, change.countedCash, change.reason)
+  return true
+}
 
 export function useClosingAmend(onDone: () => Promise<void>, onError: (message: string) => void) {
   const [date, setDate] = useState<string | null>(null)
@@ -28,7 +43,8 @@ export function useClosingAmend(onDone: () => Promise<void>, onError: (message: 
     setBusy(true)
     onError('')
     try {
-      await closingsApi.amend(date, cashValue, reason.trim())
+      const change = { date, countedCash: cashValue, systemCash, reason: reason.trim() }
+      if (!(await amendIfConfirmed(change, (message) => window.confirm(message), closingsApi.amend))) return
       setDate(null)
       await onDone()
     } catch (e) {

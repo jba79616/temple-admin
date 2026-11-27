@@ -61,7 +61,7 @@ export function largeDifferenceConfirmText(counted: number, systemCash: number):
     `實點現金：${money(counted)}`,
     `差額：${differenceText(counted - systemCash)}`,
     '',
-    '是否多打或少打了位數？確認金額無誤再按「確定」送出日結；按「取消」回到輸入。',
+    '是否多打或少打了位數？確認金額無誤再按「確定」送出；按「取消」回到輸入。',
   ].join('\n')
 }
 
