@@ -1,7 +1,7 @@
-/** 排序、戶號在資料表是 INT，超過就會被後端拒絕。 */
+/** 排序、戶號、日結實點現金在資料表是 INT，超過就會被後端拒絕。 */
 export const MAX_INT = 2_147_483_647
 
-/** 單筆金額（實點現金、單價、燈種價格）的業務上限，後端 DTO 用同一個數字擋。 */
+/** 單筆金額（單價、燈種價格）的業務上限，後端 DTO 用同一個數字擋。 */
 export const MAX_AMOUNT = 1_000_000
 
 export const AMOUNT_TOO_LARGE = `金額不能超過 ${MAX_AMOUNT.toLocaleString('en-US')}`

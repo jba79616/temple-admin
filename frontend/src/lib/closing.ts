@@ -1,5 +1,5 @@
 import type { DaySummary } from '../api/types'
-import { amountError, parseAmount } from './numbers'
+import { parseWholeNumber, wholeNumberError } from './numbers'
 import { money, rocDate } from './roc'
 
 export interface ClosingPeriod {
@@ -21,12 +21,13 @@ export function closingPeriod(summary: Pick<DaySummary, 'from' | 'date'>): Closi
   return { title: `今日收款（入帳日 ${rocDate(summary.date)}）`, confirmNote: '' }
 }
 
+/** 實點現金是上次日結以來的累計，不是單筆金額，所以不套單筆上限，只擋到 INT。 */
 export function parseCash(input: string): number | null {
-  return parseAmount(input)
+  return parseWholeNumber(input)
 }
 
 export function cashError(input: string): string | null {
-  return amountError(input, '金額')
+  return wholeNumberError(input, '金額')
 }
 
 export function cashDifference(counted: number | null, systemCash: number): number | null {
