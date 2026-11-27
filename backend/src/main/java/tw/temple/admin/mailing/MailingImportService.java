@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import tw.temple.admin.audit.AuditService;
 import tw.temple.admin.common.ApiException;
+import tw.temple.admin.common.WholeNumbers;
 import tw.temple.admin.household.Household;
 import tw.temple.admin.household.HouseholdRepository;
 import tw.temple.admin.household.TaiwanAddress;
@@ -213,13 +215,12 @@ public class MailingImportService {
 
     private Household household(Row row, Batch batch) {
         String householdNumber = row.householdNumber();
-        int number;
-        try {
-            number = parseHouseholdNumber(householdNumber);
-        } catch (NumberFormatException e) {
+        OptionalInt parsed = parseHouseholdNumber(householdNumber);
+        if (parsed.isEmpty()) {
             batch.skip(row.issue(IssueKind.HOUSEHOLD, "戶號「" + householdNumber + "」不是數字"));
             return null;
         }
+        int number = parsed.getAsInt();
         return households.findByHouseholdNumber(number).orElseGet(() -> {
             batch.skip(row.issue(IssueKind.HOUSEHOLD, "找不到戶 " + number));
             return null;
@@ -227,8 +228,9 @@ public class MailingImportService {
     }
 
     /** Excel 把戶號欄當數值存檔時會寫成「12.0」，小數部分全是 0 才當整數接受。 */
-    private int parseHouseholdNumber(String householdNumber) {
-        Matcher zeroFraction = ZERO_FRACTION.matcher(householdNumber.trim());
-        return Integer.parseInt(zeroFraction.matches() ? zeroFraction.group(1) : householdNumber.trim());
+    private OptionalInt parseHouseholdNumber(String householdNumber) {
+        String halfWidth = WholeNumbers.toHalfWidthDigits(householdNumber).strip();
+        Matcher zeroFraction = ZERO_FRACTION.matcher(halfWidth);
+        return WholeNumbers.parse(zeroFraction.matches() ? zeroFraction.group(1) : halfWidth);
     }
 }

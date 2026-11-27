@@ -109,6 +109,32 @@ class MailingImportServiceTest {
     }
 
     @Test
+    void householdNumberFollowsTheSharedRuleForFullWidthDigitsAndSigns() {
+        Household one = household("吳全形一");
+        Household two = household("吳全形二");
+        int n1 = one.getHouseholdNumber();
+        int n2 = two.getHouseholdNumber();
+        String csv = "戶號,姓名\n"
+            + "+" + n1 + ",吳一\n"
+            + "-" + n1 + ",吳二\n"
+            + fullWidth(n1) + ".0,吳三\n"
+            + "\u3000" + fullWidth(n2) + "\u3000,吳四\n"
+            + "2147483648,吳五\n";
+
+        Report report = importer.run(csv, admin(), false);
+
+        assertThat(report.linked()).isEqualTo(2);
+        assertThat(report.issues()).containsExactly(
+            new Issue(2, IssueKind.HOUSEHOLD, "吳一", "戶號「+" + n1 + "」不是數字"),
+            new Issue(3, IssueKind.HOUSEHOLD, "吳二", "戶號「-" + n1 + "」不是數字"),
+            new Issue(6, IssueKind.HOUSEHOLD, "吳五", "戶號「2147483648」不是數字"));
+    }
+
+    private static String fullWidth(int number) {
+        return String.valueOf(number).chars().mapToObj(c -> String.valueOf((char) (c - '0' + '０'))).reduce("", String::concat);
+    }
+
+    @Test
     void linkedRowUsesRecipientColumnAndIgnoresAddressAndShortRowsReadAsBlank() {
         Household h = household("吳連結");
         String csv = "姓名,地址,戶號,收件人,郵遞區號,備註,來源\r\n"
