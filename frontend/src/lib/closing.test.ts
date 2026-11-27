@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { money } from './roc'
-import { cashDifference, closingPeriod, differenceHint, differenceText, isInvalidCash, parseCash, signedMoney } from './closing'
+import { cashDifference, closingPeriod, differenceHint, differenceText, cashError, parseCash, signedMoney } from './closing'
 
 describe('closingPeriod', () => {
   it('covers everything up to today before the first closing', () => {
@@ -53,21 +53,24 @@ describe('parseCash', () => {
     expect(parseCash('0')).toBe(0)
     expect(parseCash('007')).toBe(7)
     expect(parseCash(' 4300 ')).toBe(4300)
+    expect(parseCash('４３００')).toBe(4300)
+    expect(parseCash('2147483647')).toBe(2147483647)
   })
 
-  it.each(['', '  ', '-1', '+5', '12.5', '12.0', '1e2', '0x10', '0b11', 'abc', '1 000', '1,000', 'Infinity'])('rejects %j', (input) => {
+  it.each(['', '  ', '-1', '+5', '12.5', '12.0', '1e2', '0x10', '0b11', 'abc', '1 000', '1,000', 'Infinity', '2147483648', '－5'])('rejects %j', (input) => {
     expect(parseCash(input)).toBeNull()
   })
 })
 
-describe('isInvalidCash', () => {
-  it('flags non-empty input that is not plain digits', () => {
-    expect(isInvalidCash('')).toBe(false)
-    expect(isInvalidCash('   ')).toBe(false)
-    expect(isInvalidCash('4300')).toBe(false)
-    expect(isInvalidCash(' 4300 ')).toBe(false)
-    expect(isInvalidCash('1e2')).toBe(true)
-    expect(isInvalidCash('-5')).toBe(true)
-    expect(isInvalidCash('12.5')).toBe(true)
+describe('cashError', () => {
+  it('flags non-empty input that is not plain digits or exceeds the INT column', () => {
+    expect(cashError('')).toBeNull()
+    expect(cashError('   ')).toBeNull()
+    expect(cashError('4300')).toBeNull()
+    expect(cashError(' ４３００ ')).toBeNull()
+    expect(cashError('1e2')).toBe('金額只能輸入數字，不含小數點、正負號或其他符號')
+    expect(cashError('-5')).toBe('金額只能輸入數字，不含小數點、正負號或其他符號')
+    expect(cashError('12.5')).toBe('金額只能輸入數字，不含小數點、正負號或其他符號')
+    expect(cashError('2147483648')).toBe('金額不能超過 2,147,483,647')
   })
 })

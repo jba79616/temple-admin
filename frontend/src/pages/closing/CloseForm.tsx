@@ -1,5 +1,5 @@
 import type { DaySummary } from '../../api/types'
-import { cashDifference, differenceHint, differenceText, INVALID_CASH_MESSAGE, isInvalidCash, parseCash } from '../../lib/closing'
+import { cashDifference, differenceHint, differenceText, cashError, parseCash } from '../../lib/closing'
 import { money, rocDate } from '../../lib/roc'
 
 interface Props {
@@ -18,6 +18,7 @@ interface Props {
 export default function CloseForm({ summary, confirmNote, counted, onCounted, note, onNote, confirming, onConfirming, closing, onClose }: Props) {
   const countedNum = parseCash(counted)
   const diff = cashDifference(countedNum, summary.systemCash)
+  const countedError = cashError(counted)
   return (
     <aside className="card side card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <h2>日結</h2>
@@ -25,7 +26,7 @@ export default function CloseForm({ summary, confirmNote, counted, onCounted, no
       <input id="cc" className="inp inp-lg right" inputMode="numeric" value={counted} disabled={summary.closed} placeholder="數完抽屜後輸入" onChange={(e) => onCounted(e.target.value)} />
       <div className="line" style={{ borderTop: 0 }}><span>系統合計</span><span className="num">{money(summary.systemCash)}</span></div>
       <div className="line" style={{ fontSize: 18, fontWeight: 700, color: diff === null || diff === 0 ? 'var(--success-text)' : 'var(--danger-text)' }}><span>長短款</span><span className="num">{differenceText(diff)}</span></div>
-      {isInvalidCash(counted) ? <div className="error small">{INVALID_CASH_MESSAGE}</div> : <div className="small muted">{differenceHint(diff)}</div>}
+      {countedError ? <div className="error small">{countedError}</div> : <div className="small muted">{differenceHint(diff)}</div>}
       <label className="lbl" htmlFor="nt">備註</label>
       <input id="nt" className="inp" value={note} disabled={summary.closed} onChange={(e) => onNote(e.target.value)} />
       {confirming ? (

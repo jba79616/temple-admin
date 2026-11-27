@@ -1,4 +1,5 @@
 import type { DaySummary } from '../api/types'
+import { parseWholeNumber, wholeNumberError } from './numbers'
 import { money, rocDate } from './roc'
 
 export interface ClosingPeriod {
@@ -20,15 +21,12 @@ export function closingPeriod(summary: Pick<DaySummary, 'from' | 'date'>): Closi
   return { title: `今日收款（入帳日 ${rocDate(summary.date)}）`, confirmNote: '' }
 }
 
-export const INVALID_CASH_MESSAGE = '金額只能輸入數字，不含小數點、正負號或其他符號'
-
 export function parseCash(input: string): number | null {
-  const trimmed = input.trim()
-  return /^\d+$/.test(trimmed) ? Number(trimmed) : null
+  return parseWholeNumber(input)
 }
 
-export function isInvalidCash(input: string): boolean {
-  return input.trim() !== '' && parseCash(input) === null
+export function cashError(input: string): string | null {
+  return wholeNumberError(input, '金額')
 }
 
 export function cashDifference(counted: number | null, systemCash: number): number | null {
