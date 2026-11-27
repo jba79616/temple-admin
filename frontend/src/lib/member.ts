@@ -39,3 +39,7 @@ export function moveTargets(found: HouseholdSummary[], currentHouseholdId: numbe
 export function moveConfirmText(member: MemberView, target: HouseholdSummary): string {
   return `把 ${member.name} 移到戶 ${target.householdNumber} ${target.headName ?? ''}？今年已安的燈會跟著過去，歷年紀錄保留。`
 }
+
+export function withBirthMonth(value: MemberInput, raw: string): MemberInput {
+  return { ...value, birthMonth: raw ? Number(raw) : null, birthMonthIsLeap: raw ? value.birthMonthIsLeap : false }
+}

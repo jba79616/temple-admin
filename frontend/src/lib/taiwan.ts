@@ -90,3 +90,12 @@ export function postalCodeOfAddress(address: string): string | undefined {
   const { city, district } = splitAddress(address)
   return postalCode(city, district)
 }
+
+export function districtsOf(city: string | null | undefined): string[] {
+  return city ? DISTRICTS[city] ?? [] : []
+}
+
+export function postalCodeHint(city: string | null | undefined, district: string): string {
+  const code = postalCode(city, district)
+  return code ? `郵遞區號 ${code}` : '查無郵遞區號，請確認鄉鎮市區名稱'
+}

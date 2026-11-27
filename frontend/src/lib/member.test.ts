@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { HouseholdDetail, HouseholdSummary, MemberView } from '../api/types'
-import { birthPreview, hasInvalidGanzhi, isMemberDirty, moveConfirmText, moveTargets, otherMembers, savedMemberMessage, toMemberInput, zodiacOf } from './member'
+import { birthPreview, hasInvalidGanzhi, isMemberDirty, moveConfirmText, moveTargets, otherMembers, savedMemberMessage, toMemberInput, withBirthMonth, zodiacOf } from './member'
 
 const member = (over: Partial<MemberView> = {}): MemberView => ({
   id: 1, householdId: 10, name: '王小明', gender: 'M', head: false, sortOrder: 1, city: null, district: null, address: null, phone: null,
@@ -31,6 +31,13 @@ describe('member form', () => {
     expect(hasInvalidGanzhi({ name: 'a', birthGanzhi: '' })).toBe(false)
     expect(hasInvalidGanzhi({ name: 'a', birthGanzhi: '甲子' })).toBe(false)
     expect(hasInvalidGanzhi({ name: 'a', birthGanzhi: '甲丑' })).toBe(true)
+  })
+})
+
+describe('birth month field', () => {
+  it('keeps the leap flag while a month is set and clears it with the month', () => {
+    expect(withBirthMonth({ name: 'a', birthMonth: 3, birthMonthIsLeap: true }, '4')).toEqual({ name: 'a', birthMonth: 4, birthMonthIsLeap: true })
+    expect(withBirthMonth({ name: 'a', birthMonth: 3, birthMonthIsLeap: true }, '')).toEqual({ name: 'a', birthMonth: null, birthMonthIsLeap: false })
   })
 })
 

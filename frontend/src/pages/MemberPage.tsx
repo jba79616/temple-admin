@@ -5,6 +5,7 @@ import type { HouseholdDetail, MemberInput, MemberView } from '../api/types'
 import Crumbs from '../components/Crumbs'
 import MemberFields from '../components/MemberFields'
 import { useConfig } from '../lib/config'
+import { householdLabel } from '../lib/householdForm'
 import { hasInvalidGanzhi, isMemberDirty, otherMembers, savedMemberMessage, toMemberInput } from '../lib/member'
 import { useUnsavedGuard } from '../lib/useUnsavedGuard'
 import DeletePanel from './member/DeletePanel'
@@ -72,7 +73,7 @@ export default function MemberPage() {
 
   return (
     <main className="page page-narrow">
-      <Crumbs items={[{ to: `/households/${member.householdId}`, label: `戶 ${household.householdNumber} ${household.members.find((m) => m.head)?.name ?? ''}` }, { label: `改生辰資料：${member.name}` }]} />
+      <Crumbs items={[{ to: `/households/${member.householdId}`, label: householdLabel(household) }, { label: `改生辰資料：${member.name}` }]} />
       <div className="split">
         <section className="card main card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <MemberFields value={form} onChange={setForm} householdCityDistrict={(household.city ?? '') + (household.district ?? '')} householdAddress={household.address ?? ''} />

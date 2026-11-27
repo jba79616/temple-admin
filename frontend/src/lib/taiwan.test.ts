@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CITIES, DISTRICTS, postalCode, postalCodeOfAddress, splitAddress } from './taiwan'
+import { CITIES, DISTRICTS, districtsOf, postalCode, postalCodeHint, postalCodeOfAddress, splitAddress } from './taiwan'
 
 describe('taiwan districts', () => {
   it('covers all 22 cities and 368 townships', () => {
@@ -30,5 +30,19 @@ describe('taiwan districts', () => {
     expect(splitAddress('上海市復興中路1340弄1號')).toEqual({})
     expect(postalCodeOfAddress('新北市三重區重新路1號')).toBe('241')
     expect(postalCodeOfAddress('大里區中興路二段')).toBeUndefined()
+  })
+})
+
+describe('city and district fields', () => {
+  it('offers the districts of the chosen city only', () => {
+    expect(districtsOf('臺北市')).toContain('大同區')
+    expect(districtsOf(null)).toEqual([])
+    expect(districtsOf('火星市')).toEqual([])
+  })
+
+  it('shows the postal code or asks to check the district name', () => {
+    expect(postalCodeHint('臺北市', '大同區')).toBe('郵遞區號 103')
+    expect(postalCodeHint('臺北市', '不存在區')).toBe('查無郵遞區號，請確認鄉鎮市區名稱')
+    expect(postalCodeHint(null, '大同區')).toBe('查無郵遞區號，請確認鄉鎮市區名稱')
   })
 })
