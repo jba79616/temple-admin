@@ -119,7 +119,8 @@ class MailingImportServiceTest {
             + "-" + n1 + ",吳二\n"
             + fullWidth(n1) + ".0,吳三\n"
             + "\u3000" + fullWidth(n2) + "\u3000,吳四\n"
-            + "2147483648,吳五\n";
+            + "2147483648,吳五\n"
+            + n2 + "\u00A0,吳六\n";
 
         Report report = importer.run(csv, admin(), false);
 
@@ -127,7 +128,8 @@ class MailingImportServiceTest {
         assertThat(report.issues()).containsExactly(
             new Issue(2, IssueKind.HOUSEHOLD, "吳一", "戶號「+" + n1 + "」不是數字"),
             new Issue(3, IssueKind.HOUSEHOLD, "吳二", "戶號「-" + n1 + "」不是數字"),
-            new Issue(6, IssueKind.HOUSEHOLD, "吳五", "戶號「2147483648」不是數字"));
+            new Issue(6, IssueKind.HOUSEHOLD, "吳五", "戶號「2147483648」超過上限 2147483647"),
+            new Issue(7, IssueKind.DUPLICATE, "吳六", "戶 " + n2 + " 已在名單，略過"));
     }
 
     private static String fullWidth(int number) {

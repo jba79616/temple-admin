@@ -13,6 +13,7 @@ public final class WholeNumbers {
     private static final Pattern ASCII_DIGITS = Pattern.compile("[0-9]+");
     private static final char FULL_WIDTH_ZERO = '０';
     private static final char FULL_WIDTH_NINE = '９';
+    private static final char BYTE_ORDER_MARK = '\uFEFF';
 
     private WholeNumbers() {
     }
@@ -25,18 +26,36 @@ public final class WholeNumbers {
         return out.toString();
     }
 
-    public static OptionalInt parse(String input) {
-        if (input == null) {
-            return OptionalInt.empty();
+    /** 全形轉半形再去頭尾空白；空白的範圍比照 JS trim()，含 String.strip() 不認的 NBSP 與 BOM。 */
+    public static String normalize(String input) {
+        String halfWidth = toHalfWidthDigits(input);
+        int start = 0;
+        int end = halfWidth.length();
+        while (start < end && isTrimmable(halfWidth.charAt(start))) {
+            start++;
         }
-        String digits = toHalfWidthDigits(input).strip();
-        if (!ASCII_DIGITS.matcher(digits).matches()) {
+        while (end > start && isTrimmable(halfWidth.charAt(end - 1))) {
+            end--;
+        }
+        return halfWidth.substring(start, end);
+    }
+
+    public static boolean isDigits(String input) {
+        return input != null && ASCII_DIGITS.matcher(normalize(input)).matches();
+    }
+
+    public static OptionalInt parse(String input) {
+        if (!isDigits(input)) {
             return OptionalInt.empty();
         }
         try {
-            return OptionalInt.of(Integer.parseInt(digits));
+            return OptionalInt.of(Integer.parseInt(normalize(input)));
         } catch (NumberFormatException tooLarge) {
             return OptionalInt.empty();
         }
+    }
+
+    private static boolean isTrimmable(char c) {
+        return Character.isWhitespace(c) || Character.isSpaceChar(c) || c == BYTE_ORDER_MARK;
     }
 }

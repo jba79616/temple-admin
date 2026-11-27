@@ -215,9 +215,11 @@ public class MailingImportService {
 
     private Household household(Row row, Batch batch) {
         String householdNumber = row.householdNumber();
-        OptionalInt parsed = parseHouseholdNumber(householdNumber);
+        String digits = withoutZeroFraction(householdNumber);
+        OptionalInt parsed = WholeNumbers.parse(digits);
         if (parsed.isEmpty()) {
-            batch.skip(row.issue(IssueKind.HOUSEHOLD, "戶號「" + householdNumber + "」不是數字"));
+            String problem = WholeNumbers.isDigits(digits) ? "」超過上限 " + Integer.MAX_VALUE : "」不是數字";
+            batch.skip(row.issue(IssueKind.HOUSEHOLD, "戶號「" + householdNumber + problem));
             return null;
         }
         int number = parsed.getAsInt();
@@ -228,9 +230,9 @@ public class MailingImportService {
     }
 
     /** Excel 把戶號欄當數值存檔時會寫成「12.0」，小數部分全是 0 才當整數接受。 */
-    private OptionalInt parseHouseholdNumber(String householdNumber) {
-        String halfWidth = WholeNumbers.toHalfWidthDigits(householdNumber).strip();
-        Matcher zeroFraction = ZERO_FRACTION.matcher(halfWidth);
-        return WholeNumbers.parse(zeroFraction.matches() ? zeroFraction.group(1) : halfWidth);
+    private String withoutZeroFraction(String householdNumber) {
+        String normalized = WholeNumbers.normalize(householdNumber);
+        Matcher zeroFraction = ZERO_FRACTION.matcher(normalized);
+        return zeroFraction.matches() ? zeroFraction.group(1) : normalized;
     }
 }

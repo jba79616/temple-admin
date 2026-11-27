@@ -24,7 +24,22 @@ class WholeNumbersTest {
         assertThat(WholeNumbers.parse(" 4300 ")).hasValue(4300);
         assertThat(WholeNumbers.parse("４３００")).hasValue(4300);
         assertThat(WholeNumbers.parse("４3０0")).hasValue(4300);
-        assertThat(WholeNumbers.parse("　１２　")).hasValue(12);
+        assertThat(WholeNumbers.parse("\u3000１２\u3000")).hasValue(12);
+    }
+
+    @Test
+    void trimsTheSameSpacesAsJavaScriptTrim() {
+        assertThat(WholeNumbers.normalize("\u00A0\uFEFF\t１２\u202F\n")).isEqualTo("12");
+        assertThat(WholeNumbers.parse("12\u00A0")).hasValue(12);
+        assertThat(WholeNumbers.normalize("1\u00A02")).isEqualTo("1\u00A02");
+    }
+
+    @Test
+    void tellsDigitsApartFromMalformedInputEvenWhenTooLarge() {
+        assertThat(WholeNumbers.isDigits("２147483648")).isTrue();
+        assertThat(WholeNumbers.isDigits("-1")).isFalse();
+        assertThat(WholeNumbers.isDigits("")).isFalse();
+        assertThat(WholeNumbers.isDigits(null)).isFalse();
     }
 
     @Test
