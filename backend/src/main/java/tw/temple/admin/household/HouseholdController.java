@@ -34,6 +34,11 @@ public class HouseholdController {
         return service.search(q);
     }
 
+    @GetMapping("/by-number/{householdNumber}")
+    public HouseholdSummary byNumber(@PathVariable Integer householdNumber) {
+        return service.byNumber(householdNumber);
+    }
+
     @GetMapping("/{id}")
     public HouseholdDetail detail(@PathVariable Long id, @RequestParam(required = false) Integer year) {
         return service.detail(id, year);

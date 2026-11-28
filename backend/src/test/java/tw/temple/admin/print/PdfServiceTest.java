@@ -32,7 +32,8 @@ class PdfServiceTest {
     @ParameterizedTest
     @ValueSource(strings = {"/print/cards?year=2026&lightTypeId=3", "/print/name-list?year=2026&category=BAGUA",
         "/print/application-form?scope=LIT&year=2025", "/print/cards", "/print/labels",
-        "/print/wenshu?householdId=7&ritualYear=%E4%B8%99%E5%8D%88", "/print/wenshu?scope=BAGUA&year=2026"})
+        "/print/wenshu?householdId=7&ritualYear=%E4%B8%99%E5%8D%88", "/print/wenshu?scope=BAGUA&year=2026",
+        "/print/wenshu?scope=ALL&year=2027&from=201&to=415&petitionYear=%E4%B8%81%E6%9C%AA"})
     void acceptsPrintRoutesButRefusesBeforeTheServerIsReady(String path) {
         assertThatThrownBy(() -> sut.render(path, Map.of()))
             .isInstanceOf(ApiException.class)

@@ -47,6 +47,18 @@ class HouseholdServiceTest {
     }
 
     @Test
+    void byNumberFindsExactlyThatHousehold() {
+        Household h = service.create(new HouseholdInput(null, null, null, null, null, null, member("戶號查", null)), admin);
+        service.addMember(h.getId(), member("戶號查二", null), admin);
+
+        HouseholdSummary found = service.byNumber(h.getHouseholdNumber());
+        assertThat(found.id()).isEqualTo(h.getId());
+        assertThat(found.headName()).isEqualTo("戶號查");
+        assertThat(found.memberCount()).isEqualTo(2);
+        assertThatThrownBy(() -> service.byNumber(-1)).hasMessage("找不到第 -1 戶");
+    }
+
+    @Test
     void searchMatchesHeadMemberPhoneAndNumber() {
         Household h = service.create(new HouseholdInput("新北市", "蘆洲區", "中正路1號", "02-2222-3333", "LINE: lin", null,
             member("林美玉", null)), admin);

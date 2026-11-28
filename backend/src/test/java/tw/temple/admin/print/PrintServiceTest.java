@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -33,6 +34,7 @@ import tw.temple.admin.print.PrintService.FormScope;
 import tw.temple.admin.print.PrintService.NameList;
 import tw.temple.admin.print.PrintService.PrintedCard;
 import tw.temple.admin.print.PrintService.Wenshu;
+import tw.temple.admin.print.PrintService.WenshuBatch;
 import tw.temple.admin.print.PrintService.WenshuPerson;
 import tw.temple.admin.systemconfig.ConfigService;
 import tw.temple.admin.user.User;
@@ -345,7 +347,7 @@ class PrintServiceTest {
             config.update(ConfigService.CURRENT_YEAR, lanternYear, admin);
         }
         assertThat(all.householdNumber()).isEqualTo(h.getHouseholdNumber());
-        assertThat(all.year()).isEqualTo(2026);
+        assertThat(all.year()).as("沒指定年度用安燈年度").isEqualTo(2026);
         assertThat(all.ganzhiYear()).isEqualTo("丙午");
         assertThat(all.prayerMonth()).isEqualTo(config.get(ConfigService.PRAYER_MONTH));
         assertThat(all.templeName()).isEqualTo(config.get(ConfigService.TEMPLE_NAME));
@@ -358,19 +360,19 @@ class PrintServiceTest {
         assertThat(head.month()).isEqualTo((short) 12);
         assertThat(head.day()).isEqualTo((short) 9);
         assertThat(head.hour()).isEqualTo("子");
+        WenshuPerson daughter = all.people().get(1);
+        assertThat(daughter.memberId()).isEqualTo(daughterId);
+        assertThat(daughter.gender()).isEqualTo("F");
+        assertThat(daughter.cityDistrict()).isEqualTo("臺北市大安區");
+        assertThat(daughter.leap()).isTrue();
+        assertThat(daughter.hour()).isNull();
 
         assertThat(all.people()).extracting(WenshuPerson::householdNumber).containsOnly(h.getHouseholdNumber());
 
-        Wenshu one = print.wenshu(null, daughterId);
-        assertThat(one.people()).singleElement().satisfies(p -> {
-            assertThat(p.memberId()).isEqualTo(daughterId);
-            assertThat(p.gender()).isEqualTo("F");
-            assertThat(p.cityDistrict()).isEqualTo("臺北市大安區");
-            assertThat(p.leap()).isTrue();
-            assertThat(p.hour()).isNull();
-        });
-        assertThatThrownBy(() -> print.wenshu(null, goneId)).isInstanceOf(ApiException.class).hasMessageContaining("已刪除");
-        assertThatThrownBy(() -> print.wenshu(null, null)).isInstanceOf(ApiException.class);
+        Wenshu chosenYear = print.wenshu(h.getId(), 2027);
+        assertThat(chosenYear.year()).isEqualTo(2027);
+        assertThat(chosenYear.ganzhiYear()).as("天運預設干支跟著選的年度").isEqualTo("丁未");
+        assertThatThrownBy(() -> print.wenshu(-1L, null)).isInstanceOf(ApiException.class).hasMessageContaining("找不到戶");
     }
 
     @Test
@@ -393,7 +395,7 @@ class PrintServiceTest {
         orders.createCounter(new CreateOrderRequest(year, lit.getId(), null, null, null,
             List.of(new ItemInput(litHeadId, guangming.getId(), ItemAction.ADD, null, null))), admin);
 
-        Wenshu baguaOnly = print.wenshuByScope(FormScope.BAGUA, year);
+        Wenshu baguaOnly = print.wenshuByScope(FormScope.BAGUA, year, null, null);
         assertThat(baguaOnly.householdNumber()).isNull();
         assertThat(baguaOnly.year()).isEqualTo(year);
         assertThat(baguaOnly.ganzhiYear()).isEqualTo(Ganzhi.ofYear(year));
@@ -402,9 +404,48 @@ class PrintServiceTest {
         assertThat(baguaOnly.people()).filteredOn(p -> p.name().equals("郭沒安")).singleElement()
             .satisfies(p -> assertThat(p.householdNumber()).isEqualTo(bagua.getHouseholdNumber()));
 
-        assertThat(namesOf(print.wenshuByScope(FormScope.LIT, year))).contains("郭安斗", "郭沒安", "黃光明").doesNotContain("許沒點");
-        assertThat(namesOf(print.wenshuByScope(FormScope.ALL, year))).contains("郭安斗", "郭沒安", "黃光明", "許沒點");
-        assertThat(namesOf(print.wenshuByScope(FormScope.BAGUA, year - 5))).doesNotContain("郭安斗", "郭沒安");
+        assertThat(namesOf(print.wenshuByScope(FormScope.LIT, year, null, null))).contains("郭安斗", "郭沒安", "黃光明").doesNotContain("許沒點");
+        assertThat(namesOf(print.wenshuByScope(FormScope.ALL, year, null, null))).contains("郭安斗", "郭沒安", "黃光明", "許沒點");
+        assertThat(namesOf(print.wenshuByScope(FormScope.BAGUA, year - 5, null, null))).doesNotContain("郭安斗", "郭沒安");
+
+        assertThat(namesOf(print.wenshuByScope(FormScope.LIT, year, lit.getHouseholdNumber(), dark.getHouseholdNumber())))
+            .as("戶號區間只縮小範圍，區間內沒點燈的戶照樣不印").containsExactly("黃光明");
+        assertThat(namesOf(print.wenshuByScope(FormScope.ALL, year, null, bagua.getHouseholdNumber())))
+            .contains("郭安斗", "郭沒安").doesNotContain("黃光明", "許沒點");
+    }
+
+    @Test
+    void wenshuSplitsTheChosenHouseholdsIntoBatchesByHouseholdNumber() {
+        User admin = users.findByUsername("admin").orElseThrow();
+        int year = config.currentYear();
+        Household first = households.create(new HouseholdInput(null, null, null, null, null, null,
+            member("批一戶長", null, null, false, null, null)), admin);
+        households.addMember(first.getId(), member("批一成員", null, null, false, null, null), admin);
+        Household second = households.create(new HouseholdInput(null, null, null, null, null, null,
+            member("批二戶長", null, null, false, null, null)), admin);
+        Household third = households.create(new HouseholdInput(null, null, null, null, null, null,
+            member("批三戶長", null, null, false, null, null)), admin);
+
+        List<WenshuBatch> batches = print.wenshuBatches(FormScope.ALL, year, 2);
+        int everyHousehold = print.wenshuByScope(FormScope.ALL, year, null, null).people().stream()
+            .map(WenshuPerson::householdNumber).collect(Collectors.toSet()).size();
+        assertThat(batches).hasSize((everyHousehold + 1) / 2);
+        assertThat(batches.subList(0, batches.size() - 1)).extracting(WenshuBatch::households).containsOnly(2);
+        assertThat(batches.getLast().households()).isBetween(1, 2);
+        assertThat(batches.stream().mapToInt(WenshuBatch::households).sum()).isEqualTo(everyHousehold);
+        assertThat(batches.stream().mapToInt(WenshuBatch::people).sum())
+            .isEqualTo(print.wenshuByScope(FormScope.ALL, year, null, null).people().size());
+        for (int i = 1; i < batches.size(); i++) {
+            assertThat(batches.get(i).fromNumber()).as("批次依戶號排、不重疊").isGreaterThan(batches.get(i - 1).toNumber());
+        }
+        WenshuBatch last = batches.getLast();
+        assertThat(last.toNumber()).isEqualTo(third.getHouseholdNumber());
+
+        Wenshu firstTwo = print.wenshuByScope(FormScope.ALL, year, first.getHouseholdNumber(), second.getHouseholdNumber());
+        assertThat(namesOf(firstTwo)).containsExactly("批一戶長", "批一成員", "批二戶長");
+        assertThat(namesOf(print.wenshuByScope(FormScope.ALL, year, third.getHouseholdNumber(), null))).containsExactly("批三戶長");
+        assertThat(print.wenshuBatches(FormScope.BAGUA, year - 50)).isEmpty();
+        assertThatThrownBy(() -> print.wenshuBatches(FormScope.ALL, year, 0)).isInstanceOf(IllegalArgumentException.class);
     }
 
     private static List<String> namesOf(Wenshu wenshu) {

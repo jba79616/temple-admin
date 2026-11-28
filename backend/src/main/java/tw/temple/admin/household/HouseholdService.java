@@ -55,6 +55,14 @@ public class HouseholdService {
             .toList();
     }
 
+    /** 搜尋框的戶號比對還混著電話模糊比對、又有筆數上限，要確定拿到那一戶得照戶號直接查。 */
+    @Transactional(readOnly = true)
+    public HouseholdSummary byNumber(Integer householdNumber) {
+        Household h = households.findByHouseholdNumber(householdNumber)
+            .orElseThrow(() -> ApiException.notFound("找不到第 " + householdNumber + " 戶"));
+        return summarize(h, config.currentYear());
+    }
+
     @Transactional(readOnly = true)
     public HouseholdSummary summarize(Household h, int year) {
         Member head = members.findFirstByHouseholdIdAndHeadTrueAndDeletedAtIsNull(h.getId()).orElse(null);

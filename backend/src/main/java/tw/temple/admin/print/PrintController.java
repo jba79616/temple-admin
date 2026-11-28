@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import tw.temple.admin.common.ApiException;
 import tw.temple.admin.light.LightCategory;
 import tw.temple.admin.print.PrintService.ApplicationForm;
 import tw.temple.admin.print.PrintService.Cards;
@@ -23,6 +24,7 @@ import tw.temple.admin.print.PrintService.FormScope;
 import tw.temple.admin.print.PrintService.NameList;
 import tw.temple.admin.print.PrintService.PrintedCard;
 import tw.temple.admin.print.PrintService.Wenshu;
+import tw.temple.admin.print.PrintService.WenshuBatch;
 
 @RestController
 @RequestMapping("/api/print")
@@ -71,11 +73,21 @@ public class PrintController {
 
     @GetMapping("/wenshu")
     public Wenshu wenshu(@RequestParam(required = false) FormScope scope, @RequestParam(required = false) Integer year,
-                         @RequestParam(required = false) Long householdId, @RequestParam(required = false) Long memberId) {
+                         @RequestParam(required = false) Long householdId,
+                         @RequestParam(name = "from", required = false) Integer fromNumber,
+                         @RequestParam(name = "to", required = false) Integer toNumber) {
         if (scope != null) {
-            return service.wenshuByScope(scope, year);
+            return service.wenshuByScope(scope, year, fromNumber, toNumber);
         }
-        return service.wenshu(householdId, memberId);
+        if (householdId != null) {
+            return service.wenshu(householdId, year);
+        }
+        throw ApiException.badRequest("請指定列印範圍或戶");
+    }
+
+    @GetMapping("/wenshu/batches")
+    public List<WenshuBatch> wenshuBatches(@RequestParam FormScope scope, @RequestParam(required = false) Integer year) {
+        return service.wenshuBatches(scope, year);
     }
 
     /** 把前端的列印頁（/print/...）在伺服器上轉成 PDF；帶著呼叫者的 session cookie 去開，所以同樣要登入。 */

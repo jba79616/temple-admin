@@ -82,11 +82,16 @@ public class PrintService {
                                String hour, String cityDistrict, String address) {
     }
 
-    /** 制星補運文疏一人一張；天運預設用安燈年度干支與祈福文月份。整批印跨很多戶時 householdNumber 是 null。 */
+    /** 制星補運文疏一人一張；天運預設用選的年度干支與祈福文月份。整批印跨很多戶時 householdNumber 是 null。 */
     public record Wenshu(String templeName, String templeAddress, Integer householdNumber, int year, String ganzhiYear,
                          String prayerMonth, List<WenshuPerson> people) {
     }
 
+    /** 戶號區間含頭尾；households 是這批的戶數，people 是張數。 */
+    public record WenshuBatch(int fromNumber, int toNumber, int households, int people) {
+    }
+
+    private static final int WENSHU_BATCH_HOUSEHOLDS = 200;
     private static final String BAGUA_LABEL = "八卦轉運斗";
     private static final Comparator<AnnualLightRecord> BY_HOUSEHOLD_MEMBER_LIGHT =
         Comparator.comparing((AnnualLightRecord r) -> r.getHousehold().getHouseholdNumber())
@@ -215,34 +220,64 @@ public class PrintService {
         return new ApplicationForm(config.get(ConfigService.TEMPLE_NAME), year, Ganzhi.roc(year), scope, title, baguaTypes, households);
     }
 
-    public Wenshu wenshu(Long householdId, Long memberId) {
-        if (memberId != null) {
-            Member member = members.findById(memberId).orElseThrow(() -> ApiException.notFound("找不到成員"));
-            if (member.isDeleted()) {
-                throw ApiException.badRequest("成員已刪除，不能印文疏");
-            }
-            return wenshuOf(member.getHousehold().getHouseholdNumber(), config.currentYear(), List.of(member));
-        }
-        if (householdId != null) {
-            Household household = households.findById(householdId).orElseThrow(() -> ApiException.notFound("找不到戶"));
-            return wenshuOf(household.getHouseholdNumber(), config.currentYear(),
-                headFirst(members.findByHouseholdIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(householdId)));
-        }
-        throw ApiException.badRequest("請指定戶或成員");
+    public Wenshu wenshu(Long householdId, Integer yearParam) {
+        Household household = households.findById(householdId).orElseThrow(() -> ApiException.notFound("找不到戶"));
+        return wenshuOf(household.getHouseholdNumber(), yearOrCurrent(yearParam),
+            headFirst(members.findByHouseholdIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(householdId)));
     }
 
-    /** 列印頁整批印：範圍只決定印哪些戶，選到的戶全戶在籍成員都印，不只該年點燈的人。 */
-    public Wenshu wenshuByScope(FormScope scope, Integer yearParam) {
-        int year = yearParam == null ? config.currentYear() : yearParam;
+    /**
+     * 列印頁整批印：範圍只決定印哪些戶，選到的戶全戶在籍成員都印，不只該年點燈的人。
+     * fromNumber、toNumber 是戶號區間（含頭尾，null 表示不設限），讓全部的戶可以一批一批印。
+     */
+    public Wenshu wenshuByScope(FormScope scope, Integer yearParam, Integer fromNumber, Integer toNumber) {
+        int year = yearOrCurrent(yearParam);
+        List<Member> people = chosenHouseholds(scope, year).stream()
+            .filter(h -> inRange(h.getFirst().getHousehold().getHouseholdNumber(), fromNumber, toNumber))
+            .flatMap(List::stream)
+            .toList();
+        return wenshuOf(null, year, people);
+    }
+
+    /** 一批 WENSHU_BATCH_HOUSEHOLDS 戶，依戶號切；全部的戶有近四千張，一次轉 PDF 要好幾分鐘還佔住轉檔鎖。 */
+    public List<WenshuBatch> wenshuBatches(FormScope scope, Integer yearParam) {
+        return wenshuBatches(scope, yearParam, WENSHU_BATCH_HOUSEHOLDS);
+    }
+
+    List<WenshuBatch> wenshuBatches(FormScope scope, Integer yearParam, int batchSize) {
+        if (batchSize <= 0) throw new IllegalArgumentException("batchSize must be positive: " + batchSize);
+        List<List<Member>> chosen = chosenHouseholds(scope, yearOrCurrent(yearParam));
+        List<WenshuBatch> batches = new ArrayList<>();
+        for (int i = 0; i < chosen.size(); i += batchSize) {
+            List<List<Member>> batch = chosen.subList(i, Math.min(i + batchSize, chosen.size()));
+            batches.add(new WenshuBatch(householdNumberOf(batch.getFirst()), householdNumberOf(batch.getLast()), batch.size(),
+                batch.stream().mapToInt(List::size).sum()));
+        }
+        return batches;
+    }
+
+    private int yearOrCurrent(Integer yearParam) {
+        return yearParam == null ? config.currentYear() : yearParam;
+    }
+
+    /** 依戶號排序，每戶是全戶在籍成員、戶長排第一。 */
+    private List<List<Member>> chosenHouseholds(FormScope scope, int year) {
         Map<Household, Collection<Member>> everyone = allByHousehold();
         Set<Long> chosen = (scope == FormScope.ALL ? everyone : litByHousehold(sortedRecords(year, r -> inScope(scope, r)))).keySet().stream()
             .map(Household::getId)
             .collect(Collectors.toSet());
-        List<Member> people = everyone.entrySet().stream()
+        return everyone.entrySet().stream()
             .filter(e -> chosen.contains(e.getKey().getId()))
-            .flatMap(e -> headFirst(e.getValue()).stream())
+            .map(e -> headFirst(e.getValue()))
             .toList();
-        return wenshuOf(null, year, people);
+    }
+
+    private boolean inRange(Integer householdNumber, Integer fromNumber, Integer toNumber) {
+        return (fromNumber == null || householdNumber >= fromNumber) && (toNumber == null || householdNumber <= toNumber);
+    }
+
+    private int householdNumberOf(List<Member> household) {
+        return household.getFirst().getHousehold().getHouseholdNumber();
     }
 
     private Wenshu wenshuOf(Integer householdNumber, int year, List<Member> people) {
