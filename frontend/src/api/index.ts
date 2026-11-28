@@ -71,6 +71,13 @@ export const lightSelectionFrom = (params: URLSearchParams): LightSelection | nu
   return null
 }
 
+export type WenshuTarget = { scope: FormScope; year: number } | { householdId: number } | { memberId: number }
+
+function wenshuQuery(target: WenshuTarget) {
+  if ('scope' in target) return `scope=${target.scope}&year=${target.year}`
+  return 'memberId' in target ? `memberId=${target.memberId}` : `householdId=${target.householdId}`
+}
+
 export const print = {
   nameList: (sel: LightSelection, year?: number) =>
     api<NameList>(`/api/print/name-list?${lightQuery(sel)}${year ? `&year=${year}` : ''}`),
@@ -81,8 +88,7 @@ export const print = {
     api<Cards>(`/api/print/cards?householdId=${householdId}${year ? `&year=${year}` : ''}`),
   markCardsPrinted: (cards: PrintedCard[]) =>
     api<{ marked: number }>('/api/print/cards/printed', { method: 'POST', json: { cards } }),
-  wenshu: (target: { householdId: number } | { memberId: number }) =>
-    api<Wenshu>(`/api/print/wenshu?${'memberId' in target ? `memberId=${target.memberId}` : `householdId=${target.householdId}`}`),
+  wenshu: (target: WenshuTarget) => api<Wenshu>(`/api/print/wenshu?${wenshuQuery(target)}`),
   applicationForm: (scope: FormScope, year?: number) =>
     api<ApplicationForm>(`/api/print/application-form?scope=${scope}${year ? `&year=${year}` : ''}`),
 }

@@ -1,7 +1,8 @@
 @font-face { font-family: 'Temple Kai'; src: url('/fonts/LXGWWenKaiTC-Regular.woff2') format('woff2'); font-display: block; }
 
 .print-root { background: #fff; color: #111; font-family: 'Temple Kai', 'BiauKai', 'DFKai-SB', 'Kaiti TC', serif; }
-.print-toolbar { position: sticky; top: 0; background: #F3F4F6; border-bottom: 1px solid #E5E7EB; padding: 10px 16px; display: flex; gap: 12px; align-items: center; font-family: 'Noto Sans TC', system-ui, sans-serif; }
+/* 紙上絕對定位的字是 positioned 元素，沒有 z-index 會畫到 sticky 工具列上面、連點擊都被吃掉 */
+.print-toolbar { position: sticky; top: 0; z-index: 10; background: #F3F4F6; border-bottom: 1px solid #E5E7EB; padding: 10px 16px; display: flex; gap: 12px; align-items: center; font-family: 'Noto Sans TC', system-ui, sans-serif; }
 .print-notice { background: #FEF3C7; color: #92400E; border-bottom: 1px solid #FDE68A; padding: 8px 16px; font-family: 'Noto Sans TC', system-ui, sans-serif; font-size: 14px; }
 .sheet { margin: 12px auto; background: #fff; box-shadow: 0 2px 12px rgba(16, 24, 40, .14); }
 
@@ -47,6 +48,11 @@
 .ws-birth { width: 13mm; margin: 0 1.5mm; padding-top: calc(var(--u) * 0.8); writing-mode: horizontal-tb; display: flex; flex-direction: column; }
 .ws-cell { writing-mode: vertical-rl; text-orientation: upright; height: calc(var(--u) * 4.2); border: 1px solid #bfbfbf; margin-top: -1px; display: flex; align-items: center; justify-content: center; font-size: 14pt; font-weight: 700; line-height: 1; }
 .ws-cell-long { font-size: 12pt; }
+/* 日期欄位多、工具列會折成好幾行，sticky 蓋在紙上太大塊；改成上下兩塊，預覽自己捲動 */
+.wenshu-root { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+.wenshu-controls { flex: none; max-height: 50vh; overflow: auto; position: relative; z-index: 10; background: #F3F4F6; border-bottom: 1px solid #D1D5DB; box-shadow: 0 1px 4px rgba(16, 24, 40, .08); }
+.wenshu-controls .print-toolbar { position: static; border-bottom: none; }
+.wenshu-preview { flex: 1; min-height: 0; overflow: auto; background: #E5E7EB; padding: 1px 16px; }
 .wenshu-toolbar { flex-wrap: wrap; }
 .wenshu-date { display: inline-flex; align-items: center; gap: 4px; }
 .wenshu-date label { display: inline-flex; align-items: center; gap: 2px; }
@@ -54,7 +60,9 @@
 
 @media print {
   html, body { background: #fff; }
-  .print-toolbar, .print-notice { display: none; }
+  .print-toolbar, .print-notice, .wenshu-controls { display: none; }
+  .wenshu-root { display: block; height: auto; }
+  .wenshu-preview { overflow: visible; background: none; padding: 0; }
   .sheet { margin: 0; box-shadow: none; }
   .sheet-break { break-after: page; page-break-after: always; }
   .cards-sheet { width: auto; min-height: auto; padding: 0; }

@@ -7,7 +7,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tw.temple.admin.calendar.Ganzhi;
@@ -76,11 +78,11 @@ public class PrintService {
                                   List<BaguaType> baguaTypes, List<FormHousehold> households) {
     }
 
-    public record WenshuPerson(Long memberId, String name, String gender, String ganzhi, boolean leap, Short month, Short day,
+    public record WenshuPerson(Long memberId, Integer householdNumber, String name, String gender, String ganzhi, boolean leap, Short month, Short day,
                                String hour, String cityDistrict, String address) {
     }
 
-    /** 制星補運文疏一人一張；天運預設用安燈年度干支與祈福文月份。 */
+    /** 制星補運文疏一人一張；天運預設用安燈年度干支與祈福文月份。整批印跨很多戶時 householdNumber 是 null。 */
     public record Wenshu(String templeName, String templeAddress, Integer householdNumber, int year, String ganzhiYear,
                          String prayerMonth, List<WenshuPerson> people) {
     }
@@ -214,31 +216,47 @@ public class PrintService {
     }
 
     public Wenshu wenshu(Long householdId, Long memberId) {
-        List<Member> people;
-        Household household;
         if (memberId != null) {
             Member member = members.findById(memberId).orElseThrow(() -> ApiException.notFound("找不到成員"));
             if (member.isDeleted()) {
                 throw ApiException.badRequest("成員已刪除，不能印文疏");
             }
-            household = member.getHousehold();
-            people = List.of(member);
-        } else if (householdId != null) {
-            household = households.findById(householdId).orElseThrow(() -> ApiException.notFound("找不到戶"));
-            people = members.findByHouseholdIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(householdId).stream()
-                .sorted(Comparator.comparing((Member m) -> !m.isHead()))
-                .toList();
-        } else {
-            throw ApiException.badRequest("請指定戶或成員");
+            return wenshuOf(member.getHousehold().getHouseholdNumber(), config.currentYear(), List.of(member));
         }
-        int year = config.currentYear();
-        return new Wenshu(config.get(ConfigService.TEMPLE_NAME), config.get(ConfigService.TEMPLE_ADDRESS), household.getHouseholdNumber(),
+        if (householdId != null) {
+            Household household = households.findById(householdId).orElseThrow(() -> ApiException.notFound("找不到戶"));
+            return wenshuOf(household.getHouseholdNumber(), config.currentYear(),
+                headFirst(members.findByHouseholdIdAndDeletedAtIsNullOrderBySortOrderAscIdAsc(householdId)));
+        }
+        throw ApiException.badRequest("請指定戶或成員");
+    }
+
+    /** 列印頁整批印：範圍只決定印哪些戶，選到的戶全戶在籍成員都印，不只該年點燈的人。 */
+    public Wenshu wenshuByScope(FormScope scope, Integer yearParam) {
+        int year = yearParam == null ? config.currentYear() : yearParam;
+        Map<Household, Collection<Member>> everyone = allByHousehold();
+        Set<Long> chosen = (scope == FormScope.ALL ? everyone : litByHousehold(sortedRecords(year, r -> inScope(scope, r)))).keySet().stream()
+            .map(Household::getId)
+            .collect(Collectors.toSet());
+        List<Member> people = everyone.entrySet().stream()
+            .filter(e -> chosen.contains(e.getKey().getId()))
+            .flatMap(e -> headFirst(e.getValue()).stream())
+            .toList();
+        return wenshuOf(null, year, people);
+    }
+
+    private Wenshu wenshuOf(Integer householdNumber, int year, List<Member> people) {
+        return new Wenshu(config.get(ConfigService.TEMPLE_NAME), config.get(ConfigService.TEMPLE_ADDRESS), householdNumber,
             year, Ganzhi.ofYear(year), config.get(ConfigService.PRAYER_MONTH), people.stream().map(this::toWenshuPerson).toList());
     }
 
+    private List<Member> headFirst(Collection<Member> household) {
+        return household.stream().sorted(Comparator.comparing((Member m) -> !m.isHead())).toList();
+    }
+
     private WenshuPerson toWenshuPerson(Member m) {
-        return new WenshuPerson(m.getId(), m.getName(), m.getGender(), m.getBirthGanzhi(), m.isBirthMonthIsLeap(), m.getBirthMonth(),
-            m.getBirthDay(), m.getBirthHourBranch(), m.printCityDistrict(), m.printAddress());
+        return new WenshuPerson(m.getId(), m.getHousehold().getHouseholdNumber(), m.getName(), m.getGender(), m.getBirthGanzhi(),
+            m.isBirthMonthIsLeap(), m.getBirthMonth(), m.getBirthDay(), m.getBirthHourBranch(), m.printCityDistrict(), m.printAddress());
     }
 
     private PersonRow toRow(Member m) {

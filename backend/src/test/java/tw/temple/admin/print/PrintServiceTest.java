@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import tw.temple.admin.TestcontainersConfiguration;
+import tw.temple.admin.calendar.Ganzhi;
 import tw.temple.admin.common.ApiException;
 import tw.temple.admin.household.Household;
 import tw.temple.admin.household.HouseholdDtos.HouseholdInput;
@@ -358,6 +359,8 @@ class PrintServiceTest {
         assertThat(head.day()).isEqualTo((short) 9);
         assertThat(head.hour()).isEqualTo("子");
 
+        assertThat(all.people()).extracting(WenshuPerson::householdNumber).containsOnly(h.getHouseholdNumber());
+
         Wenshu one = print.wenshu(null, daughterId);
         assertThat(one.people()).singleElement().satisfies(p -> {
             assertThat(p.memberId()).isEqualTo(daughterId);
@@ -368,5 +371,43 @@ class PrintServiceTest {
         });
         assertThatThrownBy(() -> print.wenshu(null, goneId)).isInstanceOf(ApiException.class).hasMessageContaining("已刪除");
         assertThatThrownBy(() -> print.wenshu(null, null)).isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void wenshuByScopePrintsWholeHouseholdsChosenByTheYearsLights() {
+        User admin = users.findByUsername("admin").orElseThrow();
+        int year = config.currentYear();
+        Household bagua = households.create(new HouseholdInput(null, null, null, null, null, null,
+            member("郭安斗", "甲子", 1, false, 1, "子")), admin);
+        households.addMember(bagua.getId(), member("郭沒安", null, null, false, null, null), admin);
+        Household lit = households.create(new HouseholdInput(null, null, null, null, null, null,
+            member("黃光明", null, null, false, null, null)), admin);
+        Household dark = households.create(new HouseholdInput(null, null, null, null, null, null,
+            member("許沒點", null, null, false, null, null)), admin);
+        var guangming = lightTypes.findByName("光明燈").orElseThrow();
+        var caiku = lightTypes.findByName("補財庫").orElseThrow();
+        Long baguaHeadId = households.detail(bagua.getId(), null).members().get(0).id();
+        Long litHeadId = households.detail(lit.getId(), null).members().get(0).id();
+        orders.createCounter(new CreateOrderRequest(year, bagua.getId(), null, null, null,
+            List.of(new ItemInput(baguaHeadId, caiku.getId(), ItemAction.ADD, null, null))), admin);
+        orders.createCounter(new CreateOrderRequest(year, lit.getId(), null, null, null,
+            List.of(new ItemInput(litHeadId, guangming.getId(), ItemAction.ADD, null, null))), admin);
+
+        Wenshu baguaOnly = print.wenshuByScope(FormScope.BAGUA, year);
+        assertThat(baguaOnly.householdNumber()).isNull();
+        assertThat(baguaOnly.year()).isEqualTo(year);
+        assertThat(baguaOnly.ganzhiYear()).isEqualTo(Ganzhi.ofYear(year));
+        assertThat(namesOf(baguaOnly)).as("安斗的戶整戶都印，沒安斗的成員也印").containsSubsequence("郭安斗", "郭沒安")
+            .doesNotContain("黃光明", "許沒點");
+        assertThat(baguaOnly.people()).filteredOn(p -> p.name().equals("郭沒安")).singleElement()
+            .satisfies(p -> assertThat(p.householdNumber()).isEqualTo(bagua.getHouseholdNumber()));
+
+        assertThat(namesOf(print.wenshuByScope(FormScope.LIT, year))).contains("郭安斗", "郭沒安", "黃光明").doesNotContain("許沒點");
+        assertThat(namesOf(print.wenshuByScope(FormScope.ALL, year))).contains("郭安斗", "郭沒安", "黃光明", "許沒點");
+        assertThat(namesOf(print.wenshuByScope(FormScope.BAGUA, year - 5))).doesNotContain("郭安斗", "郭沒安");
+    }
+
+    private static List<String> namesOf(Wenshu wenshu) {
+        return wenshu.people().stream().map(WenshuPerson::name).toList();
     }
 }

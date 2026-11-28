@@ -493,6 +493,7 @@ export interface ApplicationForm {
 
 export interface WenshuPerson {
   memberId: number
+  householdNumber: number | null
   name: string
   gender: string | null
   ganzhi: string | null
@@ -504,6 +505,7 @@ export interface WenshuPerson {
   address: string
 }
 
+/** 整批印跨很多戶時 householdNumber 是 null，看每個人的 householdNumber。 */
 export interface Wenshu {
   templeName: string
   templeAddress: string

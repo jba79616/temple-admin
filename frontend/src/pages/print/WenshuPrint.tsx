@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router'
-import { print as printApi } from '../../api'
-import type { Wenshu, WenshuPerson } from '../../api/types'
+import { print as printApi, type WenshuTarget } from '../../api'
+import type { FormScope, Wenshu, WenshuPerson } from '../../api/types'
+import ImeInput from '../../components/ImeInput'
 import { inlineName, printName } from '../../lib/names'
+import { rocYear } from '../../lib/roc'
 import { believerOf, birthTextOf, lunarDateOf, verticalAddress, type BirthText, type LunarDate } from '../../lib/wenshu'
 import PdfButton from './PdfButton'
 import './print.css'
@@ -78,7 +80,7 @@ export function Sheet({ person, temple, ritual, petition }: { person: WenshuPers
   const signaturePt = fitPt(temple.name + signatureGap + templeAddress, SIGNATURE_SLOT, BODY_PT)
 
   return (
-    <div className="ws-body" data-name={person.name}>
+    <div className="ws-body">
       <Flow indent={7.5} className="ws-title">制星補運文疏</Flow>
       <Col><At depth={0}>聖德巍峨　轉運禳星凶即散　神恩浩蕩　延生整斗福長臻</At></Col>
       <Col><At depth={1}>大教遠流示一乘歸元之路</At><At depth={19.4}>今據</At></Col>
@@ -142,6 +144,7 @@ function isCut(body: HTMLElement): boolean {
 }
 
 const DATE_PARTS = ['year', 'month', 'day'] as const
+const PART_LABELS = { year: '年', month: '月', day: '日' } as const
 
 function paramKey(key: string, part: keyof DateParts) {
   return key + part[0].toUpperCase() + part.slice(1)
@@ -157,19 +160,52 @@ function idFrom(params: URLSearchParams, key: string): number | null {
   return Number.isInteger(id) && id > 0 ? id : null
 }
 
+const SCOPES: readonly FormScope[] = ['BAGUA', 'LIT', 'ALL']
+
+function scopeFrom(params: URLSearchParams): { scope: FormScope; year: number } | null {
+  const scope = SCOPES.find((s) => s === params.get('scope'))
+  const year = idFrom(params, 'year')
+  return scope && year ? { scope, year } : null
+}
+
+function scopeHeading(scope: FormScope, year: number) {
+  return scope === 'ALL' ? '全部的戶' : `民國 ${rocYear(year)} 年${scope === 'BAGUA' ? '安斗' : '有安燈'}的戶`
+}
+
+/** PDF 轉檔的路徑只收英數與 %-encoded；URLSearchParams 不編碼的符號（空白、*）會被擋，所以只留文字與數字。 */
+function toDatePart(raw: string) {
+  return raw.replace(/[^\p{L}\p{N}]/gu, '')
+}
+
+const NOTICE_NAMES = 5
+
+/** 整批印時日期打太長，可能幾百張全被裁，名字全列會把預覽擠掉。 */
+function overflowSummary(labels: string[]) {
+  if (labels.length <= NOTICE_NAMES) return labels.join('、')
+  return `${labels.slice(0, NOTICE_NAMES).join('、')} 等 ${labels.length} 張`
+}
+
+function sheetLabel(person: WenshuPerson, batch: boolean) {
+  return batch && person.householdNumber !== null ? `第 ${person.householdNumber} 戶${person.name}` : person.name
+}
+
 export default function WenshuPrint() {
   const [params, setParams] = useSearchParams()
   const [data, setData] = useState<Wenshu | null>(null)
   const [error, setError] = useState('')
+  const batch = scopeFrom(params)
   const memberId = idFrom(params, 'memberId')
   const householdId = idFrom(params, 'householdId')
+  const scope = batch?.scope
+  const scopeYear = batch?.year
 
   useEffect(() => {
     setError('')
     setData(null)
-    const target = memberId ? { memberId } : householdId ? { householdId } : null
+    const target: WenshuTarget | null = scope && scopeYear ? { scope, year: scopeYear }
+      : memberId ? { memberId } : householdId ? { householdId } : null
     if (!target) {
-      setError('網址缺少戶或成員')
+      setError('網址缺少列印範圍、戶或成員')
       return
     }
     let cancelled = false
@@ -179,7 +215,7 @@ export default function WenshuPrint() {
     return () => {
       cancelled = true
     }
-  }, [memberId, householdId])
+  }, [scope, scopeYear, memberId, householdId])
 
   const today: LunarDate = useMemo(() => lunarDateOf(new Date()), [])
 
@@ -195,15 +231,15 @@ export default function WenshuPrint() {
   const dates = { ritual, petition }
   const temple = { name: data?.templeName ?? '', address: data?.templeAddress ?? '' }
 
-  const heading = !data ? '' : `${data.householdNumber === null ? '' : `第 ${data.householdNumber} 戶`}${memberId && data.people[0] ? ` ${data.people[0].name}` : ''}`
+  const heading = !data ? '' : batch ? scopeHeading(batch.scope, data.year)
+    : `${data.householdNumber === null ? '' : `第 ${data.householdNumber} 戶`}${memberId && data.people[0] ? ` ${data.people[0].name}` : ''}`
   useEffect(() => {
     document.title = data ? `制星補運文疏 ${heading.trim()}` : '制星補運文疏'
   }, [data, heading])
 
-  /** PDF 轉檔的路徑只收英數與 %-encoded；URLSearchParams 不編碼的符號（空白、*）會被擋，所以只留文字與數字。 */
   function setDate(key: string, part: keyof DateParts, value: string) {
     const next = new URLSearchParams(params)
-    next.set(paramKey(key, part), value.replace(/[^\p{L}\p{N}]/gu, ''))
+    next.set(paramKey(key, part), value)
     setParams(next, { replace: true })
   }
 
@@ -213,7 +249,11 @@ export default function WenshuPrint() {
     if (!data) return
     let cancelled = false
     document.fonts.ready.then(() => {
-      if (!cancelled) setOverflowed([...document.querySelectorAll<HTMLElement>('.ws-body')].filter(isCut).map((b) => b.dataset.name ?? ''))
+      if (!cancelled) {
+        setOverflowed([...document.querySelectorAll<HTMLElement>('.wenshu-sheet')]
+          .filter((sheet) => sheet.firstElementChild instanceof HTMLElement && isCut(sheet.firstElementChild))
+          .map((sheet) => sheet.dataset.label ?? ''))
+      }
     })
     return () => {
       cancelled = true
@@ -224,33 +264,38 @@ export default function WenshuPrint() {
   if (!data) return <div className="page muted">載入中…</div>
 
   return (
-    <div className="print-root">
+    <div className="print-root wenshu-root">
       <style>{'@page { size: A4 landscape; margin: 0; }'}</style>
-      <div className="print-toolbar wenshu-toolbar">
-        <strong>制星補運文疏</strong><span>{heading.trim()} · {data.people.length} 張</span>
-        {DATE_FIELDS.map((f) => (
-          <span key={f.key} className="wenshu-date">
-            {f.label}
-            {DATE_PARTS.map((part) => (
-              <label key={part}>
-                <input className="input" value={dates[f.key][part]} onChange={(e) => setDate(f.key, part, e.target.value)} aria-label={`${f.label}${{ year: '年', month: '月', day: '日' }[part]}`} />
-                {{ year: '年', month: '月', day: '日' }[part]}
-              </label>
-            ))}
-          </span>
-        ))}
-        <button type="button" className="btn btn-sm" style={{ marginLeft: 'auto' }} onClick={() => window.print()}>列印</button>
-        <PdfButton />
-      </div>
-      {overflowed.length > 0 && (
-        <div className="print-notice">{overflowed.join('、')} 的文疏太長，最左邊的欄位會被裁掉。請縮短今涓、天運的文字，或檢查地址、姓名後再印。</div>
-      )}
-      {data.people.map((p, i) => (
-        <div key={p.memberId} className={`sheet wenshu-sheet${i < data.people.length - 1 ? ' sheet-break' : ''}`}>
-          <Sheet person={p} temple={temple} ritual={ritual} petition={petition} />
+      <div className="wenshu-controls">
+        <div className="print-toolbar wenshu-toolbar">
+          <strong>制星補運文疏</strong><span>{heading.trim()} · {data.people.length} 張</span>
+          {DATE_FIELDS.map((f) => (
+            <span key={f.key} className="wenshu-date">
+              {f.label}
+              {DATE_PARTS.map((part) => (
+                <label key={part}>
+                  <ImeInput className="input" value={dates[f.key][part]} normalize={toDatePart} onValue={(v) => setDate(f.key, part, v)}
+                    aria-label={`${f.label}${PART_LABELS[part]}`} />
+                  {PART_LABELS[part]}
+                </label>
+              ))}
+            </span>
+          ))}
+          <button type="button" className="btn btn-sm" style={{ marginLeft: 'auto' }} onClick={() => window.print()}>列印</button>
+          <PdfButton />
         </div>
-      ))}
-      {data.people.length === 0 && <div className="page muted">這戶沒有在籍成員</div>}
+        {overflowed.length > 0 && (
+          <div className="print-notice">{overflowSummary(overflowed)} 的文疏太長，最左邊的欄位會被裁掉。請縮短今涓、天運的文字，或檢查地址、姓名後再印。</div>
+        )}
+      </div>
+      <div className="wenshu-preview">
+        {data.people.map((p, i) => (
+          <div key={p.memberId} data-label={sheetLabel(p, !!batch)} className={`sheet wenshu-sheet${i < data.people.length - 1 ? ' sheet-break' : ''}`}>
+            <Sheet person={p} temple={temple} ritual={ritual} petition={petition} />
+          </div>
+        ))}
+        {data.people.length === 0 && <div className="page muted">{batch ? '這個範圍沒有要印的人' : '這戶沒有在籍成員'}</div>}
+      </div>
     </div>
   )
 }

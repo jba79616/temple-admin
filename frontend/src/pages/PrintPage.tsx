@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { lightTypes as lightTypesApi, print as printApi, type LightSelection } from '../api'
-import type { LightType, PrintedCard } from '../api/types'
+import type { FormScope, LightType, PrintedCard } from '../api/types'
 import { useConfig } from '../lib/config'
 import { usePdfDownload } from '../lib/pdf'
 import { ganzhiOfYear, rocYear } from '../lib/roc'
@@ -12,6 +12,7 @@ export default function PrintPage() {
   const [types, setTypes] = useState<LightType[]>([])
   const [year, setYear] = useState(currentYear)
   const [formYear, setFormYear] = useState(currentYear - 1)
+  const [wenshuYear, setWenshuYear] = useState(currentYear)
   const [light, setLight] = useState('')
   const [error, setError] = useState('')
   const [asPdf, setAsPdf] = useState(false)
@@ -25,7 +26,7 @@ export default function PrintPage() {
       setLight((cur) => (cur !== '' || t.length === 0 ? cur : String(t.find((x) => x.taisui)?.id ?? t[0].id)))
     }).catch((e) => setError(e instanceof Error ? e.message : '讀取燈種失敗'))
   }, [])
-  useEffect(() => { setYear(currentYear); setFormYear(currentYear - 1) }, [currentYear])
+  useEffect(() => { setYear(currentYear); setFormYear(currentYear - 1); setWenshuYear(currentYear) }, [currentYear])
 
   const years = [currentYear, currentYear - 1, currentYear - 2]
   const open = async (path: string) => {
@@ -51,6 +52,8 @@ export default function PrintPage() {
       setError(e instanceof Error ? e.message : '讀取安燈卡失敗')
     }
   }
+  /** 今涓、天運要在文疏頁上方改，直接轉 PDF 會用伺服器那台 Chrome 的今天、天運日空白，所以不管有沒有勾 PDF 都先開列印頁。 */
+  const openWenshu = (scope: FormScope) => window.open(`/print/wenshu?scope=${scope}&year=${wenshuYear}`, '_blank', 'noopener')
   const yearOptions = years.map((y) => <option key={y} value={y}>民國 {rocYear(y)} 年 {ganzhiOfYear(y)}</option>)
   const general = types.filter((t) => t.category === 'GENERAL')
   const hasBagua = types.some((t) => t.category === 'BAGUA')
@@ -110,6 +113,20 @@ export default function PrintPage() {
         </div>
       </section>
       <section className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <h2>制星補運文疏</h2>
+        <div className="small muted">選到的戶整戶在籍成員都印，一人一張，戶長排第一；不只該年點燈或安斗的那位。一律先開列印頁，在上方改好今涓、天運，再按「列印」或「下載 PDF」。</div>
+        <div className="row" style={{ alignItems: 'flex-end' }}>
+          <label className="fld small muted">年度
+            <select className="inp" value={wenshuYear} onChange={(e) => setWenshuYear(Number(e.target.value))}>{yearOptions}</select>
+          </label>
+          <div className="row" style={{ gap: 6 }}>
+            <button type="button" className="btn" onClick={() => openWenshu('BAGUA')}>文疏（該年有安斗的戶）</button>
+            <button type="button" className="btn" onClick={() => openWenshu('LIT')}>文疏（該年有安燈的戶）</button>
+            <button type="button" className="btn btn-ghost" onClick={() => openWenshu('ALL')}>文疏（全部的戶）</button>
+          </div>
+        </div>
+      </section>
+      <section className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <h2>帖子寄送標籤</h2>
         <div className="small muted">
           <Link to="/mailing">帖子名單</Link>裡標為寄送的收件人，依郵遞區號排序；A4 標籤紙一頁 18 張（2×9，105×33mm，照廟方原本的 Word 範本），連到戶的列印戶長與戶地址。
@@ -119,7 +136,7 @@ export default function PrintPage() {
         </div>
       </section>
       <section className="card card-pad small muted" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div>列印頁會在新分頁開啟，按右上角「列印」或 Ctrl+P，也可按「下載 PDF」。安燈卡 A4 直印一頁 21 張；疏文 A4 橫印、一戶一張（超過 10 人接下一張）；申報單 A4 直印、一戶一頁。</div>
+        <div>列印頁會在新分頁開啟，按右上角「列印」或 Ctrl+P，也可按「下載 PDF」。安燈卡 A4 直印一頁 21 張；疏文 A4 橫印、一戶一張（超過 10 人接下一張）；申報單 A4 直印、一戶一頁；制星補運文疏 A4 橫印直書、一人一張。</div>
         <div>列印對話框請關閉「頁首和頁尾」、邊界選「預設」、縮放 100%。單戶安燈卡從戶頁「印本戶安燈卡」或存檔後綠色橫幅的「列印本單安燈卡」列印。</div>
       </section>
     </main>

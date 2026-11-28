@@ -70,7 +70,11 @@ public class PrintController {
     }
 
     @GetMapping("/wenshu")
-    public Wenshu wenshu(@RequestParam(required = false) Long householdId, @RequestParam(required = false) Long memberId) {
+    public Wenshu wenshu(@RequestParam(required = false) FormScope scope, @RequestParam(required = false) Integer year,
+                         @RequestParam(required = false) Long householdId, @RequestParam(required = false) Long memberId) {
+        if (scope != null) {
+            return service.wenshuByScope(scope, year);
+        }
         return service.wenshu(householdId, memberId);
     }
 

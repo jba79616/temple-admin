@@ -4,7 +4,7 @@ import type { WenshuPerson } from '../../api/types'
 import { Sheet } from './WenshuPrint'
 
 const person: WenshuPerson = {
-  memberId: 1, name: '林戶長', gender: 'M', ganzhi: '壬辰', leap: false, month: 12, day: 9, hour: '子',
+  memberId: 1, householdNumber: 3, name: '林戶長', gender: 'M', ganzhi: '壬辰', leap: false, month: 12, day: 9, hour: '子',
   cityDistrict: '臺北市大安區', address: '復興南路一段120巷3號2樓',
 }
 const temple = { name: '無極聖殿', address: '雲林縣元長鄉內寮村好收路5-6號' }
