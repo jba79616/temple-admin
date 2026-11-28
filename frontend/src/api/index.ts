@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { ApplicationForm, AuditView, Cards, ClosingView, ConfigView, CreateCorrectionRequest, CreateOrderRequest, DayStatus, DaySummary, FormScope, HouseholdDetail, HouseholdInput, HouseholdRow, HouseholdSummary, LegacyImportReport, LightCategory, LightType, MailingImportReport, MailingInput, MailingView, Me, MemberInput, MemberRow, MemberView, NameList, OrderView, PageView, PrintedCard, RebuildReport, Role, TaisuiView, UserView, Wenshu } from './types'
+import type { ApplicationForm, AuditView, Cards, ClosingView, ConfigView, CreateCorrectionRequest, CreateOrderRequest, DayStatus, DaySummary, FormScope, HouseholdDetail, HouseholdInput, HouseholdRow, HouseholdSummary, LegacyImportReport, LightCategory, LightType, MailingImportReport, MailingInput, MailingView, Me, MemberInput, MemberRow, MemberView, NameList, OrderView, PageView, PrintedCard, RebuildReport, Role, TaisuiView, UserView, Wenshu, WenshuBatch } from './types'
 
 export const auth = {
   login: (username: string, password: string) => api<Me>('/api/auth/login', { method: 'POST', json: { username, password } }),
@@ -10,6 +10,7 @@ export const auth = {
 export const households = {
   search: (q: string) => api<HouseholdSummary[]>(`/api/households?q=${encodeURIComponent(q)}`),
   get: (id: number, year?: number) => api<HouseholdDetail>(`/api/households/${id}${year ? `?year=${year}` : ''}`),
+  byNumber: (householdNumber: number) => api<HouseholdSummary>(`/api/households/by-number/${householdNumber}`),
   create: (input: HouseholdInput) => api<HouseholdDetail>('/api/households', { method: 'POST', json: input }),
   update: (id: number, input: HouseholdInput) => api<HouseholdDetail>(`/api/households/${id}`, { method: 'PUT', json: input }),
   addMember: (id: number, input: MemberInput) => api<MemberView>(`/api/households/${id}/members`, { method: 'POST', json: input }),
@@ -71,11 +72,21 @@ export const lightSelectionFrom = (params: URLSearchParams): LightSelection | nu
   return null
 }
 
-export type WenshuTarget = { scope: FormScope; year: number } | { householdId: number } | { memberId: number }
+/** from、to 是戶號區間（含頭尾），沒帶就不設限。 */
+export type WenshuTarget = { scope: FormScope; year: number; from?: number; to?: number } | { householdId: number; year?: number }
 
-function wenshuQuery(target: WenshuTarget) {
-  if ('scope' in target) return `scope=${target.scope}&year=${target.year}`
-  return 'memberId' in target ? `memberId=${target.memberId}` : `householdId=${target.householdId}`
+export function wenshuQuery(target: WenshuTarget) {
+  const query = new URLSearchParams()
+  if ('scope' in target) {
+    query.set('scope', target.scope)
+    query.set('year', String(target.year))
+    if (target.from !== undefined) query.set('from', String(target.from))
+    if (target.to !== undefined) query.set('to', String(target.to))
+  } else {
+    query.set('householdId', String(target.householdId))
+    if (target.year !== undefined) query.set('year', String(target.year))
+  }
+  return query.toString()
 }
 
 export const print = {
@@ -89,6 +100,7 @@ export const print = {
   markCardsPrinted: (cards: PrintedCard[]) =>
     api<{ marked: number }>('/api/print/cards/printed', { method: 'POST', json: { cards } }),
   wenshu: (target: WenshuTarget) => api<Wenshu>(`/api/print/wenshu?${wenshuQuery(target)}`),
+  wenshuBatches: (scope: FormScope, year: number) => api<WenshuBatch[]>(`/api/print/wenshu/batches?scope=${scope}&year=${year}`),
   applicationForm: (scope: FormScope, year?: number) =>
     api<ApplicationForm>(`/api/print/application-form?scope=${scope}${year ? `&year=${year}` : ''}`),
 }

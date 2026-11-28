@@ -56,15 +56,33 @@ async function renderAt(url: string) {
 }
 
 describe('WenshuPrint', () => {
-  it('prints every person of the households in the chosen scope, one sheet each', async () => {
+  it('prints every person of the households in the chosen batch, one sheet each', async () => {
+    wenshu.mockResolvedValue(batch)
+    await renderAt('/print/wenshu?scope=ALL&year=2027&from=1&to=215')
+
+    expect(wenshu).toHaveBeenCalledExactlyOnceWith({ scope: 'ALL', year: 2027, from: 1, to: 215 })
+    expect(container.querySelector('.wenshu-toolbar')?.textContent).toContain('民國 116 年全部的戶 第 1–215 戶 · 3 張')
+    const sheets = [...container.querySelectorAll<HTMLElement>('.wenshu-sheet')]
+    expect(sheets.map((s) => s.dataset.label)).toEqual(['第 3 戶林戶長', '第 3 戶林女兒', '第 8 戶郭安斗'])
+    expect(document.title).toBe('制星補運文疏 民國 116 年全部的戶 第 1–215 戶')
+  })
+
+  it('names the lit scope by its year when the batch has no range', async () => {
     wenshu.mockResolvedValue(batch)
     await renderAt('/print/wenshu?scope=BAGUA&year=2026')
 
-    expect(wenshu).toHaveBeenCalledWith({ scope: 'BAGUA', year: 2026 })
-    expect(container.querySelector('.wenshu-toolbar')?.textContent).toContain('民國 115 年安斗的戶 · 3 張')
-    const sheets = [...container.querySelectorAll<HTMLElement>('.wenshu-sheet')]
-    expect(sheets.map((s) => s.dataset.label)).toEqual(['第 3 戶林戶長', '第 3 戶林女兒', '第 8 戶郭安斗'])
+    expect(wenshu).toHaveBeenCalledExactlyOnceWith({ scope: 'BAGUA', year: 2026 })
     expect(document.title).toBe('制星補運文疏 民國 115 年安斗的戶')
+  })
+
+  it('prints one household by id with the chosen year and plain names on the sheets', async () => {
+    wenshu.mockResolvedValue({ ...batch, householdNumber: 3, year: 2027, ganzhiYear: '丁未', people: batch.people.slice(0, 2) })
+    await renderAt('/print/wenshu?householdId=9&year=2027')
+
+    expect(wenshu).toHaveBeenCalledExactlyOnceWith({ householdId: 9, year: 2027 })
+    expect(document.title).toBe('制星補運文疏 第 3 戶')
+    expect([...container.querySelectorAll<HTMLElement>('.wenshu-sheet')].map((s) => s.dataset.label)).toEqual(['林戶長', '林女兒'])
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="天運年"]')?.value).toBe('丁未')
   })
 
   it('keeps the date toolbar in its own block outside the scrolling preview', async () => {
@@ -119,10 +137,13 @@ describe('WenshuPrint', () => {
     expect(container.querySelector('.wenshu-preview .page')?.textContent).toBe('這個範圍沒有要印的人')
   })
 
-  it('rejects a URL without a valid scope, household or member', async () => {
-    await renderAt('/print/wenshu?scope=NOPE&year=2026')
+  it.each([
+    '/print/wenshu?scope=NOPE&year=2026', '/print/wenshu?memberId=5', '/print/wenshu?scope=ALL&year=2026&from=0&to=200',
+    '/print/wenshu?scope=ALL&year=2026&from=201', '/print/wenshu?scope=ALL&year=2026&from=9&to=3',
+  ])('rejects %s, which has no valid scope, range or household', async (url) => {
+    await renderAt(url)
 
     expect(wenshu).not.toHaveBeenCalled()
-    expect(container.textContent).toBe('網址缺少列印範圍、戶或成員')
+    expect(container.textContent).toBe('網址的列印範圍或戶不對')
   })
 })

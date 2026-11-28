@@ -54,9 +54,6 @@
 .wenshu-controls .print-toolbar { position: static; border-bottom: none; }
 .wenshu-preview { flex: 1; min-height: 0; overflow: auto; background: #E5E7EB; padding: 1px 16px; }
 .wenshu-toolbar { flex-wrap: wrap; }
-.wenshu-date { display: inline-flex; align-items: center; gap: 4px; }
-.wenshu-date label { display: inline-flex; align-items: center; gap: 2px; }
-.wenshu-date .input { width: 4.5em; padding: 2px 6px; }
 
 @media print {
   html, body { background: #fff; }

@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { useSearchParams } from 'react-router'
 import { print as printApi, type WenshuTarget } from '../../api'
 import type { FormScope, Wenshu, WenshuPerson } from '../../api/types'
-import ImeInput from '../../components/ImeInput'
 import { inlineName, printName } from '../../lib/names'
 import { rocYear } from '../../lib/roc'
-import { believerOf, birthTextOf, lunarDateOf, verticalAddress, type BirthText, type LunarDate } from '../../lib/wenshu'
+import { believerOf, birthTextOf, dateParamKey, DATE_PARTS, householdRangeText, lunarDateOf, verticalAddress, type BirthText, type LunarDate, type WenshuDates } from '../../lib/wenshu'
+import WenshuDateFields from './WenshuDateFields'
 import PdfButton from './PdfButton'
 import './print.css'
 
@@ -20,13 +20,6 @@ const NAME_PT = 15
 /** 落款廟名與廟址從欄頂排到 33 字，留一字空檔接「全體主任委員敬上」；太長就縮字。 */
 const SIGNATURE_SLOT = 33
 const BODY_PT = 13
-
-type DateParts = { year: string; month: string; day: string }
-
-const DATE_FIELDS = [
-  { key: 'ritual', label: '今涓' },
-  { key: 'petition', label: '天運' },
-] as const
 
 const u = (depth: number) => `calc(var(--u) * ${depth})`
 
@@ -70,7 +63,7 @@ function SlotAt({ depth, end, maxPt, children }: { depth: number; end: number; m
 
 type Temple = { name: string; address: string }
 
-export function Sheet({ person, temple, ritual, petition }: { person: WenshuPerson; temple: Temple; ritual: DateParts; petition: DateParts }) {
+export function Sheet({ person, temple, ritual, petition }: { person: WenshuPerson; temple: Temple; ritual: LunarDate; petition: LunarDate }) {
   const believer = believerOf(person.gender)
   const birth = birthTextOf(person)
   const name = printName(person.name)
@@ -143,38 +136,36 @@ function isCut(body: HTMLElement): boolean {
   return !!last && last.getBoundingClientRect().left < body.getBoundingClientRect().left - 1
 }
 
-const DATE_PARTS = ['year', 'month', 'day'] as const
-const PART_LABELS = { year: '年', month: '月', day: '日' } as const
-
-function paramKey(key: string, part: keyof DateParts) {
-  return key + part[0].toUpperCase() + part.slice(1)
-}
-
-function dateFrom(params: URLSearchParams, key: string, fallback: DateParts): DateParts {
-  const pick = (part: keyof DateParts) => params.get(paramKey(key, part)) ?? fallback[part]
+function dateFrom(params: URLSearchParams, key: keyof WenshuDates, fallback: LunarDate): LunarDate {
+  const pick = (part: keyof LunarDate) => params.get(dateParamKey(key, part)) ?? fallback[part]
   return { year: pick('year'), month: pick('month'), day: pick('day') }
 }
 
-function idFrom(params: URLSearchParams, key: string): number | null {
-  const id = Number(params.get(key))
-  return Number.isInteger(id) && id > 0 ? id : null
+function positiveInt(params: URLSearchParams, key: string): number | null {
+  const n = Number(params.get(key))
+  return Number.isInteger(n) && n > 0 ? n : null
 }
 
 const SCOPES: readonly FormScope[] = ['BAGUA', 'LIT', 'ALL']
 
-function scopeFrom(params: URLSearchParams): { scope: FormScope; year: number } | null {
+type Batch = { scope: FormScope; year: number; range: { from: number; to: number } | null }
+
+/** 列印頁產生的網址 from、to 一定成對；手改成不合法時報錯，不默默印出整個範圍。 */
+function batchFrom(params: URLSearchParams): Batch | null {
   const scope = SCOPES.find((s) => s === params.get('scope'))
-  const year = idFrom(params, 'year')
-  return scope && year ? { scope, year } : null
+  const year = positiveInt(params, 'year')
+  if (!scope || !year) return null
+  if (!params.has('from') && !params.has('to')) return { scope, year, range: null }
+  const from = positiveInt(params, 'from')
+  const to = positiveInt(params, 'to')
+  return from !== null && to !== null && from <= to ? { scope, year, range: { from, to } } : null
 }
 
-function scopeHeading(scope: FormScope, year: number) {
-  return scope === 'ALL' ? '全部的戶' : `民國 ${rocYear(year)} 年${scope === 'BAGUA' ? '安斗' : '有安燈'}的戶`
-}
+const SCOPE_HEADINGS: Record<FormScope, string> = { BAGUA: '安斗的戶', LIT: '有安燈的戶', ALL: '全部的戶' }
 
-/** PDF 轉檔的路徑只收英數與 %-encoded；URLSearchParams 不編碼的符號（空白、*）會被擋，所以只留文字與數字。 */
-function toDatePart(raw: string) {
-  return raw.replace(/[^\p{L}\p{N}]/gu, '')
+function batchHeading({ scope, year, range }: Batch) {
+  const who = `民國 ${rocYear(year)} 年${SCOPE_HEADINGS[scope]}`
+  return range ? `${who} ${householdRangeText(range.from, range.to)}` : who
 }
 
 const NOTICE_NAMES = 5
@@ -193,19 +184,21 @@ export default function WenshuPrint() {
   const [params, setParams] = useSearchParams()
   const [data, setData] = useState<Wenshu | null>(null)
   const [error, setError] = useState('')
-  const batch = scopeFrom(params)
-  const memberId = idFrom(params, 'memberId')
-  const householdId = idFrom(params, 'householdId')
+  const batch = batchFrom(params)
+  const householdId = positiveInt(params, 'householdId')
+  const year = positiveInt(params, 'year')
   const scope = batch?.scope
-  const scopeYear = batch?.year
+  const from = batch?.range?.from
+  const to = batch?.range?.to
 
   useEffect(() => {
     setError('')
     setData(null)
-    const target: WenshuTarget | null = scope && scopeYear ? { scope, year: scopeYear }
-      : memberId ? { memberId } : householdId ? { householdId } : null
+    const target: WenshuTarget | null = scope && year
+      ? { scope, year, from, to }
+      : householdId ? { householdId, year: year ?? undefined } : null
     if (!target) {
-      setError('網址缺少列印範圍、戶或成員')
+      setError('網址的列印範圍或戶不對')
       return
     }
     let cancelled = false
@@ -215,31 +208,29 @@ export default function WenshuPrint() {
     return () => {
       cancelled = true
     }
-  }, [scope, scopeYear, memberId, householdId])
+  }, [scope, year, from, to, householdId])
 
   const today: LunarDate = useMemo(() => lunarDateOf(new Date()), [])
 
   /** 下載 PDF 時伺服器的瀏覽器會自己重算今天，跨午夜或沒有農曆資料時和預覽不同，所以把畫面上的預設今涓寫進網址。 */
   useEffect(() => {
-    if (DATE_PARTS.some((part) => params.has(paramKey('ritual', part)))) return
+    if (DATE_PARTS.some((part) => params.has(dateParamKey('ritual', part)))) return
     const next = new URLSearchParams(params)
-    DATE_PARTS.forEach((part) => next.set(paramKey('ritual', part), today[part]))
+    DATE_PARTS.forEach((part) => next.set(dateParamKey('ritual', part), today[part]))
     setParams(next, { replace: true })
   }, [params, setParams, today])
   const ritual = dateFrom(params, 'ritual', today)
   const petition = dateFrom(params, 'petition', { year: data?.ganzhiYear ?? '', month: data?.prayerMonth ?? '', day: '' })
-  const dates = { ritual, petition }
   const temple = { name: data?.templeName ?? '', address: data?.templeAddress ?? '' }
 
-  const heading = !data ? '' : batch ? scopeHeading(batch.scope, data.year)
-    : `${data.householdNumber === null ? '' : `第 ${data.householdNumber} 戶`}${memberId && data.people[0] ? ` ${data.people[0].name}` : ''}`
+  const heading = !data ? '' : batch ? batchHeading(batch) : data.householdNumber === null ? '' : `第 ${data.householdNumber} 戶`
   useEffect(() => {
-    document.title = data ? `制星補運文疏 ${heading.trim()}` : '制星補運文疏'
+    document.title = data ? `制星補運文疏 ${heading}`.trim() : '制星補運文疏'
   }, [data, heading])
 
-  function setDate(key: string, part: keyof DateParts, value: string) {
+  function setDate(key: keyof WenshuDates, part: keyof LunarDate, value: string) {
     const next = new URLSearchParams(params)
-    next.set(paramKey(key, part), value)
+    next.set(dateParamKey(key, part), value)
     setParams(next, { replace: true })
   }
 
@@ -268,19 +259,8 @@ export default function WenshuPrint() {
       <style>{'@page { size: A4 landscape; margin: 0; }'}</style>
       <div className="wenshu-controls">
         <div className="print-toolbar wenshu-toolbar">
-          <strong>制星補運文疏</strong><span>{heading.trim()} · {data.people.length} 張</span>
-          {DATE_FIELDS.map((f) => (
-            <span key={f.key} className="wenshu-date">
-              {f.label}
-              {DATE_PARTS.map((part) => (
-                <label key={part}>
-                  <ImeInput className="input" value={dates[f.key][part]} normalize={toDatePart} onValue={(v) => setDate(f.key, part, v)}
-                    aria-label={`${f.label}${PART_LABELS[part]}`} />
-                  {PART_LABELS[part]}
-                </label>
-              ))}
-            </span>
-          ))}
+          <strong>制星補運文疏</strong><span>{heading} · {data.people.length} 張</span>
+          <WenshuDateFields dates={{ ritual, petition }} inputClassName="input" inputStyle={{ paddingBlock: 2 }} onChange={setDate} />
           <button type="button" className="btn btn-sm" style={{ marginLeft: 'auto' }} onClick={() => window.print()}>列印</button>
           <PdfButton />
         </div>

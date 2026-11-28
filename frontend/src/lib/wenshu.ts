@@ -78,3 +78,29 @@ export function lunarDateOf(date: Date): LunarDate {
     day: lunarDayText(day),
   }
 }
+
+export type WenshuDates = { ritual: LunarDate; petition: LunarDate }
+
+export const DATE_PARTS = ['year', 'month', 'day'] as const
+
+export function dateParamKey(key: keyof WenshuDates, part: keyof LunarDate) {
+  return key + part[0].toUpperCase() + part.slice(1)
+}
+
+/** PDF 轉檔的路徑只收英數與 %-encoded；URLSearchParams 不編碼的符號（空白、*）會被擋，所以只留文字與數字。 */
+export function toDatePart(raw: string) {
+  return raw.replace(/[^\p{L}\p{N}]/gu, '')
+}
+
+/** 列印頁把今涓、天運帶進文疏頁的網址；文疏頁和伺服器轉 PDF 都照網址上的日期印。 */
+export function wenshuDateQuery(dates: WenshuDates) {
+  const query = new URLSearchParams()
+  for (const key of ['ritual', 'petition'] as const) {
+    DATE_PARTS.forEach((part) => query.set(dateParamKey(key, part), toDatePart(dates[key][part])))
+  }
+  return query.toString()
+}
+
+export function householdRangeText(from: number, to: number) {
+  return from === to ? `第 ${from} 戶` : `第 ${from}–${to} 戶`
+}

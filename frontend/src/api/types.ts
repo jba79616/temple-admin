@@ -515,3 +515,11 @@ export interface Wenshu {
   prayerMonth: string
   people: WenshuPerson[]
 }
+
+/** 文疏一批的戶號區間（含頭尾）、戶數與張數。 */
+export interface WenshuBatch {
+  fromNumber: number
+  toNumber: number
+  households: number
+  people: number
+}
